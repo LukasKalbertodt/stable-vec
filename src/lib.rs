@@ -15,8 +15,13 @@ use std::ptr;
 /// [vec-doc]: https://doc.rust-lang.org/stable/std/vec/struct.Vec.html
 #[derive(Clone, PartialEq, Eq)]
 pub struct StableVec<T> {
+    /// Storing the actual data.
     data: Vec<T>,
+
+    /// A flag for each element saying whether the element was removed.
     deleted: BitVec,
+
+    /// A cached value equal to `self.deleted.iter().filter(|&b| !b).count()`
     used_count: usize,
 }
 
@@ -47,11 +52,6 @@ impl<T> StableVec<T> {
 
     /// Reserves capacity for at least `additional` more elements to be
     /// inserted.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the new capacity overflows `usize`.
-    ///
     pub fn reserve(&mut self, additional: usize) {
         self.data.reserve(additional);
         self.deleted.reserve(additional);
@@ -68,14 +68,53 @@ impl<T> StableVec<T> {
         self.data.len() - 1
     }
 
+    /// Removes and returns the last element from this collection, or `None` if
+    /// it's empty.
+    ///
+    /// This method uses exactly the same deletion strategy as `remove()`.
+    ///
+    /// *Note*: this method needs to find index of the last valid element.
+    /// Finding it has a worst case time complexity of O(n). If you already
+    /// know the index, use `remove()` instead.
+    pub fn pop(&mut self) -> Option<T> {
+        let last_index = self.deleted.iter()
+            .enumerate()
+            .rev()
+            .find(|&(_, deleted)| !deleted)
+            .map(|(i, _)| i)
+            .unwrap_or(0);
+        self.remove(last_index)
+    }
+
+    /// Removes and returns the element at position `index` if the index is not
+    /// out of bounds and the referenced element was not removed before.
+    ///
+    /// If the element is removed, only the index is marked "deleted". The
+    /// actual data is not touched. Thus, the time complexity of this method
+    /// is just O(1).
     pub fn remove(&mut self, index: usize) -> Option<T> {
         if index < self.data.len() && !self.deleted[index] {
-            let elem = unsafe { ptr::read(&self.data[index]) };
-            self.deleted.set(index, true);
+            let elem = unsafe {
+                self.deleted.set(index, true);
+                ptr::read(&self.data[index])
+            };
+            self.used_count -= 1;
             Some(elem)
         } else {
             None
         }
+    }
+
+    /// Calls `shrink_to_fit()` on the underlying `Vec<T>`.
+    ///
+    /// Note that this does not moves non-removed elements around and thus does
+    /// not invalidates indices. It only calls `shrink_to_fit()` on the
+    /// `Vec<T>` that holds the actual data.
+    ///
+    /// If you want to compact this `StableVec` by removing deleted elements,
+    /// use the method `compact()` instead.
+    pub fn shrink_to_fit(&mut self) {
+        self.data.shrink_to_fit();
     }
 
     /// Returns the number of non-removed elements in this collection.
@@ -100,6 +139,11 @@ impl<T> StableVec<T> {
     /// reallocating.
     pub fn capacity(&self) -> usize {
         self.data.capacity()
+    }
+
+    /// Returns the index that would be returned by calling `push()`.
+    pub fn next_index(&self) -> usize {
+        self.data.len()
     }
 }
 

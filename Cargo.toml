@@ -5,6 +5,6 @@ authors = ["Lukas Kalbertodt <lukas.kalbertodt@gmail.com>"]
 
 [dependencies]
 bit-vec = "0.4.4"
+quickcheck = "0.4"
 
 [dev-dependencies]
-quickcheck = "0.4"

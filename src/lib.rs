@@ -2,6 +2,7 @@ extern crate bit_vec;
 
 use bit_vec::BitVec;
 
+use std::ops::{Index, IndexMut};
 use std::ptr;
 
 
@@ -105,6 +106,41 @@ impl<T> StableVec<T> {
         }
     }
 
+    /// Returns a reference to the element at the given index, or `None` if
+    /// there exists no element at that index.
+    ///
+    /// If you are calling `unwrap()` on the result of this method anyway,
+    /// rather use the index operator instead: `stable_vec[index]`.
+    pub fn get(&self, index: usize) -> Option<&T> {
+        if self.exists(index) {
+            Some(&self.data[index])
+        } else {
+            None
+        }
+    }
+
+    /// Returns a mutable reference to the element at the given index, or
+    /// `None` if there exists no element at that index.
+    ///
+    /// If you are calling `unwrap()` on the result of this method anyway,
+    /// rather use the index operator instead: `stable_vec[index]`.
+    pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
+        if self.exists(index) {
+            Some(&mut self.data[index])
+        } else {
+            None
+        }
+    }
+
+    /// Returns `true` if there exists an element at the given index, `false`
+    /// otherwise.
+    ///
+    /// An element is said to exist if the index is not out of bounds and the
+    /// element at the given index was not removed yet.
+    pub fn exists(&self, index: usize) -> bool {
+        index < self.data.len() && !self.deleted[index]
+    }
+
     /// Calls `shrink_to_fit()` on the underlying `Vec<T>`.
     ///
     /// Note that this does not moves non-removed elements around and thus does
@@ -115,6 +151,76 @@ impl<T> StableVec<T> {
     /// use the method `compact()` instead.
     pub fn shrink_to_fit(&mut self) {
         self.data.shrink_to_fit();
+    }
+
+    /// Rearranges elements to save memory. **Invalidates indices!**
+    ///
+    /// After calling this method, all non-removed elements stored contiguously
+    /// in memory. You might want to call `shrink_to_fit()` afterwards to
+    /// actually free memory previously used by removed elements. This method
+    /// itself does not deallocate any memory.
+    ///
+    /// # Warning
+    ///
+    /// This method invalidates all indices! This does not even preserve the
+    /// order of elements.
+    pub fn compact(&mut self) {
+        // TODO: this method needs proper code review!
+
+        if self.is_compact() {
+            return;
+        }
+
+        // If we don't have any elements, we can take a quick path.
+        if self.used_count == 0 {
+            unsafe {
+                self.data.set_len(0);
+                self.deleted.set_len(0);
+            }
+        }
+
+        // We use two indices:
+        //
+        // - `hole_index` starts from the front and searches for a hole that
+        //   can be filled with an element.
+        // - `element_index` starts from the back and searches for an element.
+        //
+        let len = self.data.len();
+        let mut element_index = len - 1;
+        let mut hole_index = 0;
+        loop {
+            // Advance `element_index` until we found an element.
+            while element_index > 0 && self.deleted[element_index] {
+                element_index -= 1;
+            }
+
+            // Advance `hole_index` until we found a hole.
+            while hole_index < len && !self.deleted[hole_index] {
+                hole_index += 1;
+            }
+
+            // If both indices passed each other, we can stop. There are no
+            // holes left of `hole_index` and no element right of
+            // `element_index`.
+            if hole_index > element_index {
+                break;
+            }
+
+            /// We found an element and a hole left of the element. That means
+            /// that we can swap.
+            self.data.swap(hole_index, element_index);
+            self.deleted.set(hole_index, false);
+            self.deleted.set(element_index, true);
+        }
+    }
+
+    /// Returns `true` if all non-removed elements are stored contiguously from
+    /// the beginning.
+    ///
+    /// This method returning `true` means that no memory is wasted for removed
+    /// elements.
+    pub fn is_compact(&self) -> bool {
+        self.used_count == self.data.len()
     }
 
     /// Returns the number of non-removed elements in this collection.
@@ -169,5 +275,23 @@ impl<T> Drop for StableVec<T> {
         unsafe {
             self.data.set_len(0);
         }
+    }
+}
+
+impl<T> Index<usize> for StableVec<T> {
+    type Output = T;
+
+    fn index(&self, index: usize) -> &T {
+        assert!(self.exists(index));
+
+        &self.data[index]
+    }
+}
+
+impl<T> IndexMut<usize> for StableVec<T> {
+    fn index_mut(&mut self, index: usize) -> &mut T {
+        assert!(self.exists(index));
+
+        &mut self.data[index]
     }
 }

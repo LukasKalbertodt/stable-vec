@@ -1,0 +1,7 @@
+[package]
+name = "stable-vec"
+version = "0.1.0"
+authors = ["Lukas Kalbertodt <lukas.kalbertodt@gmail.com>"]
+
+[dependencies]
+bit-vec = "0.4.4"

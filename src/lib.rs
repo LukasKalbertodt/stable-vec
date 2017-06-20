@@ -2,6 +2,8 @@ extern crate bit_vec;
 
 use bit_vec::BitVec;
 
+use std::ptr;
+
 
 /// A `Vec<T>` like collection which guarantees stable indices.
 ///
@@ -61,9 +63,19 @@ impl<T> StableVec<T> {
     /// The inserted element will always be accessable via the returned index.
     pub fn push(&mut self, elem: T) -> usize {
         self.data.push(elem);
-        self.deleted.push(true);
+        self.deleted.push(false);
         self.used_count += 1;
         self.data.len() - 1
+    }
+
+    pub fn remove(&mut self, index: usize) -> Option<T> {
+        if index < self.data.len() && !self.deleted[index] {
+            let elem = unsafe { ptr::read(&self.data[index]) };
+            self.deleted.set(index, true);
+            Some(elem)
+        } else {
+            None
+        }
     }
 
     /// Returns the number of non-removed elements in this collection.
@@ -88,5 +100,30 @@ impl<T> StableVec<T> {
     /// reallocating.
     pub fn capacity(&self) -> usize {
         self.data.capacity()
+    }
+}
+
+impl<T> Drop for StableVec<T> {
+    fn drop(&mut self) {
+        // We need to drop all elements that have not been removed. We can't
+        // just run Vec's drop impl for `self.data` because this would attempt
+        // to drop already dropped values. However, the Vec still needs to
+        // free its memory.
+        //
+        // To achieve all this, we manually drop all remaining elements, then
+        // tell the Vec that its length is 0 (its capacity stays the same!) and
+        // let the Vec drop itself in the end.
+        let living_indices = self.deleted.iter()
+            .enumerate()
+            .filter_map(|(i, deleted)| if deleted { None } else { Some(i) });
+        for i in living_indices {
+            unsafe {
+                ptr::drop_in_place(&mut self.data[i]);
+            }
+        }
+
+        unsafe {
+            self.data.set_len(0);
+        }
     }
 }

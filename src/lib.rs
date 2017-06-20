@@ -1,3 +1,27 @@
+//! A `Vec<T>`-like collection which guarantees stable indices and features
+//! O(1) deletion of elements.
+//!
+//! This crate provides a simple stable vector implementation. You can find
+//! nearly all the relevant documentation on
+//! [this crate's only type: `StableVec`](struct.StableVec.html).
+//!
+//! ---
+//!
+//! In order to use this crate, you have to include it into your `Cargo.toml`:
+//!
+//! ```toml
+//! [dependencies]
+//! stable_vec = "0.1"
+//! ```
+//!
+//! ... as well as declare it at your crate root:
+//!
+//! ```
+//! extern crate stable_vec;
+//!
+//! use stable_vec::StableVec;
+//! ```
+
 extern crate bit_vec;
 #[cfg(test)]
 #[macro_use]

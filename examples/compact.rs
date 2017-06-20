@@ -17,14 +17,21 @@ fn main() {
     sv.remove(c);
     sv.remove(f);
 
+
     println!("--- before compact():");
     for i in 0..sv.next_index() {
         println!("{} -> {:?}", i, sv.get(i));
     }
+
+    let n_before_compact = sv.num_elements();
 
     sv.compact();
     println!("--- after compact():");
     for i in 0..sv.next_index() {
         println!("{} -> {:?}", i, sv.get(i));
     }
+
+    println!("compact:  {}", sv.is_compact());
+    println!("n before: {}", n_before_compact);
+    println!("n after:  {}", sv.num_elements());
 }

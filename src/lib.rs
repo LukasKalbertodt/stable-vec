@@ -1,9 +1,15 @@
 extern crate bit_vec;
+#[cfg(test)]
+#[macro_use]
+extern crate quickcheck;
 
 use bit_vec::BitVec;
 
 use std::ops::{Index, IndexMut};
 use std::ptr;
+
+#[cfg(test)]
+mod tests;
 
 
 /// A `Vec<T>` like collection which guarantees stable indices.
@@ -165,52 +171,52 @@ impl<T> StableVec<T> {
     /// This method invalidates all indices! This does not even preserve the
     /// order of elements.
     pub fn compact(&mut self) {
-        // TODO: this method needs proper code review!
-
         if self.is_compact() {
             return;
         }
 
-        // If we don't have any elements, we can take a quick path.
-        if self.used_count == 0 {
-            unsafe {
-                self.data.set_len(0);
-                self.deleted.set_len(0);
+        // We only have to move elements, if we have any.
+        if self.used_count > 0 {
+            // We use two indices:
+            //
+            // - `hole_index` starts from the front and searches for a hole that
+            //   can be filled with an element.
+            // - `element_index` starts from the back and searches for an element.
+            //
+            let len = self.data.len();
+            let mut element_index = len - 1;
+            let mut hole_index = 0;
+            loop {
+                // Advance `element_index` until we found an element.
+                while element_index > 0 && self.deleted[element_index] {
+                    element_index -= 1;
+                }
+
+                // Advance `hole_index` until we found a hole.
+                while hole_index < len && !self.deleted[hole_index] {
+                    hole_index += 1;
+                }
+
+                // If both indices passed each other, we can stop. There are no
+                // holes left of `hole_index` and no element right of
+                // `element_index`.
+                if hole_index > element_index {
+                    break;
+                }
+
+                /// We found an element and a hole left of the element. That means
+                /// that we can swap.
+                self.data.swap(hole_index, element_index);
+                self.deleted.set(hole_index, false);
+                self.deleted.set(element_index, true);
             }
         }
 
-        // We use two indices:
-        //
-        // - `hole_index` starts from the front and searches for a hole that
-        //   can be filled with an element.
-        // - `element_index` starts from the back and searches for an element.
-        //
-        let len = self.data.len();
-        let mut element_index = len - 1;
-        let mut hole_index = 0;
-        loop {
-            // Advance `element_index` until we found an element.
-            while element_index > 0 && self.deleted[element_index] {
-                element_index -= 1;
-            }
-
-            // Advance `hole_index` until we found a hole.
-            while hole_index < len && !self.deleted[hole_index] {
-                hole_index += 1;
-            }
-
-            // If both indices passed each other, we can stop. There are no
-            // holes left of `hole_index` and no element right of
-            // `element_index`.
-            if hole_index > element_index {
-                break;
-            }
-
-            /// We found an element and a hole left of the element. That means
-            /// that we can swap.
-            self.data.swap(hole_index, element_index);
-            self.deleted.set(hole_index, false);
-            self.deleted.set(element_index, true);
+        // We can safely call `set_len()` here: all elements that still need
+        // to be dropped are in the range 0..self.used_count + 1.
+        unsafe {
+            self.data.set_len(self.used_count);
+            self.deleted.set_len(self.used_count);
         }
     }
 
@@ -293,5 +299,19 @@ impl<T> IndexMut<usize> for StableVec<T> {
         assert!(self.exists(index));
 
         &mut self.data[index]
+    }
+}
+
+impl<T, S> From<S> for StableVec<T>
+    where S: AsRef<[T]>,
+          T: Clone
+{
+    fn from(slice: S) -> Self {
+        let len = slice.as_ref().len();
+        Self {
+            data: slice.as_ref().into(),
+            deleted: BitVec::from_elem(len, false),
+            used_count: len,
+        }
     }
 }

@@ -12,10 +12,75 @@ use std::ptr;
 mod tests;
 
 
-/// A `Vec<T>` like collection which guarantees stable indices.
+/// A `Vec<T>`-like collection which guarantees stable indices and features
+/// O(1) deletion of elements.
+///
+/// # Why?
+///
+/// The standard `Vec<T>` always stores all elements contiguous. While this has
+/// many advantages (most notable: cache friendliness), it has the disadvantage
+/// that you can't simply remove an element from the middle; at least not
+/// without shifting all elements after it to the left. And this has two major
+/// drawbacks:
+///
+/// 1. It has a linear O(n) time complexity
+/// 2. It invalidates all indices of the shifted elements
+///
+/// Invalidating an index means that a given index `i` who referred to an
+/// element `a` before, now refers to another element `b`. On the contrary, a
+/// *stable* index means, that the index always refers to the same element.
+///
+/// Stable indices are needed in quite a few situations. One example are
+/// graph data structures (or complex data structures in general). Instead of
+/// allocating heap memory for every node and edge, all nodes are stored in a
+/// vector and all edges are stored in a vector. But how does the programmer
+/// unambiguously refer to one specific node? A pointer is not possible due to
+/// the reallocation strategy of most dynamically growing arrays (the pointer
+/// itself is not *stable*). Thus, often the index is used.
+///
+/// But in order to use the index, it has to be stable. This is one example,
+/// where this data structure comes into play.
 ///
 ///
-/// *Note*: this type's interface is very similar to the `Vec<T>` interface
+/// # How?
+///
+/// Actually, the implementation of this stable vector is very simple. We can
+/// trade O(1) deletions and stable indices for a higher memory consumption.
+///
+/// When `StableVec::remove()` is called, the element is just marked as
+/// "deleted", but no element is actually touched. This has the very obvious
+/// disadvantage that deleted objects just stay in memory and waste space. This
+/// is also the most important thing to understand:
+///
+/// The memory requirement of this data structure is `O(|inserted elements|)`;
+/// instead of `O(|inserted elements| - |removed elements|)`. The latter is the
+/// memory requirement of normal `Vec<T>`. Thus, if deletions are far more
+/// numerous than insertions in your situation, then this data structure is
+/// probably not fitting your needs.
+///
+///
+/// # Why not?
+///
+/// As mentioned above, this data structure is very simple and has many
+/// disadvantages on its own. Here are some reason not to use it:
+///
+/// - You don't need stable indices or O(1) removal
+/// - Your deletions significantly outnumber your insertions
+/// - You want to choose your keys/indices
+/// - Lookup times do not matter so much to you
+///
+/// Especially in the last two cases, you could consider using a `HashMap` with
+/// integer keys, best paired with a fast hash function for small keys.
+///
+/// If you not only want stable indices, but stable pointers, you might want
+/// to use something similar to a linked list. Although: think carefully about
+/// your problem before using a linked list.
+///
+///
+///
+/// # Note
+///
+/// This type's interface is very similar to the `Vec<T>` interface
 /// from the Rust standard library. When in doubt about what a method is doing,
 /// please consult [the official `Vec<T>` documentation][vec-doc] first.
 ///
@@ -79,10 +144,6 @@ impl<T> StableVec<T> {
     /// it's empty.
     ///
     /// This method uses exactly the same deletion strategy as `remove()`.
-    ///
-    /// *Note*: this method needs to find index of the last valid element.
-    /// Finding it has a worst case time complexity of O(n). If you already
-    /// know the index, use `remove()` instead.
     pub fn pop(&mut self) -> Option<T> {
         let last_index = self.deleted.iter()
             .enumerate()
@@ -93,12 +154,13 @@ impl<T> StableVec<T> {
         self.remove(last_index)
     }
 
-    /// Removes and returns the element at position `index` if the index is not
-    /// out of bounds and the referenced element was not removed before.
+    /// Removes and returns the element at position `index` if the there
+    /// `exists()` an element at that index.
     ///
-    /// If the element is removed, only the index is marked "deleted". The
-    /// actual data is not touched. Thus, the time complexity of this method
-    /// is just O(1).
+    /// Removing an element only marks it as "deleted" without touching the
+    /// actual data. In particular, the elements after the given index are
+    /// **not+* shifted to the left. Thus, the time complexity of this method
+    /// is O(1).
     pub fn remove(&mut self, index: usize) -> Option<T> {
         if index < self.data.len() && !self.deleted[index] {
             let elem = unsafe {
@@ -149,8 +211,8 @@ impl<T> StableVec<T> {
 
     /// Calls `shrink_to_fit()` on the underlying `Vec<T>`.
     ///
-    /// Note that this does not moves non-removed elements around and thus does
-    /// not invalidates indices. It only calls `shrink_to_fit()` on the
+    /// Note that this does not move existing elements around and thus does
+    /// not invalidate indices. It only calls `shrink_to_fit()` on the
     /// `Vec<T>` that holds the actual data.
     ///
     /// If you want to compact this `StableVec` by removing deleted elements,
@@ -159,16 +221,16 @@ impl<T> StableVec<T> {
         self.data.shrink_to_fit();
     }
 
-    /// Rearranges elements to save memory. **Invalidates indices!**
+    /// Rearranges elements to reclaim memory. **Invalidates indices!**
     ///
-    /// After calling this method, all non-removed elements stored contiguously
+    /// After calling this method, all existing elements stored contiguously
     /// in memory. You might want to call `shrink_to_fit()` afterwards to
     /// actually free memory previously used by removed elements. This method
     /// itself does not deallocate any memory.
     ///
     /// # Warning
     ///
-    /// This method invalidates all indices! This does not even preserve the
+    /// This method invalidates all indices! It does not even preserve the
     /// order of elements.
     pub fn compact(&mut self) {
         if self.is_compact() {
@@ -220,7 +282,7 @@ impl<T> StableVec<T> {
         }
     }
 
-    /// Returns `true` if all non-removed elements are stored contiguously from
+    /// Returns `true` if all existing elements are stored contiguously from
     /// the beginning.
     ///
     /// This method returning `true` means that no memory is wasted for removed
@@ -229,20 +291,20 @@ impl<T> StableVec<T> {
         self.used_count == self.data.len()
     }
 
-    /// Returns the number of non-removed elements in this collection.
+    /// Returns the number of existing elements in this collection.
     ///
     /// As long as `remove()` is never called, `num_elements()` equals
     /// `next_index()`. Once it is called, `num_elements()` will always be less
-    /// than `next_index()`.
+    /// than `next_index()` (assuming `compact()` is not called).
     pub fn num_elements(&self) -> usize {
         self.used_count
     }
 
-    /// Returns `true` if this collection doesn't contain any non-removed
-    /// items.
+    /// Returns `true` if this collection doesn't contain any existing
+    /// elements.
     ///
     /// This means that `is_empty()` returns true iff no elements were inserted
-    /// *or* all inserted elements were deleted again.
+    /// *or* all inserted elements were removed again.
     pub fn is_empty(&self) -> bool {
         self.used_count == 0
     }

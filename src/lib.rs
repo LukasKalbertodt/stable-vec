@@ -101,7 +101,6 @@ mod tests;
 /// your problem before using a linked list.
 ///
 ///
-///
 /// # Note
 ///
 /// This type's interface is very similar to the `Vec<T>` interface
@@ -157,6 +156,22 @@ impl<T> StableVec<T> {
     /// index of the inserted element.
     ///
     /// The inserted element will always be accessable via the returned index.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::new();
+    /// let star = sv.push('★');
+    /// let heart = sv.push('♥');
+    ///
+    /// assert_eq!(sv.get(heart), Some(&'♥'));
+    ///
+    /// // After removing the star we can still use the heart's index to access
+    /// // the element!
+    /// sv.remove(star);
+    /// assert_eq!(sv.get(heart), Some(&'♥'));
+    /// ```
     pub fn push(&mut self, elem: T) -> usize {
         self.data.push(elem);
         self.deleted.push(false);
@@ -167,7 +182,13 @@ impl<T> StableVec<T> {
     /// Removes and returns the last element from this collection, or `None` if
     /// it's empty.
     ///
-    /// This method uses exactly the same deletion strategy as `remove()`.
+    /// This method uses exactly the same deletion strategy as
+    /// [`remove()`](#method.remove).
+    ///
+    /// # Note
+    /// This method needs to find index of the last valid element. Finding it
+    /// has a worst case time complexity of O(n). If you already know the
+    /// index, use [`remove()`](#method.remove) instead.
     pub fn pop(&mut self) -> Option<T> {
         let last_index = self.deleted.iter()
             .enumerate()
@@ -178,13 +199,30 @@ impl<T> StableVec<T> {
         self.remove(last_index)
     }
 
-    /// Removes and returns the element at position `index` if the there
-    /// `exists()` an element at that index.
+    /// Removes and returns the element at position `index` if there
+    /// [`exists()`](#method.exists) an element at that index.
     ///
     /// Removing an element only marks it as "deleted" without touching the
     /// actual data. In particular, the elements after the given index are
-    /// **not+* shifted to the left. Thus, the time complexity of this method
+    /// **not** shifted to the left. Thus, the time complexity of this method
     /// is O(1).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::new();
+    /// let star = sv.push('★');
+    /// let heart = sv.push('♥');
+    ///
+    /// assert_eq!(sv.remove(star), Some('★'));
+    /// assert_eq!(sv.remove(star), None); // the star was already removed
+    ///
+    /// // We can use the heart's index here. It has not been invalidated by
+    /// // the removal of the star.
+    /// assert_eq!(sv.remove(heart), Some('♥'));
+    /// assert_eq!(sv.remove(heart), None); // the heart was already removed
+    /// ```
     pub fn remove(&mut self, index: usize) -> Option<T> {
         if index < self.data.len() && !self.deleted[index] {
             let elem = unsafe {
@@ -229,6 +267,20 @@ impl<T> StableVec<T> {
     ///
     /// An element is said to exist if the index is not out of bounds and the
     /// element at the given index was not removed yet.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::new();
+    /// assert!(!sv.exists(3));     // no: index out of bounds
+    ///
+    /// let heart = sv.push('♥');
+    /// assert!(sv.exists(heart));  // yes
+    ///
+    /// sv.remove(heart);
+    /// assert!(!sv.exists(heart)); // no: was removed
+    /// ```
     pub fn exists(&self, index: usize) -> bool {
         index < self.data.len() && !self.deleted[index]
     }
@@ -240,7 +292,7 @@ impl<T> StableVec<T> {
     /// `Vec<T>` that holds the actual data.
     ///
     /// If you want to compact this `StableVec` by removing deleted elements,
-    /// use the method `compact()` instead.
+    /// use the method [`compact()`](#method.compact) instead.
     pub fn shrink_to_fit(&mut self) {
         self.data.shrink_to_fit();
     }
@@ -248,9 +300,9 @@ impl<T> StableVec<T> {
     /// Rearranges elements to reclaim memory. **Invalidates indices!**
     ///
     /// After calling this method, all existing elements stored contiguously
-    /// in memory. You might want to call `shrink_to_fit()` afterwards to
-    /// actually free memory previously used by removed elements. This method
-    /// itself does not deallocate any memory.
+    /// in memory. You might want to call [`shrink_to_fit()`](#method.shrink_to_fit)
+    /// afterwards to actually free memory previously used by removed elements.
+    /// This method itself does not deallocate any memory.
     ///
     /// # Warning
     ///
@@ -311,6 +363,17 @@ impl<T> StableVec<T> {
     ///
     /// This method returning `true` means that no memory is wasted for removed
     /// elements.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::from(&[0, 1, 2, 3, 4]);
+    /// assert!(sv.is_compact());
+    ///
+    /// sv.remove(1);
+    /// assert!(!sv.is_compact());
+    /// ```
     pub fn is_compact(&self) -> bool {
         self.used_count == self.data.len()
     }
@@ -320,6 +383,20 @@ impl<T> StableVec<T> {
     /// As long as `remove()` is never called, `num_elements()` equals
     /// `next_index()`. Once it is called, `num_elements()` will always be less
     /// than `next_index()` (assuming `compact()` is not called).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::new();
+    /// assert_eq!(sv.num_elements(), 0);
+    ///
+    /// let heart = sv.push('♥');
+    /// assert_eq!(sv.num_elements(), 1);
+    ///
+    /// sv.remove(heart);
+    /// assert_eq!(sv.num_elements(), 0);
+    /// ```
     pub fn num_elements(&self) -> usize {
         self.used_count
     }
@@ -329,6 +406,20 @@ impl<T> StableVec<T> {
     ///
     /// This means that `is_empty()` returns true iff no elements were inserted
     /// *or* all inserted elements were removed again.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::new();
+    /// assert!(sv.is_empty());
+    ///
+    /// let heart = sv.push('♥');
+    /// assert!(!sv.is_empty());
+    ///
+    /// sv.remove(heart);
+    /// assert!(sv.is_empty());
+    /// ```
     pub fn is_empty(&self) -> bool {
         self.used_count == 0
     }
@@ -339,11 +430,50 @@ impl<T> StableVec<T> {
         self.data.capacity()
     }
 
-    /// Returns the index that would be returned by calling `push()`.
+    /// Returns the index that would be returned by calling
+    /// [`push()`](#method.push).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::from(&[0, 1, 2]);
+    ///
+    /// let next_index = sv.next_index();
+    /// let index_of_three = sv.push(3);
+    ///
+    /// assert_eq!(next_index, index_of_three);
+    /// ```
     pub fn next_index(&self) -> usize {
         self.data.len()
     }
 
+    /// Returns an iterator over immutable references to the existing elements
+    /// of this stable vector.
+    ///
+    /// Note that you can also use the `IntoIterator` implementation of
+    /// `&StableVec` to obtain the same iterator.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::from(&[0, 1, 2, 3, 4]);
+    /// sv.remove(1);
+    ///
+    /// // Using the `iter()` method to apply a `filter()`.
+    /// let mut it = sv.iter().filter(|&&n| n <= 3);
+    /// assert_eq!(it.next(), Some(&0));
+    /// assert_eq!(it.next(), Some(&2));
+    /// assert_eq!(it.next(), Some(&3));
+    /// assert_eq!(it.next(), None);
+    ///
+    /// // Simple iterate using the implicit `IntoIterator` conversion of the
+    /// // for-loop:
+    /// for e in &sv {
+    ///     println!("{:?}", e);
+    /// }
+    /// ```
     pub fn iter(&self) -> Iter<T> {
         Iter {
             sv: self,
@@ -351,6 +481,11 @@ impl<T> StableVec<T> {
         }
     }
 
+    /// Returns an iterator over mutable references to the existing elements
+    /// of this stable vector.
+    ///
+    /// Note that you can also use the `IntoIterator` implementation of
+    /// `&mut StableVec` to obtain the same iterator.
     pub fn iter_mut(&mut self) -> IterMut<T> {
         IterMut {
             deleted: &self.deleted,
@@ -433,6 +568,11 @@ impl<'a, T> IntoIterator for &'a mut StableVec<T> {
     }
 }
 
+/// Iterator over immutable references to the elements of a `StableVec`.
+///
+/// Use the method [`StableVec::iter()`](struct.StableVec.html#method.iter) or
+/// the `IntoIterator` implementation of `&StableVec` to obtain an iterator
+/// of this kind.
 pub struct Iter<'a, T: 'a> {
     sv: &'a StableVec<T>,
     pos: usize,
@@ -455,6 +595,11 @@ impl<'a, T: 'a> Iterator for Iter<'a, T> {
     }
 }
 
+/// Iterator over mutable references to the elements of a `StableVec`.
+///
+/// Use the method [`StableVec::iter_mut()`](struct.StableVec.html#method.iter_mut)
+/// or the `IntoIterator` implementation of `&mut StableVec` to obtain an
+/// iterator of this kind.
 pub struct IterMut<'a, T: 'a> {
     deleted: &'a BitVec,
     vec_iter: ::std::slice::IterMut<'a, T>,

@@ -13,9 +13,10 @@ Otherwise feel free to do so!
 ## You want to contribute?
 
 Yes please! This is a rather small crate, but it could still use some developing power.
-In particular, I'm mostly interested in these two things:
+In particular, you could work on these things:
 
 - Rather easy: implementing new features. See [this issue](https://github.com/LukasKalbertodt/stable-vec/issues/3) for more information.
+- Rather easy: write more tests and examples.
 - Rather hard: verifying that the use of `unsafe` code is completely fine. It's not a lot of `unsafe` code and I *think* it's fine, but it would be nice to have certainty.
 
 I'm glad to do some mentoring for anyone interested in contributing.

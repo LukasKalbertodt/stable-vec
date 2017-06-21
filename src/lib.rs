@@ -343,6 +343,21 @@ impl<T> StableVec<T> {
     pub fn next_index(&self) -> usize {
         self.data.len()
     }
+
+    pub fn iter(&self) -> Iter<T> {
+        Iter {
+            sv: self,
+            pos: 0,
+        }
+    }
+
+    pub fn iter_mut(&mut self) -> IterMut<T> {
+        IterMut {
+            deleted: &self.deleted,
+            vec_iter: self.data.iter_mut(),
+            pos: 0,
+        }
+    }
 }
 
 impl<T> Drop for StableVec<T> {
@@ -398,6 +413,67 @@ impl<T, S> From<S> for StableVec<T>
             data: slice.as_ref().into(),
             deleted: BitVec::from_elem(len, false),
             used_count: len,
+        }
+    }
+}
+
+impl<'a, T> IntoIterator for &'a StableVec<T> {
+    type Item = &'a T;
+    type IntoIter = Iter<'a, T>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+impl<'a, T> IntoIterator for &'a mut StableVec<T> {
+    type Item = &'a mut T;
+    type IntoIter = IterMut<'a, T>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter_mut()
+    }
+}
+
+pub struct Iter<'a, T: 'a> {
+    sv: &'a StableVec<T>,
+    pos: usize,
+}
+
+impl<'a, T: 'a> Iterator for Iter<'a, T> {
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.pos == self.sv.data.len() {
+            None
+        } else {
+            while self.pos < self.sv.deleted.len() && self.sv.deleted[self.pos] {
+                self.pos += 1;
+            }
+            self.pos += 1;
+
+            Some(&self.sv.data[self.pos - 1])
+        }
+    }
+}
+
+pub struct IterMut<'a, T: 'a> {
+    deleted: &'a BitVec,
+    vec_iter: ::std::slice::IterMut<'a, T>,
+    pos: usize,
+}
+
+impl<'a, T> Iterator for IterMut<'a, T> {
+    type Item = &'a mut T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.pos == self.deleted.len() {
+            None
+        } else {
+            while self.pos < self.deleted.len() && self.deleted[self.pos] {
+                self.pos += 1;
+                self.vec_iter.next();
+            }
+            self.pos += 1;
+            self.vec_iter.next()
         }
     }
 }

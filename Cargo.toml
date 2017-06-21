@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Lukas Kalbertodt <lukas.kalbertodt@gmail.com>"]
 
 description = """
-A `Vec<T>`-like collection which guarantees stable indices and features O(1) deletion of elements
+A Vec-like collection which guarantees stable indices and features O(1) deletion of elements
 """
 documentation = "https://docs.rs/stable-vec"
 repository = "https://github.com/LukasKalbertodt/stable-vec"

@@ -16,7 +16,7 @@
 //!
 //! ... as well as declare it at your crate root:
 //!
-//! ```
+//! ```ignore
 //! extern crate stable_vec;
 //!
 //! use stable_vec::StableVec;

@@ -3,6 +3,15 @@ name = "stable-vec"
 version = "0.1.0"
 authors = ["Lukas Kalbertodt <lukas.kalbertodt@gmail.com>"]
 
+description = """
+A `Vec<T>`-like collection which guarantees stable indices and features O(1) deletion of elements
+"""
+documentation = "https://docs.rs/stable-vec"
+repository = "https://github.com/LukasKalbertodt/stable-vec"
+license = "MIT/Apache-2.0"
+keywords = ["stable", "vec", "vector", "index", "indices"]
+categories = ["data-structures"]
+
 [dependencies]
 bit-vec = "0.4.4"
 

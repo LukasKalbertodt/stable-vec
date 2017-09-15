@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.1.1] - 2017-09-15
 ### Added
 - Added this `CHANGELOG.md`
 - Metadata to `Cargo.toml`
@@ -23,4 +24,5 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Everything.
 
 
-[Unreleased]: https://github.com/LukasKalbertodt/stable-vec/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/LukasKalbertodt/stable-vec/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/LukasKalbertodt/stable-vec/compare/v0.1.0...v0.1.1

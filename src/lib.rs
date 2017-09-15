@@ -225,7 +225,14 @@ impl<T> StableVec<T> {
     /// assert_eq!(sv.remove(heart_idx), None); // the heart was already removed
     /// ```
     pub fn remove(&mut self, index: usize) -> Option<T> {
-        if index < self.data.len() && !self.deleted[index] {
+        if self.exists(index) {
+            // We move the requested element out of our `data` vector. Usually,
+            // it's impossible to move out of a vector without removing the
+            // element in the vector. We can achieve it by using unsafe code:
+            // We just read the value from the vector without changing
+            // anything. This is dangerous if we try to access this element
+            // in the vector later. To prevent any access, we mark the element
+            // as deleted.
             let elem = unsafe {
                 self.deleted.set(index, true);
                 ptr::read(&self.data[index])
@@ -318,8 +325,8 @@ impl<T> StableVec<T> {
         if self.used_count > 0 {
             // We use two indices:
             //
-            // - `hole_index` starts from the front and searches for a hole that
-            //   can be filled with an element.
+            // - `hole_index` starts from the front and searches for a hole
+            //   that can be filled with an element.
             // - `element_index` starts from the back and searches for an
             //   element.
             let len = self.data.len();

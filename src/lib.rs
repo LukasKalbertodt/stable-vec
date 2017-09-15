@@ -319,8 +319,8 @@ impl<T> StableVec<T> {
             //
             // - `hole_index` starts from the front and searches for a hole that
             //   can be filled with an element.
-            // - `element_index` starts from the back and searches for an element.
-            //
+            // - `element_index` starts from the back and searches for an
+            //   element.
             let len = self.data.len();
             let mut element_index = len - 1;
             let mut hole_index = 0;
@@ -342,8 +342,8 @@ impl<T> StableVec<T> {
                     break;
                 }
 
-                /// We found an element and a hole left of the element. That means
-                /// that we can swap.
+                // We found an element and a hole left of the element. That
+                // means that we can swap.
                 self.data.swap(hole_index, element_index);
                 self.deleted.set(hole_index, false);
                 self.deleted.set(element_index, true);

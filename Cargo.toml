@@ -14,7 +14,7 @@ categories = ["data-structures"]
 readme = "README.md"
 
 [badges]
-travis = { branch = "master", repository = "LukasKalbertodt/stable-vec" }
+travis-ci = { branch = "master", repository = "LukasKalbertodt/stable-vec" }
 maintenance = { status = "actively-developed" }
 
 

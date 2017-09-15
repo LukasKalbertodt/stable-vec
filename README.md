@@ -2,8 +2,9 @@
 [![Build Status](https://img.shields.io/travis/LukasKalbertodt/stable-vec/master.svg)](https://travis-ci.org/LukasKalbertodt/stable-vec)
 [![crates.io version](https://img.shields.io/crates/v/stable-vec.svg)](https://crates.io/crates/stable-vec)
 
-A `Vec<T>`-like collection which guarantees stable indices and features O(1) deletion of elements at the cost of wasting some memory.
-Please refer to the [**the documentation**](https://docs.rs/stable-vec) for more information.
+A `Vec<T>`-like collection which guarantees stable indices and features O(1)
+deletion of elements at the cost of wasting some memory. Please refer to the
+[**the documentation**](https://docs.rs/stable-vec) for more information.
 
 This crate is still young, but the API won't change a lot.
 Everything should already work as intended, but it's not extensively tested yet.

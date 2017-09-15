@@ -162,15 +162,15 @@ impl<T> StableVec<T> {
     /// ```
     /// # use stable_vec::StableVec;
     /// let mut sv = StableVec::new();
-    /// let star = sv.push('★');
-    /// let heart = sv.push('♥');
+    /// let star_idx = sv.push('★');
+    /// let heart_idx = sv.push('♥');
     ///
-    /// assert_eq!(sv.get(heart), Some(&'♥'));
+    /// assert_eq!(sv.get(heart_idx), Some(&'♥'));
     ///
     /// // After removing the star we can still use the heart's index to access
     /// // the element!
-    /// sv.remove(star);
-    /// assert_eq!(sv.get(heart), Some(&'♥'));
+    /// sv.remove(star_idx);
+    /// assert_eq!(sv.get(heart_idx), Some(&'♥'));
     /// ```
     pub fn push(&mut self, elem: T) -> usize {
         self.data.push(elem);
@@ -186,6 +186,7 @@ impl<T> StableVec<T> {
     /// [`remove()`](#method.remove).
     ///
     /// # Note
+    ///
     /// This method needs to find index of the last valid element. Finding it
     /// has a worst case time complexity of O(n). If you already know the
     /// index, use [`remove()`](#method.remove) instead.
@@ -212,19 +213,26 @@ impl<T> StableVec<T> {
     /// ```
     /// # use stable_vec::StableVec;
     /// let mut sv = StableVec::new();
-    /// let star = sv.push('★');
-    /// let heart = sv.push('♥');
+    /// let star_idx = sv.push('★');
+    /// let heart_idx = sv.push('♥');
     ///
-    /// assert_eq!(sv.remove(star), Some('★'));
-    /// assert_eq!(sv.remove(star), None); // the star was already removed
+    /// assert_eq!(sv.remove(star_idx), Some('★'));
+    /// assert_eq!(sv.remove(star_idx), None); // the star was already removed
     ///
     /// // We can use the heart's index here. It has not been invalidated by
     /// // the removal of the star.
-    /// assert_eq!(sv.remove(heart), Some('♥'));
-    /// assert_eq!(sv.remove(heart), None); // the heart was already removed
+    /// assert_eq!(sv.remove(heart_idx), Some('♥'));
+    /// assert_eq!(sv.remove(heart_idx), None); // the heart was already removed
     /// ```
     pub fn remove(&mut self, index: usize) -> Option<T> {
-        if index < self.data.len() && !self.deleted[index] {
+        if self.exists(index) {
+            // We move the requested element out of our `data` vector. Usually,
+            // it's impossible to move out of a vector without removing the
+            // element in the vector. We can achieve it by using unsafe code:
+            // We just read the value from the vector without changing
+            // anything. This is dangerous if we try to access this element
+            // in the vector later. To prevent any access, we mark the element
+            // as deleted.
             let elem = unsafe {
                 self.deleted.set(index, true);
                 ptr::read(&self.data[index])
@@ -273,13 +281,13 @@ impl<T> StableVec<T> {
     /// ```
     /// # use stable_vec::StableVec;
     /// let mut sv = StableVec::new();
-    /// assert!(!sv.exists(3));     // no: index out of bounds
+    /// assert!(!sv.exists(3));         // no: index out of bounds
     ///
-    /// let heart = sv.push('♥');
-    /// assert!(sv.exists(heart));  // yes
+    /// let heart_idx = sv.push('♥');
+    /// assert!(sv.exists(heart_idx));  // yes
     ///
-    /// sv.remove(heart);
-    /// assert!(!sv.exists(heart)); // no: was removed
+    /// sv.remove(heart_idx);
+    /// assert!(!sv.exists(heart_idx)); // no: was removed
     /// ```
     pub fn exists(&self, index: usize) -> bool {
         index < self.data.len() && !self.deleted[index]
@@ -317,10 +325,10 @@ impl<T> StableVec<T> {
         if self.used_count > 0 {
             // We use two indices:
             //
-            // - `hole_index` starts from the front and searches for a hole that
-            //   can be filled with an element.
-            // - `element_index` starts from the back and searches for an element.
-            //
+            // - `hole_index` starts from the front and searches for a hole
+            //   that can be filled with an element.
+            // - `element_index` starts from the back and searches for an
+            //   element.
             let len = self.data.len();
             let mut element_index = len - 1;
             let mut hole_index = 0;
@@ -342,8 +350,8 @@ impl<T> StableVec<T> {
                     break;
                 }
 
-                /// We found an element and a hole left of the element. That means
-                /// that we can swap.
+                // We found an element and a hole left of the element. That
+                // means that we can swap.
                 self.data.swap(hole_index, element_index);
                 self.deleted.set(hole_index, false);
                 self.deleted.set(element_index, true);
@@ -391,10 +399,10 @@ impl<T> StableVec<T> {
     /// let mut sv = StableVec::new();
     /// assert_eq!(sv.num_elements(), 0);
     ///
-    /// let heart = sv.push('♥');
+    /// let heart_idx = sv.push('♥');
     /// assert_eq!(sv.num_elements(), 1);
     ///
-    /// sv.remove(heart);
+    /// sv.remove(heart_idx);
     /// assert_eq!(sv.num_elements(), 0);
     /// ```
     pub fn num_elements(&self) -> usize {
@@ -414,10 +422,10 @@ impl<T> StableVec<T> {
     /// let mut sv = StableVec::new();
     /// assert!(sv.is_empty());
     ///
-    /// let heart = sv.push('♥');
+    /// let heart_idx = sv.push('♥');
     /// assert!(!sv.is_empty());
     ///
-    /// sv.remove(heart);
+    /// sv.remove(heart_idx);
     /// assert!(sv.is_empty());
     /// ```
     pub fn is_empty(&self) -> bool {
@@ -437,12 +445,12 @@ impl<T> StableVec<T> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::from(&[0, 1, 2]);
+    /// let mut sv = StableVec::from(&['a', 'b', 'c']);
     ///
     /// let next_index = sv.next_index();
-    /// let index_of_three = sv.push(3);
+    /// let index_of_d = sv.push('d');
     ///
-    /// assert_eq!(next_index, index_of_three);
+    /// assert_eq!(next_index, index_of_d);
     /// ```
     pub fn next_index(&self) -> usize {
         self.data.len()
@@ -582,14 +590,20 @@ impl<'a, T: 'a> Iterator for Iter<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
+        // First, we advance until we have found an existing element or until
+        // we have reached the end of all elements.
+        while self.pos < self.sv.deleted.len() && self.sv.deleted[self.pos] {
+            self.pos += 1;
+        }
+
+        // Next, we check whether we are at the very end.
         if self.pos == self.sv.data.len() {
             None
         } else {
-            while self.pos < self.sv.deleted.len() && self.sv.deleted[self.pos] {
-                self.pos += 1;
-            }
+            // Advance the iterator by one.
             self.pos += 1;
 
+            // Return current element.
             Some(&self.sv.data[self.pos - 1])
         }
     }
@@ -610,13 +624,18 @@ impl<'a, T> Iterator for IterMut<'a, T> {
     type Item = &'a mut T;
 
     fn next(&mut self) -> Option<Self::Item> {
+        // First, we advance until we have found an existing element or until
+        // we have reached the end of all elements.
+        while self.pos < self.deleted.len() && self.deleted[self.pos] {
+            self.pos += 1;
+            self.vec_iter.next();
+        }
+
+        // Next, we check whether we are at the very end.
         if self.pos == self.deleted.len() {
             None
         } else {
-            while self.pos < self.deleted.len() && self.deleted[self.pos] {
-                self.pos += 1;
-                self.vec_iter.next();
-            }
+            // Advance the iterator by one and return current element.
             self.pos += 1;
             self.vec_iter.next()
         }

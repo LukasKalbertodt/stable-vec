@@ -590,14 +590,20 @@ impl<'a, T: 'a> Iterator for Iter<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
+        // First, we advance until we have found an existing element or until
+        // we have reached the end of all elements.
+        while self.pos < self.sv.deleted.len() && self.sv.deleted[self.pos] {
+            self.pos += 1;
+        }
+
+        // Next, we check whether we are at the very end.
         if self.pos == self.sv.data.len() {
             None
         } else {
-            while self.pos < self.sv.deleted.len() && self.sv.deleted[self.pos] {
-                self.pos += 1;
-            }
+            // Advance the iterator by one.
             self.pos += 1;
 
+            // Return current element.
             Some(&self.sv.data[self.pos - 1])
         }
     }
@@ -618,13 +624,18 @@ impl<'a, T> Iterator for IterMut<'a, T> {
     type Item = &'a mut T;
 
     fn next(&mut self) -> Option<Self::Item> {
+        // First, we advance until we have found an existing element or until
+        // we have reached the end of all elements.
+        while self.pos < self.deleted.len() && self.deleted[self.pos] {
+            self.pos += 1;
+            self.vec_iter.next();
+        }
+
+        // Next, we check whether we are at the very end.
         if self.pos == self.deleted.len() {
             None
         } else {
-            while self.pos < self.deleted.len() && self.deleted[self.pos] {
-                self.pos += 1;
-                self.vec_iter.next();
-            }
+            // Advance the iterator by one and return current element.
             self.pos += 1;
             self.vec_iter.next()
         }

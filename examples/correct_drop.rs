@@ -21,7 +21,7 @@ fn main() {
         // Removing it from the vector shouldn't drop the value: it is moved
         // out the vector into this function.
         println!("--- removing 'b' (nothing should be dropped!) ...");
-        let b = sv.remove(b_idx);
+        let _b = sv.remove(b_idx);
 
         // But now the value goes out of scope and it should be dropped now.
         println!("--- letting 'b' go out of scope (it should be dropped now!) ...");

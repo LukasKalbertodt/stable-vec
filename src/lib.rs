@@ -162,15 +162,15 @@ impl<T> StableVec<T> {
     /// ```
     /// # use stable_vec::StableVec;
     /// let mut sv = StableVec::new();
-    /// let star = sv.push('★');
-    /// let heart = sv.push('♥');
+    /// let star_idx = sv.push('★');
+    /// let heart_idx = sv.push('♥');
     ///
-    /// assert_eq!(sv.get(heart), Some(&'♥'));
+    /// assert_eq!(sv.get(heart_idx), Some(&'♥'));
     ///
     /// // After removing the star we can still use the heart's index to access
     /// // the element!
-    /// sv.remove(star);
-    /// assert_eq!(sv.get(heart), Some(&'♥'));
+    /// sv.remove(star_idx);
+    /// assert_eq!(sv.get(heart_idx), Some(&'♥'));
     /// ```
     pub fn push(&mut self, elem: T) -> usize {
         self.data.push(elem);
@@ -186,6 +186,7 @@ impl<T> StableVec<T> {
     /// [`remove()`](#method.remove).
     ///
     /// # Note
+    ///
     /// This method needs to find index of the last valid element. Finding it
     /// has a worst case time complexity of O(n). If you already know the
     /// index, use [`remove()`](#method.remove) instead.
@@ -212,16 +213,16 @@ impl<T> StableVec<T> {
     /// ```
     /// # use stable_vec::StableVec;
     /// let mut sv = StableVec::new();
-    /// let star = sv.push('★');
-    /// let heart = sv.push('♥');
+    /// let star_idx = sv.push('★');
+    /// let heart_idx = sv.push('♥');
     ///
-    /// assert_eq!(sv.remove(star), Some('★'));
-    /// assert_eq!(sv.remove(star), None); // the star was already removed
+    /// assert_eq!(sv.remove(star_idx), Some('★'));
+    /// assert_eq!(sv.remove(star_idx), None); // the star was already removed
     ///
     /// // We can use the heart's index here. It has not been invalidated by
     /// // the removal of the star.
-    /// assert_eq!(sv.remove(heart), Some('♥'));
-    /// assert_eq!(sv.remove(heart), None); // the heart was already removed
+    /// assert_eq!(sv.remove(heart_idx), Some('♥'));
+    /// assert_eq!(sv.remove(heart_idx), None); // the heart was already removed
     /// ```
     pub fn remove(&mut self, index: usize) -> Option<T> {
         if index < self.data.len() && !self.deleted[index] {
@@ -273,13 +274,13 @@ impl<T> StableVec<T> {
     /// ```
     /// # use stable_vec::StableVec;
     /// let mut sv = StableVec::new();
-    /// assert!(!sv.exists(3));     // no: index out of bounds
+    /// assert!(!sv.exists(3));         // no: index out of bounds
     ///
-    /// let heart = sv.push('♥');
-    /// assert!(sv.exists(heart));  // yes
+    /// let heart_idx = sv.push('♥');
+    /// assert!(sv.exists(heart_idx));  // yes
     ///
-    /// sv.remove(heart);
-    /// assert!(!sv.exists(heart)); // no: was removed
+    /// sv.remove(heart_idx);
+    /// assert!(!sv.exists(heart_idx)); // no: was removed
     /// ```
     pub fn exists(&self, index: usize) -> bool {
         index < self.data.len() && !self.deleted[index]
@@ -391,10 +392,10 @@ impl<T> StableVec<T> {
     /// let mut sv = StableVec::new();
     /// assert_eq!(sv.num_elements(), 0);
     ///
-    /// let heart = sv.push('♥');
+    /// let heart_idx = sv.push('♥');
     /// assert_eq!(sv.num_elements(), 1);
     ///
-    /// sv.remove(heart);
+    /// sv.remove(heart_idx);
     /// assert_eq!(sv.num_elements(), 0);
     /// ```
     pub fn num_elements(&self) -> usize {
@@ -414,10 +415,10 @@ impl<T> StableVec<T> {
     /// let mut sv = StableVec::new();
     /// assert!(sv.is_empty());
     ///
-    /// let heart = sv.push('♥');
+    /// let heart_idx = sv.push('♥');
     /// assert!(!sv.is_empty());
     ///
-    /// sv.remove(heart);
+    /// sv.remove(heart_idx);
     /// assert!(sv.is_empty());
     /// ```
     pub fn is_empty(&self) -> bool {
@@ -437,12 +438,12 @@ impl<T> StableVec<T> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::from(&[0, 1, 2]);
+    /// let mut sv = StableVec::from(&['a', 'b', 'c']);
     ///
     /// let next_index = sv.next_index();
-    /// let index_of_three = sv.push(3);
+    /// let index_of_d = sv.push('d');
     ///
-    /// assert_eq!(next_index, index_of_three);
+    /// assert_eq!(next_index, index_of_d);
     /// ```
     pub fn next_index(&self) -> usize {
         self.data.len()

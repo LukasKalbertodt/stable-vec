@@ -112,6 +112,8 @@ mod tests;
 ///
 /// # Method overview
 ///
+/// (*there are more methods than mentioned in this overview*)
+///
 /// **Associated functions**
 ///
 /// - [`new()`](#method.new)
@@ -131,7 +133,7 @@ mod tests;
 /// - [the mutable `[]` index operator](#impl-IndexMut<usize>) (returns `&mut T`)
 /// - [`remove()`](#method.remove) (returns `Option<T>`)
 ///
-/// **Stable vec specific**
+/// **Stable vector specific**
 ///
 /// - [`exists()`](#method.exists)
 /// - [`compact()`](#method.compact)
@@ -541,6 +543,28 @@ impl<T> StableVec<T> {
             vec_iter: self.data.iter_mut(),
             pos: 0,
         }
+    }
+
+    /// Returns `true` if the stable vector contains an element with the given
+    /// value, `false` otherwise.
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::from(&['a', 'b', 'c']);
+    /// assert!(sv.contains(&'b'));
+    ///
+    /// sv.remove(1);   // 'b' is stored at index 1
+    /// assert!(!sv.contains(&'b'));
+    /// ```
+    pub fn contains<U>(&self, item: &U) -> bool
+        where U: PartialEq<T>
+    {
+        for e in self {
+            if item == e {
+                return true;
+            }
+        }
+        false
     }
 }
 

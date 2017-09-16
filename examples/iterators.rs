@@ -23,4 +23,8 @@ fn main() {
     for e in &sv {
         println!("{:?}", e);
     }
+
+    // StableVec implements `FromIterator`
+    let sv: StableVec<_> = (1..9).collect();
+    println!("{:?}", sv);
 }

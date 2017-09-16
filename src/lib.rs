@@ -30,6 +30,7 @@ extern crate quickcheck;
 use bit_vec::BitVec;
 
 use std::fmt;
+use std::iter::FromIterator;
 use std::mem;
 use std::ops::{Index, IndexMut};
 use std::ptr;
@@ -670,6 +671,19 @@ impl<T, S> From<S> for StableVec<T>
             data: slice.as_ref().into(),
             deleted: BitVec::from_elem(len, false),
             used_count: len,
+        }
+    }
+}
+
+impl<T> FromIterator<T> for StableVec<T> {
+    fn from_iter<I>(iter: I) -> Self
+        where I: IntoIterator<Item = T>
+    {
+        let data = Vec::from_iter(iter);
+        Self {
+            used_count: data.len(),
+            deleted: BitVec::from_elem(data.len(), false),
+            data,
         }
     }
 }

@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 - Added method overview in documentation
 - `StableVec::contains()`
+- `StableVec::into_vec()`
 - `impl<T> Default for StableVec<T>`
 - Added `Debug` impl for `StableVec` with a fitting example
 

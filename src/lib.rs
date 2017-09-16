@@ -30,6 +30,7 @@ extern crate quickcheck;
 use bit_vec::BitVec;
 
 use std::fmt;
+use std::mem;
 use std::ops::{Index, IndexMut};
 use std::ptr;
 
@@ -566,6 +567,47 @@ impl<T> StableVec<T> {
             }
         }
         false
+    }
+
+    /// Returns the stable vector as a standard `Vec<T>`.
+    ///
+    /// Returns a vector which contains all existing elements from this stable
+    /// vector. **All indices might be invalidated!** This method might call
+    /// [`compact()`](#method.compact); see that method's documentation to
+    /// learn about the effects on indices.
+    ///
+    /// This method does not allocate memory.
+    ///
+    ///
+    /// # Note
+    ///
+    /// If the stable vector is not compact (as defined by `is_compact()`), the
+    /// runtime complexity of this function is O(n), because `compact()` needs
+    /// to be called.
+    ///
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::from(&['a', 'b', 'c']);
+    /// sv.remove(1);   // 'b' lives at index 1
+    ///
+    /// assert_eq!(sv.into_vec(), vec!['a', 'c']);
+    /// ```
+    pub fn into_vec(mut self) -> Vec<T> {
+        // Compact the stable vec to prepare the `data` vector for moving.
+        self.compact();
+
+        // We reset all values to the "empty state" here. This is necessary to
+        // make sure the `drop()` impl doesn't do anything (except for actually
+        // freeing the memory of `deleted`).
+        self.used_count = 0;
+        self.deleted.truncate(0);
+
+        // The `data` vector is moved out of this data structureand replaced
+        // with an empty vector. After this line, `self` is dropped.
+        mem::replace(&mut self.data, Vec::new())
     }
 }
 

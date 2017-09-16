@@ -688,6 +688,24 @@ impl<T> FromIterator<T> for StableVec<T> {
     }
 }
 
+impl<T> Extend<T> for StableVec<T> {
+    fn extend<I>(&mut self, iter: I)
+        where I: IntoIterator<Item = T>
+    {
+        // This implementation is not completely exception safe. If the
+        // `self.data.extend()` call panics, we won't drop any of the new
+        // elements. This is "safe" in the Rust meaning of the word: not
+        // calling `drop()` on values is not desireable but not considered
+        // *unsafe*.
+        let len_before = self.data.len();
+        self.data.extend(iter);
+
+        let additional_count = self.data.len() - len_before;
+        self.deleted.grow(additional_count, false);
+        self.used_count += additional_count;
+    }
+}
+
 impl<'a, T> IntoIterator for &'a StableVec<T> {
     type Item = &'a T;
     type IntoIter = Iter<'a, T>;

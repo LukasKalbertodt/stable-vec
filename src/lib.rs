@@ -611,6 +611,12 @@ impl<T> IndexMut<usize> for StableVec<T> {
     }
 }
 
+impl<T> Default for StableVec<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T, S> From<S> for StableVec<T>
     where S: AsRef<[T]>,
           T: Clone

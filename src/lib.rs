@@ -3,7 +3,7 @@
 //!
 //! This crate provides a simple stable vector implementation. You can find
 //! nearly all the relevant documentation on
-//! [this crate's only type: `StableVec`](struct.StableVec.html).
+//! [the type `StableVec`](struct.StableVec.html).
 //!
 //! ---
 //!
@@ -108,6 +108,47 @@ mod tests;
 /// please consult [the official `Vec<T>` documentation][vec-doc] first.
 ///
 /// [vec-doc]: https://doc.rust-lang.org/stable/std/vec/struct.Vec.html
+///
+///
+/// # Method overview
+///
+/// **Associated functions**
+///
+/// - [`new()`](#method.new)
+/// - [`with_capacity()`](#method.with_capacity())
+///
+/// **Adding and removing elements**
+///
+/// - [`push()`](#method.push)
+/// - [`pop()`](#method.pop)
+/// - [`remove()`](#method.remove)
+///
+/// **Accessing elements**
+///
+/// - [`get()`](#method.get) (returns `Option<&T>`)
+/// - [the `[]` index operator](#impl-Index<usize>) (returns `&T`)
+/// - [`get_mut()`](#method.get_mut) (returns `Option<&mut T>`)
+/// - [the mutable `[]` index operator](#impl-IndexMut<usize>) (returns `&mut T`)
+/// - [`remove()`](#method.remove) (returns `Option<T>`)
+///
+/// **Stable vec specific**
+///
+/// - [`exists()`](#method.exists)
+/// - [`compact()`](#method.compact)
+/// - [`is_compact()`](#method.is_compact)
+/// - [`next_index()`](#method.next_index)
+///
+/// **Number of elements**
+///
+/// - [`is_empty()`](#method.is_empty)
+/// - [`num_elements()`](#method.num_elements)
+///
+/// **Capacity management**
+///
+/// - [`capacity()`](#method.capacity)
+/// - [`shrink_to_fit()`](#method.shrink_to_fit)
+/// - [`reserve()`](#method.reserve)
+///
 #[derive(Clone, PartialEq, Eq)]
 pub struct StableVec<T> {
     /// Storing the actual data.

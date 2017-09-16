@@ -29,6 +29,7 @@ extern crate quickcheck;
 
 use bit_vec::BitVec;
 
+use std::fmt;
 use std::ops::{Index, IndexMut};
 use std::ptr;
 
@@ -710,5 +711,12 @@ impl<'a, T> Iterator for IterMut<'a, T> {
             self.pos += 1;
             self.vec_iter.next()
         }
+    }
+}
+
+impl<T: fmt::Debug> fmt::Debug for StableVec<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "StableVec ")?;
+        f.debug_list().entries(self).finish()
     }
 }

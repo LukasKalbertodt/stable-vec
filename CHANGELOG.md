@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - `StableVec::contains()`
 - `StableVec::into_vec()`
 - `StableVec::keys()` with `Keys` iterator
+- `IterMut::remove_current()`
 - `impl<T> Default for StableVec<T>`
 - Added `FromIterator` impl for `StableVec`
 - Added `Extend` impl for `StableVec`

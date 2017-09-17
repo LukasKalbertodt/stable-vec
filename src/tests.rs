@@ -14,12 +14,14 @@ quickcheck! {
         }
 
         // Remember the number of elements before and call compact.
+        let sv_before = sv.clone();
         let n_before_compact = sv.num_elements();
         sv.compact();
 
         n_before_compact == sv.num_elements()
             && sv.is_compact()
             && (0..n_before_compact).all(|i| sv.get(i).is_some())
+            && sv_before.iter().all(|e| sv.contains(e))
     }
 
     fn from_and_extend_and_from_iter(items: Vec<u8>) -> bool {

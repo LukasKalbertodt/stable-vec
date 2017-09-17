@@ -739,7 +739,7 @@ impl<T> StableVec<T> {
         self.used_count = 0;
         self.deleted.truncate(0);
 
-        // The `data` vector is moved out of this data structureand replaced
+        // The `data` vector is moved out of this data structure and replaced
         // with an empty vector. After this line, `self` is dropped.
         mem::replace(&mut self.data, Vec::new())
     }

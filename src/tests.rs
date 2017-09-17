@@ -24,6 +24,31 @@ quickcheck! {
             && sv_before.iter().all(|e| sv.contains(e))
     }
 
+    fn stable_compact(insertions: u16, to_delete: Vec<u16>) -> bool {
+        let insertions = insertions + 1;
+        // Create stable vector containing `insertions` zeros. Afterwards, we
+        // remove at most half of those elements
+        let mut sv = StableVec::from(vec![0; insertions as usize]);
+        for i in to_delete {
+            let i = (i % insertions) as usize;
+            if sv.exists(i) {
+                sv.remove(i);
+            }
+        }
+
+        // Remember the number of elements before and call compact.
+        let sv_before = sv.clone();
+        let items_before: Vec<_> = sv_before.iter().cloned().collect();
+        let n_before_compact = sv.num_elements();
+        sv.stable_compact();
+
+
+        n_before_compact == sv.num_elements()
+            && sv.is_compact()
+            && (0..n_before_compact).all(|i| sv.get(i).is_some())
+            && sv == items_before
+    }
+
     fn from_and_extend_and_from_iter(items: Vec<u8>) -> bool {
         use std::iter::FromIterator;
 

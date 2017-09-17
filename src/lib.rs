@@ -348,7 +348,7 @@ impl<T> StableVec<T> {
     /// `Vec<T>` that holds the actual data.
     ///
     /// If you want to compact this `StableVec` by removing deleted elements,
-    /// use the method [`compact()`](#method.compact) instead.
+    /// use the method [`make_compact()`](#method.make_compact) instead.
     pub fn shrink_to_fit(&mut self) {
         self.data.shrink_to_fit();
     }
@@ -360,8 +360,10 @@ impl<T> StableVec<T> {
     /// afterwards to actually free memory previously used by removed elements.
     /// This method itself does not deallocate any memory.
     ///
-    /// In comparison to [`compact()`](#method.compact), this method does not
-    /// change the order of elements. Due to this, this method is a bit slower.
+    /// In comparison to
+    /// [`reordering_make_compact()`](#method.reordering_make_compact), this
+    /// method does not change the order of elements. Due to this, this method
+    /// is a bit slower.
     ///
     /// # Warning
     ///
@@ -500,7 +502,7 @@ impl<T> StableVec<T> {
     ///
     /// As long as `remove()` is never called, `num_elements()` equals
     /// `next_index()`. Once it is called, `num_elements()` will always be less
-    /// than `next_index()` (assuming `compact()` is not called).
+    /// than `next_index()` (assuming `make_compact()` is not called).
     ///
     /// # Example
     ///

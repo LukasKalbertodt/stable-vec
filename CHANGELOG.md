@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Added `FromIterator` impl for `StableVec`
 - Added `Extend` impl for `StableVec`
 - Added `Debug` impl for `StableVec` with a fitting example
+- Added `PartialEq` impls to compare a `StableVec` with slices and `Vec`s
 
 
 ## [0.1.2] - 2017-09-15

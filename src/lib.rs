@@ -557,7 +557,7 @@ impl<T> StableVec<T> {
     ///     *e *= 2.0;
     /// }
     ///
-    /// assert_eq!(sv.into_vec(), vec![2.0, 4.0, 6.0]);
+    /// assert_eq!(sv, &[2.0, 4.0, 6.0] as &[_]);
     /// ```
     ///
     /// As mentioned above, you can remove elements from the stable vector
@@ -577,7 +577,7 @@ impl<T> StableVec<T> {
     ///     }
     /// }
     ///
-    /// assert_eq!(sv.into_vec(), vec![2.0, 6.0]);
+    /// assert_eq!(sv, &[2.0, 6.0] as &[_]);
     /// ```
     pub fn iter_mut(&mut self) -> IterMut<T> {
         IterMut {
@@ -909,5 +909,34 @@ impl<T: fmt::Debug> fmt::Debug for StableVec<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "StableVec ")?;
         f.debug_list().entries(self).finish()
+    }
+}
+
+impl<A, B> PartialEq<[B]> for StableVec<A>
+    where A: PartialEq<B>,
+{
+    fn eq(&self, other: &[B]) -> bool {
+        for (i, e) in self.iter().enumerate() {
+            if e != &other[i] {
+                return false;
+            }
+        }
+        true
+    }
+}
+
+impl<'other, A, B> PartialEq<&'other [B]> for StableVec<A>
+    where A: PartialEq<B>,
+{
+    fn eq(&self, other: & &'other [B]) -> bool {
+        self == *other
+    }
+}
+
+impl<A, B> PartialEq<Vec<B>> for StableVec<A>
+    where A: PartialEq<B>,
+{
+    fn eq(&self, other: &Vec<B>) -> bool {
+        self == &other[..]
     }
 }

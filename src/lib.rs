@@ -367,7 +367,8 @@ impl<T> StableVec<T> {
     ///
     /// # Warning
     ///
-    /// This method invalidates all indices!
+    /// This method invalidates the indices of all elements that are stored
+    /// after the first hole in the stable vector!
     pub fn make_compact(&mut self) {
         if self.is_compact() {
             return;
@@ -426,8 +427,8 @@ impl<T> StableVec<T> {
     ///
     /// # Warning
     ///
-    /// This method invalidates all indices and it does not preserve the order
-    /// of elements!
+    /// This method invalidates the indices of all elements that are stored
+    /// after the first hole and it does not preserve the order of elements!
     pub fn reordering_make_compact(&mut self) {
         if self.is_compact() {
             return;

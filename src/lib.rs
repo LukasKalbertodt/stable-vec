@@ -767,24 +767,9 @@ pub struct Iter<'a, T: 'a> {
 
 impl<'a, T: 'a> Iterator for Iter<'a, T> {
     type Item = &'a T;
-
     fn next(&mut self) -> Option<Self::Item> {
-        // First, we advance until we have found an existing element or until
-        // we have reached the end of all elements.
-        while self.pos < self.sv.deleted.len() && self.sv.deleted[self.pos] {
-            self.pos += 1;
-        }
-
-        // Next, we check whether we are at the very end.
-        if self.pos == self.sv.data.len() {
-            None
-        } else {
-            // Advance the iterator by one.
-            self.pos += 1;
-
-            // Return current element.
-            Some(&self.sv.data[self.pos - 1])
-        }
+        next_valid_index(&mut self.pos, &self.sv.deleted)
+            .map(|i| &self.sv.data[i])
     }
 }
 
@@ -832,22 +817,34 @@ pub struct Keys<'a> {
 
 impl<'a> Iterator for Keys<'a> {
     type Item = usize;
-
     fn next(&mut self) -> Option<Self::Item> {
-        // First, we advance until we have found an existing element or until
-        // we have reached the end of all elements.
-        while self.pos < self.deleted.len() && self.deleted[self.pos] {
-            self.pos += 1;
-        }
+        next_valid_index(&mut self.pos, self.deleted)
+    }
+}
 
-        // Next, we check whether we are at the very end.
-        if self.pos == self.deleted.len() {
-            None
-        } else {
-            // Advance the iterator by one and return current position.
-            self.pos += 1;
-            Some(self.pos - 1)
-        }
+/// Advances the index `pos` while it points to a deleted element. Stops
+/// advancing once an existing element is found or the end is reached. In the
+/// former case, this element's index is returned; in the latter case, `None`
+/// is returned.
+///
+/// After this function was called, the value of `pos` is:
+///
+/// - `i + 1` if `Some(i)` was returned
+/// - `deleted.len()` if `None` was returned
+fn next_valid_index(pos: &mut usize, deleted: &BitVec) -> Option<usize> {
+    // First, we advance until we have found an existing element or until
+    // we have reached the end of all elements.
+    while *pos < deleted.len() && deleted[*pos] {
+        *pos += 1;
+    }
+
+    // Next, we check whether we are at the very end.
+    if *pos == deleted.len() {
+        None
+    } else {
+        // Advance by one and return current position.
+        *pos += 1;
+        Some(*pos - 1)
     }
 }
 

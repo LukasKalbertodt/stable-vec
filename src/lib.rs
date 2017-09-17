@@ -548,6 +548,39 @@ impl<T> StableVec<T> {
         }
     }
 
+    /// Returns an iterator over all valid indices of this stable vector.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::from(&['a', 'b', 'c', 'd']);
+    /// sv.remove(1);
+    ///
+    /// let mut it = sv.keys();
+    /// assert_eq!(it.next(), Some(0));
+    /// assert_eq!(it.next(), Some(2));
+    /// assert_eq!(it.next(), Some(3));
+    /// assert_eq!(it.next(), None);
+    /// ```
+    ///
+    /// Simply using the `for`-loop:
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::from(&['a', 'b', 'c', 'd']);
+    ///
+    /// for index in sv.keys() {
+    ///     println!("index: {}", index);
+    /// }
+    /// ```
+    pub fn keys(&self) -> Keys {
+        Keys {
+            deleted: &self.deleted,
+            pos: 0,
+        }
+    }
+
     /// Returns `true` if the stable vector contains an element with the given
     /// value, `false` otherwise.
     ///
@@ -784,6 +817,36 @@ impl<'a, T> Iterator for IterMut<'a, T> {
             // Advance the iterator by one and return current element.
             self.pos += 1;
             self.vec_iter.next()
+        }
+    }
+}
+
+/// Iterator over all valid indices of a `StableVec`.
+///
+/// Use the method [`StableVec::keys()`](struct.StableVec.html#method.keys) to
+/// obtain an iterator of this kind.
+pub struct Keys<'a> {
+    deleted: &'a BitVec,
+    pos: usize,
+}
+
+impl<'a> Iterator for Keys<'a> {
+    type Item = usize;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // First, we advance until we have found an existing element or until
+        // we have reached the end of all elements.
+        while self.pos < self.deleted.len() && self.deleted[self.pos] {
+            self.pos += 1;
+        }
+
+        // Next, we check whether we are at the very end.
+        if self.pos == self.deleted.len() {
+            None
+        } else {
+            // Advance the iterator by one and return current position.
+            self.pos += 1;
+            Some(self.pos - 1)
         }
     }
 }

@@ -6,11 +6,31 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.2.0] - 2017-09-17
+### Added
+- Added method overview in documentation
+- `StableVec::contains()`
+- `StableVec::into_vec()`
+- `StableVec::retain()`
+- `StableVec::make_compact()`
+- `StableVec::keys()` with `Keys` iterator
+- `IterMut::remove_current()`
+- `impl<T> Default for StableVec<T>`
+- Added `FromIterator` impl for `StableVec`
+- Added `Extend` impl for `StableVec`
+- Added `Debug` impl for `StableVec` with a fitting example
+- Added `PartialEq` impls to compare a `StableVec` with slices and `Vec`s
+
+### Changed
+- Renamed `compact()` to `reordering_make_compact()`: changing element order by
+  default is a bad idea. Instead `make_compact()` should be used to preserve
+  order.
+- Renamed `exists()` to `has_element_at()`
+
 ## [0.1.2] - 2017-09-15
 ### Fixed
 - Travis-CI badge entry in `Cargo.toml`
 - Warning in example
-
 
 ## [0.1.1] - 2017-09-15
 ### Added
@@ -30,6 +50,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Everything.
 
 
-[Unreleased]: https://github.com/LukasKalbertodt/stable-vec/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/LukasKalbertodt/stable-vec/compare/v0.2.0...HEAD
+[0.2.ß]: https://github.com/LukasKalbertodt/stable-vec/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/LukasKalbertodt/stable-vec/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/LukasKalbertodt/stable-vec/compare/v0.1.0...v0.1.1

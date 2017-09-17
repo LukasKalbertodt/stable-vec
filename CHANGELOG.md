@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - `StableVec::contains()`
 - `StableVec::into_vec()`
 - `StableVec::retain()`
-- `StableVec::stable_compact()`
+- `StableVec::make_compact()`
 - `StableVec::keys()` with `Keys` iterator
 - `IterMut::remove_current()`
 - `impl<T> Default for StableVec<T>`
@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Added `Debug` impl for `StableVec` with a fitting example
 - Added `PartialEq` impls to compare a `StableVec` with slices and `Vec`s
 
+### Changed
+- Renamed `compact()` to `reordering_make_compact()`: changing element order by
+  default is a bad idea. Instead `make_compact()` should be used to preserve
+  order.
 
 ## [0.1.2] - 2017-09-15
 ### Fixed

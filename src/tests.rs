@@ -1,7 +1,7 @@
 use super::StableVec;
 
 quickcheck! {
-    fn compact(insertions: u16, to_delete: Vec<u16>) -> bool {
+    fn reordering_compact(insertions: u16, to_delete: Vec<u16>) -> bool {
         let insertions = insertions + 1;
         // Create stable vector containing `insertions` zeros. Afterwards, we
         // remove at most half of those elements
@@ -16,7 +16,7 @@ quickcheck! {
         // Remember the number of elements before and call compact.
         let sv_before = sv.clone();
         let n_before_compact = sv.num_elements();
-        sv.compact();
+        sv.reordering_make_compact();
 
         n_before_compact == sv.num_elements()
             && sv.is_compact()
@@ -24,7 +24,7 @@ quickcheck! {
             && sv_before.iter().all(|e| sv.contains(e))
     }
 
-    fn stable_compact(insertions: u16, to_delete: Vec<u16>) -> bool {
+    fn compact(insertions: u16, to_delete: Vec<u16>) -> bool {
         let insertions = insertions + 1;
         // Create stable vector containing `insertions` zeros. Afterwards, we
         // remove at most half of those elements
@@ -40,7 +40,7 @@ quickcheck! {
         let sv_before = sv.clone();
         let items_before: Vec<_> = sv_before.iter().cloned().collect();
         let n_before_compact = sv.num_elements();
-        sv.stable_compact();
+        sv.make_compact();
 
 
         n_before_compact == sv.num_elements()
@@ -77,6 +77,6 @@ fn compact_tiny() {
     sv.remove(1);
     assert!(!sv.is_compact());
 
-    sv.compact();
+    sv.make_compact();
     assert_eq!(sv.into_vec(), &[1.0, 3.0]);
 }

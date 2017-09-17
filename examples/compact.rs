@@ -25,7 +25,7 @@ fn main() {
 
     let n_before_compact = sv.num_elements();
 
-    sv.compact();
+    sv.make_compact();
     println!("--- after compact():");
     for i in 0..sv.next_index() {
         println!("{} -> {:?}", i, sv.get(i));

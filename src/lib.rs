@@ -351,18 +351,24 @@ impl<T> StableVec<T> {
         self.data.shrink_to_fit();
     }
 
-    /// Rearranges elements to reclaim memory. **Invalidates indices!**
+    /// Rearranges elements to reclaim memory. **Invalidates indices and
+    /// changes the order of the elements!**
     ///
     /// After calling this method, all existing elements stored contiguously
     /// in memory. You might want to call [`shrink_to_fit()`](#method.shrink_to_fit)
     /// afterwards to actually free memory previously used by removed elements.
     /// This method itself does not deallocate any memory.
     ///
+    /// If you do need to preserve the order of elements, use
+    /// [`make_compact()`](#method.make_compact) instead. However, if you don't
+    /// care about element order, you should prefer using this method, because
+    /// it is faster.
+    ///
     /// # Warning
     ///
-    /// This method invalidates all indices! It does not even preserve the
-    /// order of elements.
-    pub fn compact(&mut self) {
+    /// This method invalidates all indices and it does not preserve the order
+    /// of elements!
+    pub fn reordering_make_compact(&mut self) {
         if self.is_compact() {
             return;
         }
@@ -425,7 +431,7 @@ impl<T> StableVec<T> {
     /// # Warning
     ///
     /// This method invalidates all indices!
-    pub fn stable_compact(&mut self) {
+    pub fn make_compact(&mut self) {
         if self.is_compact() {
             return;
         }
@@ -703,18 +709,16 @@ impl<T> StableVec<T> {
     ///
     /// Returns a vector which contains all existing elements from this stable
     /// vector. **All indices might be invalidated!** This method might call
-    /// [`compact()`](#method.compact); see that method's documentation to
-    /// learn about the effects on indices.
+    /// [`make_compact()`](#method.make_compact); see that method's
+    /// documentation to learn about the effects on indices.
     ///
     /// This method does not allocate memory.
-    ///
     ///
     /// # Note
     ///
     /// If the stable vector is not compact (as defined by `is_compact()`), the
-    /// runtime complexity of this function is O(n), because `compact()` needs
-    /// to be called.
-    ///
+    /// runtime complexity of this function is O(n), because `make_compact()`
+    /// needs to be called.
     ///
     /// # Example
     ///
@@ -727,7 +731,7 @@ impl<T> StableVec<T> {
     /// ```
     pub fn into_vec(mut self) -> Vec<T> {
         // Compact the stable vec to prepare the `data` vector for moving.
-        self.compact();
+        self.make_compact();
 
         // We reset all values to the "empty state" here. This is necessary to
         // make sure the `drop()` impl doesn't do anything (except for actually

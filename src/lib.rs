@@ -683,6 +683,31 @@ impl<T> StableVec<T> {
         // with an empty vector. After this line, `self` is dropped.
         mem::replace(&mut self.data, Vec::new())
     }
+
+    /// Retains only the elements specified by the given predicate.
+    ///
+    /// Each element `e` for which `predicate(&e)` returns `false` is removed
+    /// from the stable vector.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::from(&[1, 2, 3, 4, 5]);
+    /// sv.retain(|&e| e % 2 == 0);
+    ///
+    /// assert_eq!(sv, &[2, 4] as &[_]);
+    /// ```
+    pub fn retain<P>(&mut self, mut predicate: P)
+        where P: FnMut(&T) -> bool,
+    {
+        let mut it = self.iter_mut();
+        while let Some(e) = it.next() {
+            if !predicate(e) {
+                it.remove_current();
+            }
+        }
+    }
 }
 
 impl<T> Drop for StableVec<T> {

@@ -8,7 +8,7 @@ quickcheck! {
         let mut sv = StableVec::from(vec![0; insertions as usize]);
         for i in to_delete {
             let i = (i % insertions) as usize;
-            if sv.exists(i) {
+            if sv.has_element_at(i) {
                 sv.remove(i);
             }
         }
@@ -31,7 +31,7 @@ quickcheck! {
         let mut sv = StableVec::from(vec![0; insertions as usize]);
         for i in to_delete {
             let i = (i % insertions) as usize;
-            if sv.exists(i) {
+            if sv.has_element_at(i) {
                 sv.remove(i);
             }
         }

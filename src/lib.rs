@@ -138,10 +138,11 @@ mod tests;
 ///
 /// **Stable vector specific**
 ///
-/// - [`exists()`](#method.exists)
-/// - [`compact()`](#method.compact)
-/// - [`is_compact()`](#method.is_compact)
+/// - [`has_element_at()`](#method.has_element_at)
 /// - [`next_index()`](#method.next_index)
+/// - [`is_compact()`](#method.is_compact)
+/// - [`make_compact()`](#method.make_compact)
+/// - [`reordering_make_compact()`](#method.reordering_make_compact)
 ///
 /// **Number of elements**
 ///
@@ -246,8 +247,9 @@ impl<T> StableVec<T> {
         self.remove(last_index)
     }
 
-    /// Removes and returns the element at position `index` if there
-    /// [`exists()`](#method.exists) an element at that index.
+    /// Removes and returns the element at position `index` if there exists an
+    /// element at that index (as defined by
+    /// [`has_element_at()`](#method.has_element_at)).
     ///
     /// Removing an element only marks it as "deleted" without touching the
     /// actual data. In particular, the elements after the given index are
@@ -271,7 +273,7 @@ impl<T> StableVec<T> {
     /// assert_eq!(sv.remove(heart_idx), None); // the heart was already removed
     /// ```
     pub fn remove(&mut self, index: usize) -> Option<T> {
-        if self.exists(index) {
+        if self.has_element_at(index) {
             // We move the requested element out of our `data` vector. Usually,
             // it's impossible to move out of a vector without removing the
             // element in the vector. We can achieve it by using unsafe code:
@@ -296,7 +298,7 @@ impl<T> StableVec<T> {
     /// If you are calling `unwrap()` on the result of this method anyway,
     /// rather use the index operator instead: `stable_vec[index]`.
     pub fn get(&self, index: usize) -> Option<&T> {
-        if self.exists(index) {
+        if self.has_element_at(index) {
             Some(&self.data[index])
         } else {
             None
@@ -309,7 +311,7 @@ impl<T> StableVec<T> {
     /// If you are calling `unwrap()` on the result of this method anyway,
     /// rather use the index operator instead: `stable_vec[index]`.
     pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
-        if self.exists(index) {
+        if self.has_element_at(index) {
             Some(&mut self.data[index])
         } else {
             None
@@ -327,15 +329,15 @@ impl<T> StableVec<T> {
     /// ```
     /// # use stable_vec::StableVec;
     /// let mut sv = StableVec::new();
-    /// assert!(!sv.exists(3));         // no: index out of bounds
+    /// assert!(!sv.has_element_at(3));         // no: index out of bounds
     ///
     /// let heart_idx = sv.push('♥');
-    /// assert!(sv.exists(heart_idx));  // yes
+    /// assert!(sv.has_element_at(heart_idx));  // yes
     ///
     /// sv.remove(heart_idx);
-    /// assert!(!sv.exists(heart_idx)); // no: was removed
+    /// assert!(!sv.has_element_at(heart_idx)); // no: was removed
     /// ```
-    pub fn exists(&self, index: usize) -> bool {
+    pub fn has_element_at(&self, index: usize) -> bool {
         index < self.data.len() && !self.deleted[index]
     }
 
@@ -799,7 +801,7 @@ impl<T> Index<usize> for StableVec<T> {
     type Output = T;
 
     fn index(&self, index: usize) -> &T {
-        assert!(self.exists(index));
+        assert!(self.has_element_at(index));
 
         &self.data[index]
     }
@@ -807,7 +809,7 @@ impl<T> Index<usize> for StableVec<T> {
 
 impl<T> IndexMut<usize> for StableVec<T> {
     fn index_mut(&mut self, index: usize) -> &mut T {
-        assert!(self.exists(index));
+        assert!(self.has_element_at(index));
 
         &mut self.data[index]
     }

@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Renamed `compact()` to `reordering_make_compact()`: changing element order by
   default is a bad idea. Instead `make_compact()` should be used to preserve
   order.
+- Renamed `exists()` to `has_element_at()`
 
 ## [0.1.2] - 2017-09-15
 ### Fixed

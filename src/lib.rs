@@ -11,7 +11,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! stable_vec = "0.1"
+//! stable_vec = "0.2"
 //! ```
 //!
 //! ... as well as declare it at your crate root:

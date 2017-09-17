@@ -41,3 +41,15 @@ quickcheck! {
             && sv_a == sv_c
     }
 }
+
+#[test]
+fn compact_tiny() {
+    let mut sv = StableVec::from(&[1.0, 2.0, 3.0]);
+    assert!(sv.is_compact());
+
+    sv.remove(1);
+    assert!(!sv.is_compact());
+
+    sv.compact();
+    assert_eq!(sv.into_vec(), &[1.0, 3.0]);
+}

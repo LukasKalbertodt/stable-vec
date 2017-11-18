@@ -785,12 +785,19 @@ impl<T> Drop for StableVec<T> {
         // To achieve all this, we manually drop all remaining elements, then
         // tell the Vec that its length is 0 (its capacity stays the same!) and
         // let the Vec drop itself in the end.
-        let living_indices = self.deleted.iter()
-            .enumerate()
-            .filter_map(|(i, deleted)| if deleted { None } else { Some(i) });
-        for i in living_indices {
-            unsafe {
-                ptr::drop_in_place(&mut self.data[i]);
+        //
+        // When `T` doesn't need to be dropped, we can skip this next step.
+        // While `ptr::drop_in_place()` already uses the `mem::needs_drop()`
+        // check, it's still useful to check it here, to avoid executing these
+        // two loops completely.
+        if mem::needs_drop::<T>() {
+            let living_indices = self.deleted.iter()
+                .enumerate()
+                .filter_map(|(i, deleted)| if deleted { None } else { Some(i) });
+            for i in living_indices {
+                unsafe {
+                    ptr::drop_in_place(&mut self.data[i]);
+                }
             }
         }
 

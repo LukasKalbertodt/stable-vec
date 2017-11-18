@@ -38,6 +38,8 @@ use std::ptr;
 #[cfg(test)]
 mod tests;
 
+pub mod jailed;
+
 
 /// A `Vec<T>`-like collection which guarantees stable indices and features
 /// O(1) deletion of elements.

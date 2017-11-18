@@ -1,6 +1,7 @@
 # stable-vec
 [![Build Status](https://img.shields.io/travis/LukasKalbertodt/stable-vec/master.svg)](https://travis-ci.org/LukasKalbertodt/stable-vec)
 [![crates.io version](https://img.shields.io/crates/v/stable-vec.svg)](https://crates.io/crates/stable-vec)
+[![docs](https://docs.rs/stable-vec/badge.svg)](https://docs.rs/stable-vec)
 
 A `Vec<T>`-like collection which guarantees stable indices and features O(1)
 deletion of elements at the cost of wasting some memory. Please refer to the

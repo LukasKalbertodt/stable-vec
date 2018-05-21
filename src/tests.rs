@@ -80,3 +80,22 @@ fn compact_tiny() {
     sv.make_compact();
     assert_eq!(sv.into_vec(), &[1.0, 3.0]);
 }
+
+#[test]
+fn insert_into_hole() {
+    let mut sv = StableVec::from(&['a', 'b']);
+    sv.reserve(10);
+
+    assert_eq!(sv.insert_into_hole(0, 'c'), Err('c'));
+    assert_eq!(sv.insert_into_hole(1, 'c'), Err('c'));
+    assert_eq!(sv.insert_into_hole(2, 'c'), Err('c'));
+
+    sv.remove(1);
+
+    assert_eq!(sv.insert_into_hole(0, 'c'), Err('c'));
+    assert_eq!(sv.insert_into_hole(1, 'c'), Ok(()));
+    assert_eq!(sv.insert_into_hole(1, 'd'), Err('d'));
+    assert_eq!(sv.insert_into_hole(2, 'c'), Err('c'));
+
+    assert_eq!(sv.into_vec(), &['a', 'c']);
+}

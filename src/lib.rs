@@ -247,6 +247,51 @@ impl<T> StableVec<T> {
         self.remove(last_index)
     }
 
+    /// Inserts the given value at the given index if there is a hole there.
+    ///
+    /// If there is an element marked as "deleted" at `index`, the `elem` is
+    /// inserted at that position and `Ok(())` is returned. If `index` is out of
+    /// bounds or there is an existing element at that position, the vector is
+    /// not changed and `elem` is returned as `Err(elem)`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::new();
+    /// let star_idx = sv.push('★');
+    /// let heart_idx = sv.push('♥');
+    ///
+    /// // Inserting fails: there isn't a hole yet.
+    /// assert_eq!(sv.insert_into_hole(star_idx, 'x'), Err('x'));
+    /// assert_eq!(sv.num_elements(), 2);
+    ///
+    /// // After removing the star...
+    /// sv.remove(star_idx);
+    /// assert_eq!(sv.num_elements(), 1);
+    ///
+    /// // ...we can insert a new element at its place.
+    /// assert_eq!(sv.insert_into_hole(star_idx, 'x'), Ok(()));
+    /// assert_eq!(sv[star_idx], 'x');
+    /// assert_eq!(sv.num_elements(), 2);
+    /// ```
+    pub fn insert_into_hole(&mut self, index: usize, elem: T) -> Result<(), T> {
+        // If the index is out of bounds or if the element at the given index
+        // has not been marked as deleted, we cannot insert the new element.
+        if index >= self.data.len() || !self.deleted[index] {
+            Err(elem)
+        } else {
+            // We overwrite the removed element with the new one
+            unsafe {
+                ptr::write(&mut self.data[index], elem);
+                self.deleted.set(index, false);
+            }
+            self.used_count += 1;
+
+            Ok(())
+        }
+    }
+
     /// Removes and returns the element at position `index` if there exists an
     /// element at that index (as defined by
     /// [`has_element_at()`](#method.has_element_at)).

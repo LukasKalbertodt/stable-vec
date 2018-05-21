@@ -292,6 +292,43 @@ impl<T> StableVec<T> {
         }
     }
 
+    /// Grows the size of the stable vector by inserting deleted elements.
+    ///
+    /// This method does not add existing elements, but merely "deleted" ones.
+    /// Using this only makes sense when you are intending to use the holes
+    /// with [`insert_into_hole()`](#method.insert_into_hole) later. Otherwise,
+    /// this method will just waste memory.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::new();
+    /// let star_idx = sv.push('★');
+    ///
+    /// // After we inserted one element, the next element sits at index 1, as
+    /// // expected.
+    /// assert_eq!(sv.next_index(), 1);
+    ///
+    /// sv.grow(2); // insert two deleted elements
+    ///
+    /// assert_eq!(sv.num_elements(), 1); // Still only one existing element
+    /// assert_eq!(sv.next_index(), 3); // Due to grow(2), we skip two indices
+    ///
+    /// // Now we can insert an element at index 2.
+    /// sv.insert_into_hole(2, 'x').unwrap();
+    /// assert_eq!(sv.num_elements(), 2);
+    /// ```
+    pub fn grow(&mut self, count: usize) {
+        self.data.reserve(count);
+        let new_len = self.data.len() + count;
+
+        unsafe {
+            self.deleted.grow(count, true);
+            self.data.set_len(new_len);
+        }
+    }
+
     /// Removes and returns the element at position `index` if there exists an
     /// element at that index (as defined by
     /// [`has_element_at()`](#method.has_element_at)).

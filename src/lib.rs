@@ -238,7 +238,8 @@ impl<T> StableVec<T> {
     /// has a worst case time complexity of O(n). If you already know the
     /// index, use [`remove()`](#method.remove) instead.
     pub fn pop(&mut self) -> Option<T> {
-        let last_index = self.deleted.iter()
+        let last_index = self.deleted
+            .iter()
             .enumerate()
             .rev()
             .find(|&(_, deleted)| !deleted)
@@ -678,10 +679,7 @@ impl<T> StableVec<T> {
     /// }
     /// ```
     pub fn iter(&self) -> Iter<T> {
-        Iter {
-            sv: self,
-            pos: 0,
-        }
+        Iter { sv: self, pos: 0 }
     }
 
     /// Returns an iterator over mutable references to the existing elements
@@ -782,7 +780,8 @@ impl<T> StableVec<T> {
     /// assert!(!sv.contains(&'b'));
     /// ```
     pub fn contains<U>(&self, item: &U) -> bool
-        where U: PartialEq<T>
+    where
+        U: PartialEq<T>,
     {
         for e in self {
             if item == e {
@@ -846,7 +845,8 @@ impl<T> StableVec<T> {
     /// assert_eq!(sv, &[2, 4] as &[_]);
     /// ```
     pub fn retain<P>(&mut self, mut predicate: P)
-        where P: FnMut(&T) -> bool,
+    where
+        P: FnMut(&T) -> bool,
     {
         let mut it = self.iter_mut();
         while let Some(e) = it.next() {
@@ -873,9 +873,11 @@ impl<T> Drop for StableVec<T> {
         // check, it's still useful to check it here, to avoid executing these
         // two loops completely.
         if mem::needs_drop::<T>() {
-            let living_indices = self.deleted.iter()
-                .enumerate()
-                .filter_map(|(i, deleted)| if deleted { None } else { Some(i) });
+            let living_indices =
+                self.deleted
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(i, deleted)| if deleted { None } else { Some(i) });
             for i in living_indices {
                 unsafe {
                     ptr::drop_in_place(&mut self.data[i]);
@@ -914,8 +916,9 @@ impl<T> Default for StableVec<T> {
 }
 
 impl<T, S> From<S> for StableVec<T>
-    where S: AsRef<[T]>,
-          T: Clone
+where
+    S: AsRef<[T]>,
+    T: Clone,
 {
     fn from(slice: S) -> Self {
         let len = slice.as_ref().len();
@@ -929,7 +932,8 @@ impl<T, S> From<S> for StableVec<T>
 
 impl<T> FromIterator<T> for StableVec<T> {
     fn from_iter<I>(iter: I) -> Self
-        where I: IntoIterator<Item = T>
+    where
+        I: IntoIterator<Item = T>,
     {
         let data = Vec::from_iter(iter);
         Self {
@@ -942,7 +946,8 @@ impl<T> FromIterator<T> for StableVec<T> {
 
 impl<T> Extend<T> for StableVec<T> {
     fn extend<I>(&mut self, iter: I)
-        where I: IntoIterator<Item = T>
+    where
+        I: IntoIterator<Item = T>,
     {
         // This implementation is not completely exception safe. If the
         // `self.data.extend()` call panics, we won't drop any of the new
@@ -1092,7 +1097,8 @@ impl<T: fmt::Debug> fmt::Debug for StableVec<T> {
 }
 
 impl<A, B> PartialEq<[B]> for StableVec<A>
-    where A: PartialEq<B>,
+where
+    A: PartialEq<B>,
 {
     fn eq(&self, other: &[B]) -> bool {
         for (i, e) in self.iter().enumerate() {
@@ -1105,15 +1111,17 @@ impl<A, B> PartialEq<[B]> for StableVec<A>
 }
 
 impl<'other, A, B> PartialEq<&'other [B]> for StableVec<A>
-    where A: PartialEq<B>,
+where
+    A: PartialEq<B>,
 {
-    fn eq(&self, other: & &'other [B]) -> bool {
+    fn eq(&self, other: &&'other [B]) -> bool {
         self == *other
     }
 }
 
 impl<A, B> PartialEq<Vec<B>> for StableVec<A>
-    where A: PartialEq<B>,
+where
+    A: PartialEq<B>,
 {
     fn eq(&self, other: &Vec<B>) -> bool {
         self == &other[..]

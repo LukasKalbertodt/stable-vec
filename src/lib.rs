@@ -628,6 +628,27 @@ impl<T> StableVec<T> {
         self.used_count == 0
     }
 
+    /// Removes all elements from this collection.
+    ///
+    /// After calling this, `num_elements()` will return 0. However, no memory
+    /// is deallocated, so the capacity stays as it was before.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::from(&['a', 'b']);
+    ///
+    /// sv.clear();
+    /// assert_eq!(sv.num_elements(), 0);
+    /// assert!(sv.capacity() >= 2);
+    /// ```
+    pub fn clear(&mut self) {
+        self.data.clear();
+        self.deleted.truncate(0);
+        self.used_count = 0;
+    }
+
     /// Returns the number of elements the stable-vector can hold without
     /// reallocating.
     pub fn capacity(&self) -> usize {

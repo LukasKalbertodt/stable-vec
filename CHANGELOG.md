@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 - `StableVec::insert_into_hole()`
 - `StableVec::grow()`
+- `StableVec::clear()`
 
 ### Changed
 - The `Drop` impl now uses the `mem::needs_drop()` optimization hint to avoid

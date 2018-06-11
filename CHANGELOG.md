@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
 - The `Drop` impl now uses the `mem::needs_drop()` optimization hint to avoid
   unnecessary overhead.
+- Updated `bit-vec` from `0.4` to `0.5`
 
 ## [0.2.0] - 2017-09-17
 ### Added

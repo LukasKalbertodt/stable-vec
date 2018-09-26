@@ -22,6 +22,8 @@
 //! use stable_vec::StableVec;
 //! ```
 
+#![deny(missing_debug_implementations)]
+
 extern crate bit_vec;
 #[cfg(test)]
 #[macro_use]
@@ -32,6 +34,7 @@ use bit_vec::BitVec;
 use std::fmt;
 use std::iter::FromIterator;
 use std::mem;
+use std::io;
 use std::ops::{Index, IndexMut};
 use std::ptr;
 
@@ -189,6 +192,33 @@ impl<T> StableVec<T> {
             data: Vec::with_capacity(capacity),
             deleted: BitVec::with_capacity(capacity),
             used_count: 0,
+        }
+    }
+
+    /// Creates a `StableVec<T>` from the given `Vec<T>`. The elements are not
+    /// copied and the indices of the vector are preserved.
+    ///
+    /// Note that this function will still allocate memory to store meta data.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::from_vec(vec!['★', '♥']);
+    ///
+    /// assert_eq!(sv.get(0), Some(&'★'));
+    /// assert_eq!(sv.get(1), Some(&'♥'));
+    /// assert_eq!(sv.num_elements(), 2);
+    /// assert!(sv.is_compact());
+    ///
+    /// sv.remove(0);
+    /// assert_eq!(sv.get(1), Some(&'♥'));
+    /// ```
+    pub fn from_vec(vec: Vec<T>) -> Self {
+        Self {
+            used_count: vec.len(),
+            deleted: BitVec::from_elem(vec.len(), false),
+            data: vec,
         }
     }
 
@@ -630,8 +660,9 @@ impl<T> StableVec<T> {
 
     /// Removes all elements from this collection.
     ///
-    /// After calling this, `num_elements()` will return 0. However, no memory
-    /// is deallocated, so the capacity stays as it was before.
+    /// After calling this, `num_elements()` will return 0. All indices are
+    /// invalidated. However, no memory is deallocated, so the capacity stays
+    /// as it was before.
     ///
     /// # Example
     ///
@@ -876,6 +907,18 @@ impl<T> StableVec<T> {
             }
         }
     }
+
+    /// Appends all elements in `new_elements` to this `StableVec<T>`. This is
+    /// equivalent to calling [`push()`][StableVec::push] for each element.
+    pub fn extend_from_slice(&mut self, new_elements: &[T])
+    where
+        T: Clone,
+    {
+        // This could be improved for `Copy` elements via specialization.
+        for elem in new_elements {
+            self.push(elem.clone());
+        }
+    }
 }
 
 impl<T> Drop for StableVec<T> {
@@ -984,6 +1027,22 @@ impl<T> Extend<T> for StableVec<T> {
     }
 }
 
+/// Write into `StableVec<u8>` by appending `u8` elements. This is equivalent
+/// to calling `push` for each byte.
+impl io::Write for StableVec<u8> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.extend_from_slice(buf);
+        Ok(buf.len())
+    }
+
+    fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
+        self.extend_from_slice(buf);
+        Ok(())
+    }
+
+    fn flush(&mut self) -> io::Result<()> { Ok(()) }
+}
+
 impl<'a, T> IntoIterator for &'a StableVec<T> {
     type Item = &'a T;
     type IntoIter = Iter<'a, T>;
@@ -1005,6 +1064,7 @@ impl<'a, T> IntoIterator for &'a mut StableVec<T> {
 /// Use the method [`StableVec::iter()`](struct.StableVec.html#method.iter) or
 /// the `IntoIterator` implementation of `&StableVec` to obtain an iterator
 /// of this kind.
+#[derive(Debug)]
 pub struct Iter<'a, T: 'a> {
     sv: &'a StableVec<T>,
     pos: usize,
@@ -1023,6 +1083,7 @@ impl<'a, T: 'a> Iterator for Iter<'a, T> {
 /// Use the method [`StableVec::iter_mut()`](struct.StableVec.html#method.iter_mut)
 /// or the `IntoIterator` implementation of `&mut StableVec` to obtain an
 /// iterator of this kind.
+#[derive(Debug)]
 pub struct IterMut<'a, T: 'a> {
     deleted: &'a mut BitVec,
     used_count: &'a mut usize,
@@ -1072,6 +1133,7 @@ impl<'a, T> Iterator for IterMut<'a, T> {
 ///
 /// Use the method [`StableVec::keys()`](struct.StableVec.html#method.keys) to
 /// obtain an iterator of this kind.
+#[derive(Debug)]
 pub struct Keys<'a> {
     deleted: &'a BitVec,
     pos: usize,

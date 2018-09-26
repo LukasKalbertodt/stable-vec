@@ -660,8 +660,9 @@ impl<T> StableVec<T> {
 
     /// Removes all elements from this collection.
     ///
-    /// After calling this, `num_elements()` will return 0. However, no memory
-    /// is deallocated, so the capacity stays as it was before.
+    /// After calling this, `num_elements()` will return 0. All indices are
+    /// invalidated. However, no memory is deallocated, so the capacity stays
+    /// as it was before.
     ///
     /// # Example
     ///

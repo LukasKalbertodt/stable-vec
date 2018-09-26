@@ -22,6 +22,8 @@
 //! use stable_vec::StableVec;
 //! ```
 
+#![deny(missing_debug_implementations)]
+
 extern crate bit_vec;
 #[cfg(test)]
 #[macro_use]
@@ -1005,6 +1007,7 @@ impl<'a, T> IntoIterator for &'a mut StableVec<T> {
 /// Use the method [`StableVec::iter()`](struct.StableVec.html#method.iter) or
 /// the `IntoIterator` implementation of `&StableVec` to obtain an iterator
 /// of this kind.
+#[derive(Debug)]
 pub struct Iter<'a, T: 'a> {
     sv: &'a StableVec<T>,
     pos: usize,
@@ -1023,6 +1026,7 @@ impl<'a, T: 'a> Iterator for Iter<'a, T> {
 /// Use the method [`StableVec::iter_mut()`](struct.StableVec.html#method.iter_mut)
 /// or the `IntoIterator` implementation of `&mut StableVec` to obtain an
 /// iterator of this kind.
+#[derive(Debug)]
 pub struct IterMut<'a, T: 'a> {
     deleted: &'a mut BitVec,
     used_count: &'a mut usize,
@@ -1072,6 +1076,7 @@ impl<'a, T> Iterator for IterMut<'a, T> {
 ///
 /// Use the method [`StableVec::keys()`](struct.StableVec.html#method.keys) to
 /// obtain an iterator of this kind.
+#[derive(Debug)]
 pub struct Keys<'a> {
     deleted: &'a BitVec,
     pos: usize,

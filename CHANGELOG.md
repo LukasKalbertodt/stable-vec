@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - `StableVec::insert_into_hole()`
 - `StableVec::grow()`
 - `StableVec::clear()`
+- `StableVec::from_vec()`
 - `Debug` implementations for `Iter`, `IterMut` and `Keys`
 
 ### Changed

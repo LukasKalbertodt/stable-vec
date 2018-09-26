@@ -194,6 +194,33 @@ impl<T> StableVec<T> {
         }
     }
 
+    /// Creates a `StableVec<T>` from the given `Vec<T>`. The elements are not
+    /// copied and the indices of the vector are preserved.
+    ///
+    /// Note that this function will still allocate memory to store meta data.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::from_vec(vec!['★', '♥']);
+    ///
+    /// assert_eq!(sv.get(0), Some(&'★'));
+    /// assert_eq!(sv.get(1), Some(&'♥'));
+    /// assert_eq!(sv.num_elements(), 2);
+    /// assert!(sv.is_compact());
+    ///
+    /// sv.remove(0);
+    /// assert_eq!(sv.get(1), Some(&'♥'));
+    /// ```
+    pub fn from_vec(vec: Vec<T>) -> Self {
+        Self {
+            used_count: vec.len(),
+            deleted: BitVec::from_elem(vec.len(), false),
+            data: vec,
+        }
+    }
+
     /// Reserves capacity for at least `additional` more elements to be
     /// inserted.
     pub fn reserve(&mut self, additional: usize) {

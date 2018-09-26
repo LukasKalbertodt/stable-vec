@@ -34,6 +34,7 @@ use bit_vec::BitVec;
 use std::fmt;
 use std::iter::FromIterator;
 use std::mem;
+use std::io;
 use std::ops::{Index, IndexMut};
 use std::ptr;
 
@@ -1023,6 +1024,22 @@ impl<T> Extend<T> for StableVec<T> {
         self.deleted.grow(additional_count, false);
         self.used_count += additional_count;
     }
+}
+
+/// Write into `StableVec<u8>` by appending `u8` elements. This is equivalent
+/// to calling `push` for each byte.
+impl io::Write for StableVec<u8> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.extend_from_slice(buf);
+        Ok(buf.len())
+    }
+
+    fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
+        self.extend_from_slice(buf);
+        Ok(())
+    }
+
+    fn flush(&mut self) -> io::Result<()> { Ok(()) }
 }
 
 impl<'a, T> IntoIterator for &'a StableVec<T> {

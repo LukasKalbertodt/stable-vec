@@ -905,6 +905,18 @@ impl<T> StableVec<T> {
             }
         }
     }
+
+    /// Appends all elements in `new_elements` to this `StableVec<T>`. This is
+    /// equivalent to calling [`push()`][StableVec::push] for each element.
+    pub fn extend_from_slice(&mut self, new_elements: &[T])
+    where
+        T: Clone,
+    {
+        // This could be improved for `Copy` elements via specialization.
+        for elem in new_elements {
+            self.push(elem.clone());
+        }
+    }
 }
 
 impl<T> Drop for StableVec<T> {

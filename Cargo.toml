@@ -23,3 +23,9 @@ bit-vec = "0.5.0"
 
 [dev-dependencies]
 quickcheck = "0.7"
+bencher ="*"
+
+[[bench]]
+path = "benches/benchmark.rs"
+name = "benchmark"
+harness = false

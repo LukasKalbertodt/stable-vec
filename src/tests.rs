@@ -112,3 +112,35 @@ fn insert_into_hole_and_grow() {
     assert_eq!(sv.num_elements(), 3);
     assert_eq!(sv.clone().into_vec(), &['a', 'c', 'd']);
 }
+
+#[test]
+fn size_hints() {
+    let mut sv = StableVec::<()>::new();
+
+    assert_eq!(sv.iter().size_hint(), (0, Some(0)));
+    assert_eq!(sv.iter_mut().size_hint(), (0, Some(0)));
+    assert_eq!(sv.keys().size_hint(), (0, Some(0)));
+
+
+    let mut sv = StableVec::from(&[0, 1, 2, 3, 4]);
+    sv.remove(1);
+
+    macro_rules! check_iter {
+        ($it:expr) => {{
+            let mut it = $it;
+            assert_eq!(it.size_hint(), (4, Some(4)));
+            assert!(it.next().is_some());
+            assert_eq!(it.size_hint(), (3, Some(3)));
+            assert!(it.next().is_some());
+            assert_eq!(it.size_hint(), (2, Some(2)));
+            assert!(it.next().is_some());
+            assert_eq!(it.size_hint(), (1, Some(1)));
+            assert!(it.next().is_some());
+            assert_eq!(it.size_hint(), (0, Some(0)));
+        }}
+    }
+
+    check_iter!(sv.iter());
+    check_iter!(sv.iter_mut());
+    check_iter!(sv.keys());
+}

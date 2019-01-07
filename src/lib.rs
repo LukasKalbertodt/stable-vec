@@ -731,7 +731,7 @@ impl<T> StableVec<T> {
     /// }
     /// ```
     pub fn iter(&self) -> Iter<T> {
-        Iter { sv: self, pos: 0 }
+        Iter { sv: self, pos: 0, count: self.used_count }
     }
 
     /// Returns an iterator over mutable references to the existing elements
@@ -781,6 +781,7 @@ impl<T> StableVec<T> {
     pub fn iter_mut(&mut self) -> IterMut<T> {
         IterMut {
             deleted: &mut self.deleted,
+            count: self.used_count,
             used_count: &mut self.used_count,
             vec_iter: self.data.iter_mut(),
             pos: 0,
@@ -817,6 +818,7 @@ impl<T> StableVec<T> {
         Keys {
             deleted: &self.deleted,
             pos: 0,
+            count: self.used_count,
         }
     }
 
@@ -1068,15 +1070,27 @@ impl<'a, T> IntoIterator for &'a mut StableVec<T> {
 pub struct Iter<'a, T: 'a> {
     sv: &'a StableVec<T>,
     pos: usize,
+    count: usize,
 }
 
 impl<'a, T: 'a> Iterator for Iter<'a, T> {
     type Item = &'a T;
     fn next(&mut self) -> Option<Self::Item> {
-        next_valid_index(&mut self.pos, &self.sv.deleted)
-            .map(|i| &self.sv.data[i])
+        let out = next_valid_index(&mut self.pos, &self.sv.deleted)
+            .map(|i| &self.sv.data[i]);
+        if out.is_some() {
+            self.count -= 1;
+        }
+
+        out
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.count, Some(self.count))
     }
 }
+
+impl<T> ExactSizeIterator for Iter<'_, T> {}
 
 /// Iterator over mutable references to the elements of a `StableVec`.
 ///
@@ -1089,6 +1103,7 @@ pub struct IterMut<'a, T: 'a> {
     used_count: &'a mut usize,
     vec_iter: ::std::slice::IterMut<'a, T>,
     pos: usize,
+    count: usize,
 }
 
 impl<'a, T: 'a> IterMut<'a, T> {
@@ -1124,10 +1139,18 @@ impl<'a, T> Iterator for IterMut<'a, T> {
         } else {
             // Advance the iterator by one and return current element.
             self.pos += 1;
+            self.count -= 1;
             self.vec_iter.next()
         }
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.count, Some(self.count))
+    }
 }
+
+impl<T> ExactSizeIterator for IterMut<'_, T> {}
+
 
 /// Iterator over all valid indices of a `StableVec`.
 ///
@@ -1137,14 +1160,26 @@ impl<'a, T> Iterator for IterMut<'a, T> {
 pub struct Keys<'a> {
     deleted: &'a BitVec,
     pos: usize,
+    count: usize,
 }
 
 impl<'a> Iterator for Keys<'a> {
     type Item = usize;
     fn next(&mut self) -> Option<Self::Item> {
-        next_valid_index(&mut self.pos, self.deleted)
+        let out = next_valid_index(&mut self.pos, self.deleted);
+        if out.is_some() {
+            self.count -= 1;
+        }
+
+        out
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.count, Some(self.count))
     }
 }
+
+impl ExactSizeIterator for Keys<'_> {}
 
 /// Advances the index `pos` while it points to a deleted element. Stops
 /// advancing once an existing element is found or the end is reached. In the

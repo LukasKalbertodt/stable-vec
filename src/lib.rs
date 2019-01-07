@@ -886,8 +886,8 @@ impl<T> StableVec<T> {
 
     /// Retains only the elements specified by the given predicate.
     ///
-    /// Each element `e` for which `predicate(&e)` returns `false` is removed
-    /// from the stable vector.
+    /// Each element `e` for which `should_be_kept(&e)` returns `false` is
+    /// removed from the stable vector.
     ///
     /// # Example
     ///
@@ -898,14 +898,15 @@ impl<T> StableVec<T> {
     ///
     /// assert_eq!(sv, &[2, 4] as &[_]);
     /// ```
-    pub fn retain<P>(&mut self, mut predicate: P)
+    pub fn retain<P>(&mut self, mut should_be_kept: P)
     where
         P: FnMut(&T) -> bool,
     {
-        let mut it = self.iter_mut();
-        while let Some(e) = it.next() {
-            if !predicate(e) {
-                it.remove_current();
+        let mut pos = 0;
+
+        while let Some(idx) = next_valid_index(&mut pos, &self.deleted) {
+            if !should_be_kept(&self[idx]) {
+                self.remove(idx);
             }
         }
     }

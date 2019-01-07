@@ -5,6 +5,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Removed
+- Remove `IterMut::remove_current`. The method was broken because it did not
+  drop the removed value properly. On closer inspection, the method was a bit
+  broken in some other minor other ways because it was badly designed. For now
+  it is just removed and may reappear with good design in the future.
 
 ## [0.2.2] - 2019-01-07
 ### Added

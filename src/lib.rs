@@ -741,10 +741,7 @@ impl<T> StableVec<T> {
     /// `&mut StableVec` to obtain the same iterator.
     ///
     /// Through this iterator, the elements within the stable vector can be
-    /// mutated. Furthermore, you can remove elements from the stable vector
-    /// during iteration by calling
-    /// [`remove_current()`](struct.IterMut.html#method.remove_current) on the
-    /// iterator object.
+    /// mutated.
     ///
     /// # Examples
     ///
@@ -757,26 +754,6 @@ impl<T> StableVec<T> {
     /// }
     ///
     /// assert_eq!(sv, &[2.0, 4.0, 6.0] as &[_]);
-    /// ```
-    ///
-    /// As mentioned above, you can remove elements from the stable vector
-    /// while iterating over it. But you can't use a `for`-loop in this case.
-    ///
-    /// ```
-    /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::from(&[1.0, 2.0, 3.0]);
-    ///
-    /// {
-    ///     let mut it = sv.iter_mut();
-    ///     while let Some(e) = it.next() {
-    ///         if *e == 2.0 {
-    ///             it.remove_current();
-    ///         }
-    ///         *e *= 2.0;
-    ///     }
-    /// }
-    ///
-    /// assert_eq!(sv, &[2.0, 6.0] as &[_]);
     /// ```
     pub fn iter_mut(&mut self) -> IterMut<T> {
         IterMut {
@@ -1105,22 +1082,6 @@ pub struct IterMut<'a, T: 'a> {
     vec_iter: ::std::slice::IterMut<'a, T>,
     pos: usize,
     count: usize,
-}
-
-impl<'a, T: 'a> IterMut<'a, T> {
-    /// Removes the element that was returned by the last `next()` call from
-    /// the underlying stable vector.
-    ///
-    /// # Panic
-    ///
-    /// This method panics if `next()` hasn't been called yet or if `next()`
-    /// returned `None` the last time it was called.
-    pub fn remove_current(&mut self) {
-        assert!(self.pos != 0);
-
-        self.deleted.set(self.pos - 1, true);
-        *self.used_count -= 1;
-    }
 }
 
 impl<'a, T> Iterator for IterMut<'a, T> {

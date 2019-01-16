@@ -7,24 +7,14 @@ extern crate test;
 
 use stable_vec::StableVec;
 
-fn create_sv(a: &mut Bencher) {
-    a.iter(|| {
-        let mut v = Vec::new();
-        for x in 0..1000000 {
-            v.push(x);
-        }
-        let _sv = StableVec::from_vec(v);
-    });
-}
-
 fn clear(a: &mut Bencher) {
+    let mut v = Vec::new();
+    for x in 0..1000000 {
+        v.push(x);
+    }
+    let sv = StableVec::from_vec(v);
     a.iter(|| {
-        let mut v = Vec::new();
-        for x in 0..1000000 {
-            v.push(x);
-        }
-        let mut sv = StableVec::from_vec(v);
-        sv.clear();
+        sv.clone().clear();
     });
 }
 
@@ -131,7 +121,6 @@ fn grow(a: &mut Bencher) {
 }
 benchmark_group!(
     benches,
-    create_sv,
     clear,
     next_large_chunks,
     next_5th_elem_del,

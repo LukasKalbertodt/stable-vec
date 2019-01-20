@@ -1,132 +1,331 @@
-#![feature(test)]
 #[macro_use]
-extern crate bencher;
-use bencher::Bencher;
+extern crate criterion;
 extern crate stable_vec;
-extern crate test;
 
+use criterion::Criterion;
 use stable_vec::StableVec;
+use std::{
+    iter::FromIterator,
+};
 
-fn clear(a: &mut Bencher) {
-    let mut v = Vec::new();
-    for x in 0..1000000 {
-        v.push(x);
-    }
-    let sv = StableVec::from_vec(v);
-    a.iter(|| {
-        sv.clone().clear();
-    });
+
+// ===========================================================================
+// ===== Functions to generate instances with a given size
+// ===========================================================================
+fn full_sv(size: usize) -> StableVec<u32> {
+    (0..size as u32).collect()
 }
 
-//uses next on sv with large chunks of deleted elements
-fn next_large_chunks(a: &mut Bencher) {
-    let mut v = Vec::new();
-    for x in 0..1000000 {
-        v.push(x);
+fn sv_with_hole_in_middle(size: usize) -> StableVec<u32> {
+    let mut sv = full_sv(size);
+    for i in size / 3..2 * size / 3 {
+        sv.remove(i);
     }
-    let mut sv = StableVec::from_vec(v);
-    for x in 0..1000000 {
-        if x < 25000 || (x >= 25001 && x < 100000) {
-            sv.remove(x);
-        }
-    }
-    a.iter(|| {
-        let mut it = sv.iter();
-        assert_eq!(it.next(), Some(&25000));
-        assert_eq!(it.next(), Some(&100000));
-    });
+    sv
 }
 
-//next on sv with every 5th element deleted
-fn next_5th_elem_del(a: &mut Bencher) {
-    let mut v = Vec::new();
-    for x in 0..1000000 {
-        v.push(x);
+fn sv_with_hole_every_fifth(size: usize) -> StableVec<u32> {
+    let mut sv = full_sv(size);
+    for i in (0..size).step_by(5) {
+        sv.remove(i);
     }
-    let mut sv = StableVec::from_vec(v);
-
-    for i in 0..1000000 {
-        if i % 5 == 0 {
-            sv.remove(i);
-        }
-    }
-
-    a.iter(|| {
-        let mut itr = sv.iter();
-        while itr.next() != None {}
-    });
+    sv
 }
 
-//next on sv with all but 5th elements deleted
-fn next_only_5th(a: &mut Bencher) {
-    let mut v = Vec::new();
-    for x in 0..10000 {
-        v.push(x);
-    }
-    let mut sv = StableVec::from_vec(v);
-    for i in 0..10000 {
+fn sv_with_element_every_fifth(size: usize) -> StableVec<u32> {
+    let mut sv = full_sv(size);
+    for i in 0..size {
         if i % 5 != 0 {
             sv.remove(i);
         }
     }
-
-    a.iter(|| {
-        let mut itr = sv.iter();
-        while itr.next() != None {}
-    });
+    sv
 }
 
-//next on sv with no deleted elements
-fn next_no_del(a: &mut Bencher) {
-    let mut v = Vec::new();
-    for x in 0..100000 {
-        v.push(x);
+fn sv_with_prime_holes(size: usize) -> StableVec<u32> {
+    fn is_prime(n: u32) -> bool {
+        let upper = (n as f64).sqrt() as u32;
+        (2..upper).all(|d| n % d != 0)
     }
-    let sv = StableVec::from_vec(v);
-    a.iter(|| {
-        let mut itr = sv.iter();
-        while itr.next() != None {}
-    });
-}
 
-fn delete(a: &mut Bencher) {
-    let mut v = Vec::new();
-    for x in 0..10000 {
-        v.push(x);
+    let mut sv = full_sv(size);
+    for i in 0..size {
+        if is_prime(i as u32) {
+            sv.remove(i);
+        }
     }
-    let mut sv = StableVec::from_vec(v);
-    a.iter(|| {
-        for x in 0..10000 {
-            if (x >= 250 && x < 300)
-                || (x >= 400 && x < 500)
-                || (x >= 2500 && x < 3000)
-                || (x >= 4000 && x < 5000)
-                || (x >= 6000 && x < 7000)
-            {
-                sv.remove(x);
-            }
+
+    sv
+}
+
+fn two_element_sv(size: usize) -> StableVec<u32> {
+    let mut sv = full_sv(size);
+    for i in 0..size {
+        if i != size / 4 && i != 3 * size / 4  {
+            sv.remove(i);
         }
+    }
+
+    sv
+}
+
+fn fully_deleted_sv(size: usize) -> StableVec<u32> {
+    let mut sv = full_sv(size);
+    for i in 0..size {
+        sv.remove(i);
+    }
+
+    sv
+}
+
+
+// ===========================================================================
+// ===== The actual benchmarks
+// ===========================================================================
+
+fn clear(c: &mut Criterion) {
+    c.bench_function_over_inputs(
+        "clear",
+        |b, size| {
+            b.iter_with_setup(
+                || full_sv(*size),
+                |mut sv| {
+                    sv.clear();
+                    sv
+                },
+            );
+        },
+        vec![0, 1, 10, 1000, 100_000],
+    );
+}
+
+fn from_vec(c: &mut Criterion) {
+    c.bench_function_over_inputs(
+        "from_vec",
+        |b, size| {
+            b.iter_with_setup(
+                || Vec::from_iter(0..*size),
+                |v| StableVec::from_vec(v),
+            );
+        },
+        vec![0, 1, 10, 1000, 100_000],
+    );
+}
+
+fn push(c: &mut Criterion) {
+    c.bench_function("push", |b| {
+        b.iter_with_setup(
+            || StableVec::with_capacity(1),
+            |mut sv| {
+                sv.push('x');
+                sv
+            },
+        );
     });
 }
 
-fn grow(a: &mut Bencher) {
-    a.iter(|| {
-        let mut v = Vec::new();
-        for x in 0..10000 {
-            v.push(x);
-        }
-        let mut sv = StableVec::from_vec(v);
-        sv.grow(10000);
+fn delete_some_elements(c: &mut Criterion) {
+    /// Some arbitrary delete condition
+    fn should_delete(i: usize) -> bool {
+        i % 13 == 0
+            || (i / 3) % 7 == 0
+            || (i / 10) % 3 == 0
+    }
+
+    c.bench_function_over_inputs(
+        "delete_some_elements_from_full",
+        |b, &len| {
+            b.iter_with_setup(
+                || full_sv(len),
+                |mut sv| {
+                    for i in 0..sv.next_index() {
+                        if should_delete(i) {
+                            sv.remove(i);
+                        }
+                    }
+                    sv
+                },
+            );
+        },
+        vec![10, 1000, 100_000],
+    );
+
+    c.bench_function_over_inputs(
+        "delete_some_elements_from_prime_holes",
+        |b, &len| {
+            b.iter_with_setup(
+                || sv_with_prime_holes(len),
+                |mut sv| {
+                    for i in 0..sv.next_index() {
+                        if should_delete(i) {
+                            sv.remove(i);
+                        }
+                    }
+                    sv
+                },
+            );
+        },
+        vec![10, 1000, 100_000],
+    );
+}
+
+fn get(c: &mut Criterion) {
+    const SIZE: usize = 100_000;
+    let sv = full_sv(SIZE);
+    c.bench_function("get_full", move |b| {
+        b.iter(|| sv.get(SIZE / 3));
+    });
+
+    let sv = sv_with_hole_in_middle(SIZE);
+    c.bench_function("get_hit_hole_in_middle", move |b| {
+        b.iter(|| sv.get(3 * SIZE / 4));
+    });
+
+    let sv = sv_with_hole_in_middle(SIZE);
+    c.bench_function("get_miss_hole_in_middle", move |b| {
+        b.iter(|| sv.get(SIZE / 2));
     });
 }
-benchmark_group!(
+
+fn count(c: &mut Criterion) {
+    c.bench_function_over_inputs(
+        "count_full",
+        move |b, &len| {
+            let sv = full_sv(len);
+            b.iter(|| sv.iter().count());
+        },
+        vec![0, 1, 10, 1000, 100_000],
+    );
+
+    c.bench_function_over_inputs(
+        "count_with_one_hole",
+        move |b, &len| {
+            let sv = sv_with_hole_in_middle(len);
+            b.iter(|| sv.iter().count());
+        },
+        vec![10, 1000, 100_000],
+    );
+
+    c.bench_function_over_inputs(
+        "count_with_hole_every_fifth",
+        move |b, &len| {
+            let sv = sv_with_hole_every_fifth(len);
+            b.iter(|| sv.iter().count());
+        },
+        vec![10, 1000, 100_000],
+    );
+
+    c.bench_function_over_inputs(
+        "count_with_element_every_fifth",
+        move |b, &len| {
+            let sv = sv_with_element_every_fifth(len);
+            b.iter(|| sv.iter().count());
+        },
+        vec![10, 1000, 100_000],
+    );
+
+    c.bench_function_over_inputs(
+        "count_with_prime_holes",
+        move |b, &len| {
+            let sv = sv_with_prime_holes(len);
+            b.iter(|| sv.iter().count());
+        },
+        vec![10, 1000, 100_000],
+    );
+
+    c.bench_function_over_inputs(
+        "count_two_elements",
+        move |b, &len| {
+            let sv = two_element_sv(len);
+            b.iter(|| sv.iter().count());
+        },
+        vec![10, 1000, 100_000],
+    );
+
+    c.bench_function_over_inputs(
+        "count_fully_deleted",
+        move |b, &len| {
+            let sv = fully_deleted_sv(len);
+            b.iter(|| sv.iter().count());
+        },
+        vec![10, 1000, 100_000],
+    );
+}
+
+fn sum(c: &mut Criterion) {
+    c.bench_function_over_inputs(
+        "sum_full",
+        move |b, &len| {
+            let sv = full_sv(len);
+            b.iter(|| sv.iter().map(|&e| e as u64).sum::<u64>());
+        },
+        vec![0, 1, 10, 1000, 100_000],
+    );
+
+    c.bench_function_over_inputs(
+        "sum_with_one_hole",
+        move |b, &len| {
+            let sv = sv_with_hole_in_middle(len);
+            b.iter(|| sv.iter().map(|&e| e as u64).sum::<u64>());
+        },
+        vec![10, 1000, 100_000],
+    );
+
+    c.bench_function_over_inputs(
+        "sum_with_hole_every_fifth",
+        move |b, &len| {
+            let sv = sv_with_hole_every_fifth(len);
+            b.iter(|| sv.iter().map(|&e| e as u64).sum::<u64>());
+        },
+        vec![10, 1000, 100_000],
+    );
+
+    c.bench_function_over_inputs(
+        "sum_with_element_every_fifth",
+        move |b, &len| {
+            let sv = sv_with_element_every_fifth(len);
+            b.iter(|| sv.iter().map(|&e| e as u64).sum::<u64>());
+        },
+        vec![10, 1000, 100_000],
+    );
+
+    c.bench_function_over_inputs(
+        "sum_with_prime_holes",
+        move |b, &len| {
+            let sv = sv_with_prime_holes(len);
+            b.iter(|| sv.iter().map(|&e| e as u64).sum::<u64>());
+        },
+        vec![10, 1000, 100_000],
+    );
+
+    c.bench_function_over_inputs(
+        "sum_two_elements",
+        move |b, &len| {
+            let sv = two_element_sv(len);
+            b.iter(|| sv.iter().map(|&e| e as u64).sum::<u64>());
+        },
+        vec![10, 1000, 100_000],
+    );
+
+    c.bench_function_over_inputs(
+        "sum_fully_deleted",
+        move |b, &len| {
+            let sv = fully_deleted_sv(len);
+            b.iter(|| sv.iter().map(|&e| e as u64).sum::<u64>());
+        },
+        vec![10, 1000, 100_000],
+    );
+}
+
+
+criterion_group!(
     benches,
     clear,
-    next_large_chunks,
-    next_5th_elem_del,
-    next_only_5th,
-    next_no_del,
-    delete,
-    grow
+    from_vec,
+    push,
+    delete_some_elements,
+    get,
+    count,
+    sum,
 );
-benchmark_main!(benches);
+criterion_main!(benches);

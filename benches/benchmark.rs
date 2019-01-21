@@ -2,6 +2,11 @@
 extern crate criterion;
 extern crate stable_vec;
 
+// We require the `nightly-bench` feature to be activated when doing
+// benchmarks. Otherwise we might get a suboptimal version of `black_box`.
+#[cfg(not(feature = "nightly-bench"))]
+compile_error!("`nightly-bench` feature not enabled; use `cargo bench --features nightly-bench`");
+
 use criterion::Criterion;
 use stable_vec::StableVec;
 use std::{

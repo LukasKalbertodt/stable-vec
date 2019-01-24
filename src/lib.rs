@@ -158,7 +158,7 @@ mod tests;
 /// - [`shrink_to_fit()`](#method.shrink_to_fit)
 /// - [`reserve()`](#method.reserve)
 ///
-#[derive(Clone, PartialEq, Eq)]
+#[derive(PartialEq, Eq)]
 pub struct StableVec<T> {
     /// Storing the actual data.
     data: Vec<T>,
@@ -675,7 +675,15 @@ impl<T> StableVec<T> {
     /// assert!(sv.capacity() >= 2);
     /// ```
     pub fn clear(&mut self) {
-        self.data.clear();
+        unsafe {
+            if mem::needs_drop::<T>() {
+                for e in &mut *self {
+                    ptr::drop_in_place(e);
+                }
+            }
+            self.data.set_len(0);
+        }
+
         self.deleted.truncate(0);
         self.used_count = 0;
     }
@@ -897,6 +905,25 @@ impl<T> StableVec<T> {
         // This could be improved for `Copy` elements via specialization.
         for elem in new_elements {
             self.push(elem.clone());
+        }
+    }
+}
+
+impl<T: Clone> Clone for StableVec<T> {
+    fn clone(&self) -> Self {
+        let mut new_vec = Vec::with_capacity(self.data.len());
+
+        unsafe {
+            new_vec.set_len(self.data.len());
+            for i in self.keys() {
+                ptr::write(new_vec.get_unchecked_mut(i), self[i].clone());
+            }
+        }
+
+        Self {
+            data: new_vec,
+            deleted: self.deleted.clone(),
+            used_count: self.used_count,
         }
     }
 }

@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.3.1] - 2019-01-24
+### Fixed
+- Fix memory safety bug in `clone()`: cloning a non-compact stable vec before
+  this change accessed already dropped values and attempted to clone them.
+- Fix memory safety bug in `clear()`: calling `clear()` on a non-compact
+  stable vec before would access already dropped values and drop them a second
+  time.
+
 ## [0.3.0] - 2019-01-07
 ### Removed
 - Remove `IterMut::remove_current`. The method was broken because it did not
@@ -78,6 +86,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 [Unreleased]: https://github.com/LukasKalbertodt/stable-vec/compare/v0.3.0...HEAD
+[0.3.1]: https://github.com/LukasKalbertodt/stable-vec/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/LukasKalbertodt/stable-vec/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/LukasKalbertodt/stable-vec/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/LukasKalbertodt/stable-vec/compare/v0.2.0...v0.2.1

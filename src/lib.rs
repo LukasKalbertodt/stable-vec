@@ -675,7 +675,15 @@ impl<T> StableVec<T> {
     /// assert!(sv.capacity() >= 2);
     /// ```
     pub fn clear(&mut self) {
-        self.data.clear();
+        unsafe {
+            if mem::needs_drop::<T>() {
+                for e in &mut *self {
+                    ptr::drop_in_place(e);
+                }
+            }
+            self.data.set_len(0);
+        }
+
         self.deleted.truncate(0);
         self.used_count = 0;
     }

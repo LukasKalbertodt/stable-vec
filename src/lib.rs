@@ -896,6 +896,36 @@ impl<T> StableVec<T> {
         }
     }
 
+    /// Retains only the elements with indices specified by the given predicate.
+    ///
+    /// Each element with index `i` for which `should_be_kept(i)` returns `false` is
+    /// removed from the stable vector.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::new();
+    /// sv.push(1);
+    /// let two = sv.push(2);
+    /// sv.push(3);
+    /// sv.retain_indices(|i| i == two);
+    ///
+    /// assert_eq!(sv, &[2] as &[_]);
+    /// ```
+    pub fn retain_indices<P>(&mut self, mut should_be_kept: P)
+    where
+        P: FnMut(usize) -> bool,
+    {
+        let mut pos = 0;
+
+        while let Some(idx) = next_valid_index(&mut pos, &self.deleted) {
+            if !should_be_kept(idx) {
+                self.remove(idx);
+            }
+        }
+    }
+
     /// Appends all elements in `new_elements` to this `StableVec<T>`. This is
     /// equivalent to calling [`push()`][StableVec::push] for each element.
     pub fn extend_from_slice(&mut self, new_elements: &[T])

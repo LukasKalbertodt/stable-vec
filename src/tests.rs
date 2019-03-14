@@ -203,6 +203,32 @@ fn push_simple() {
 }
 
 #[test]
+fn remove_first() {
+    let mut sv = StableVec::from_vec(vec!['a', 'b', 'c']);
+
+    assert_eq!(sv.remove_first(), Some('a'));
+    assert_sv_eq!(sv, [1 => 'b', 2 => 'c'; 2]);
+
+    assert_eq!(sv.remove_first(), Some('b'));
+    assert_sv_eq!(sv, [2 => 'c'; 2]);
+
+    sv.push('d');
+    assert_sv_eq!(sv, [2 => 'c', 3 => 'd']);
+
+    sv.push('e');
+    assert_sv_eq!(sv, [2 => 'c', 3 => 'd', 4 => 'e']);
+
+    assert_eq!(sv.remove_first(), Some('c'));
+    assert_sv_eq!(sv, [3 => 'd', 4 => 'e'; 4]);
+
+    assert_eq!(sv.remove_first(), Some('d'));
+    assert_sv_eq!(sv, [4 => 'e'; 4]);
+
+    assert_eq!(sv.remove_first(), Some('e'));
+    assert_sv_eq!(sv, [; 4]: char);
+}
+
+#[test]
 fn remove_last() {
     let mut sv = StableVec::from_vec(vec!['a', 'b', 'c']);
 

@@ -203,13 +203,13 @@ fn push_simple() {
 }
 
 #[test]
-fn pop_simple() {
+fn remove_last() {
     let mut sv = StableVec::from_vec(vec!['a', 'b', 'c']);
 
-    assert_eq!(sv.pop(), Some('c'));
+    assert_eq!(sv.remove_last(), Some('c'));
     assert_sv_eq!(sv, [0 => 'a', 1 => 'b'; 2]);
 
-    assert_eq!(sv.pop(), Some('b'));
+    assert_eq!(sv.remove_last(), Some('b'));
     assert_sv_eq!(sv, [0 => 'a'; 2]);
 
     sv.push('d');
@@ -218,13 +218,13 @@ fn pop_simple() {
     sv.push('e');
     assert_sv_eq!(sv, [0 => 'a', 3 => 'd', 4 => 'e']);
 
-    assert_eq!(sv.pop(), Some('e'));
+    assert_eq!(sv.remove_last(), Some('e'));
     assert_sv_eq!(sv, [0 => 'a', 3 => 'd'; 4]);
 
-    assert_eq!(sv.pop(), Some('d'));
+    assert_eq!(sv.remove_last(), Some('d'));
     assert_sv_eq!(sv, [0 => 'a'; 4]);
 
-    assert_eq!(sv.pop(), Some('a'));
+    assert_eq!(sv.remove_last(), Some('a'));
     assert_sv_eq!(sv, [; 4]: char);
 }
 

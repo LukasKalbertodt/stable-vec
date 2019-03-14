@@ -255,6 +255,44 @@ fn remove_last() {
 }
 
 #[test]
+fn find_first_index() {
+    let mut sv = StableVec::from_vec(vec!['a', 'b']);
+
+    assert_eq!(sv.find_first_index(), Some(0));
+
+    sv.remove(0);
+    assert_eq!(sv.find_first_index(), Some(1));
+
+    sv.push('c');
+    assert_eq!(sv.find_first_index(), Some(1));
+
+    sv.remove(1);
+    assert_eq!(sv.find_first_index(), Some(2));
+
+    sv.remove(2);
+    assert_eq!(sv.find_first_index(), None);
+}
+
+#[test]
+fn find_last_index() {
+    let mut sv = StableVec::from_vec(vec!['a', 'b']);
+
+    assert_eq!(sv.find_last_index(), Some(1));
+
+    sv.remove(1);
+    assert_eq!(sv.find_last_index(), Some(0));
+
+    sv.push('c');
+    assert_eq!(sv.find_last_index(), Some(2));
+
+    sv.remove(2);
+    assert_eq!(sv.find_last_index(), Some(0));
+
+    sv.remove(0);
+    assert_eq!(sv.find_last_index(), None);
+}
+
+#[test]
 fn grow() {
     let mut sv = StableVec::from_vec(vec!['a', 'b']);
 

@@ -351,6 +351,28 @@ fn find_last_index() {
 }
 
 #[test]
+fn retain_indices() {
+    let mut sv = StableVec::from_vec(vec!['a', 'b', 'c', 'd', 'e']);
+
+    assert_sv_eq!(sv, [0 => 'a', 1 => 'b', 2 => 'c', 3 => 'd', 4 => 'e'; 4]);
+
+    sv.retain_indices(|index| index != 2);
+    assert_sv_eq!(sv, [0 => 'a', 1 => 'b', 3 => 'd', 4 => 'e'; 4]);
+
+    sv.retain_indices(|index| index == 0 || index == 3);
+    assert_sv_eq!(sv, [0 => 'a', 3 => 'd'; 4]);
+
+    sv.retain_indices(|index| index == 0);
+    assert_sv_eq!(sv, [0 => 'a'; 4]);
+
+    sv.retain_indices(|index| index != 4);
+    assert_sv_eq!(sv, [0 => 'a'; 4]);
+
+    sv.retain_indices(|_| false);
+    assert_sv_eq!(sv, [; 4]: char);
+}
+
+#[test]
 fn grow() {
     let mut sv = StableVec::from_vec(vec!['a', 'b']);
 

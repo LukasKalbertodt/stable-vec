@@ -328,9 +328,10 @@ impl<T> StableVec<T> {
         self.find_last_index().and_then(|index| self.remove(index))
     }
 
-    /// Finds the first element and returns a reference to it, or `None` if it's empty.
+    /// Finds the first element and returns a reference to it, or `None` if
+    /// the stable vector is empty.
     ///
-    /// This method has O(n) complexity.
+    /// This method has a worst case time complexity of O(n).
     ///
     /// # Example
     ///
@@ -344,9 +345,10 @@ impl<T> StableVec<T> {
         self.find_first_index().map(|index| &self.data[index])
     }
 
-    /// Finds the first element and returns it's index, or `None` if it's empty.
+    /// Finds the first element and returns it's index, or `None` if
+    /// the stable vector is empty.
     ///
-    /// This method has O(n) complexity.
+    /// This method has a worst case time complexity of O(n).
     ///
     /// # Example
     ///
@@ -367,9 +369,10 @@ impl<T> StableVec<T> {
         }
     }
 
-    /// Finds the last element and returns a reference to it, or `None` if it's empty.
+    /// Finds the last element and returns a reference to it, or `None` if
+    /// the stable vector is empty.
     ///
-    /// This method has O(n) complexity.
+    /// This method has a worst case time complexity of O(n).
     ///
     /// # Example
     ///
@@ -383,9 +386,10 @@ impl<T> StableVec<T> {
         self.find_last_index().map(|index| &self.data[index])
     }
 
-    /// Finds the last element and returns it's index, or `None` if it's empty.
+    /// Finds the last element and returns it's index, or `None` if
+    /// the stable vector is empty.
     ///
-    /// This method has O(n) complexity.
+    /// This method has a worst case time complexity of O(n).
     ///
     /// # Example
     ///

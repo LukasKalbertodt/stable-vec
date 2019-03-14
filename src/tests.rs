@@ -259,18 +259,23 @@ fn find_first_index() {
     let mut sv = StableVec::from_vec(vec!['a', 'b']);
 
     assert_eq!(sv.find_first_index(), Some(0));
+    assert_sv_eq!(sv, [0 => 'a', 1 => 'b'; 1]);
 
     sv.remove(0);
     assert_eq!(sv.find_first_index(), Some(1));
+    assert_sv_eq!(sv, [1 => 'b'; 1]);
 
     sv.push('c');
     assert_eq!(sv.find_first_index(), Some(1));
+    assert_sv_eq!(sv, [1 => 'b', 2 => 'c'; 2]);
 
     sv.remove(1);
     assert_eq!(sv.find_first_index(), Some(2));
+    assert_sv_eq!(sv, [2 => 'c'; 2]);
 
     sv.remove(2);
     assert_eq!(sv.find_first_index(), None);
+    assert_sv_eq!(sv, [; 2]: char);
 }
 
 #[test]
@@ -278,18 +283,23 @@ fn find_last_index() {
     let mut sv = StableVec::from_vec(vec!['a', 'b']);
 
     assert_eq!(sv.find_last_index(), Some(1));
+    assert_sv_eq!(sv, [0 => 'a', 1 => 'b'; 1]);
 
     sv.remove(1);
     assert_eq!(sv.find_last_index(), Some(0));
+    assert_sv_eq!(sv, [0 => 'a'; 1]);
 
     sv.push('c');
     assert_eq!(sv.find_last_index(), Some(2));
+    assert_sv_eq!(sv, [0 => 'a', 2 => 'c'; 2]);
 
     sv.remove(2);
     assert_eq!(sv.find_last_index(), Some(0));
+    assert_sv_eq!(sv, [0 => 'a'; 2]);
 
     sv.remove(0);
     assert_eq!(sv.find_last_index(), None);
+    assert_sv_eq!(sv, [; 2]: char);
 }
 
 #[test]

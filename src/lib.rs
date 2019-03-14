@@ -345,6 +345,23 @@ impl<T> StableVec<T> {
         self.find_first_index().map(|index| &self.data[index])
     }
 
+    /// Finds the last element and returns a reference to it, or `None` if
+    /// the stable vector is empty.
+    ///
+    /// This method has a worst case time complexity of O(n).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::from(&[1, 2]);
+    /// sv.remove(1);
+    /// assert_eq!(sv.find_last(), Some(&1));
+    /// ```
+    pub fn find_last(&self) -> Option<&T> {
+        self.find_last_index().map(|index| &self.data[index])
+    }
+
     /// Finds the first element and returns it's index, or `None` if
     /// the stable vector is empty.
     ///
@@ -367,23 +384,6 @@ impl<T> StableVec<T> {
                 .find(|&(_, deleted)| !deleted)
                 .map(|(i, _)| i),
         }
-    }
-
-    /// Finds the last element and returns a reference to it, or `None` if
-    /// the stable vector is empty.
-    ///
-    /// This method has a worst case time complexity of O(n).
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::from(&[1, 2]);
-    /// sv.remove(1);
-    /// assert_eq!(sv.find_last(), Some(&1));
-    /// ```
-    pub fn find_last(&self) -> Option<&T> {
-        self.find_last_index().map(|index| &self.data[index])
     }
 
     /// Finds the last element and returns it's index, or `None` if

@@ -279,6 +279,22 @@ fn find_first() {
 }
 
 #[test]
+fn find_first_mut() {
+    let mut sv = StableVec::from_vec(vec!['a', 'b']);
+
+    *sv.find_first_mut().unwrap() = 'c';
+    assert_sv_eq!(sv, [0 => 'c', 1 => 'b'; 1]);
+
+    sv.remove(0);
+    *sv.find_first_mut().unwrap() = 'd';
+    assert_sv_eq!(sv, [1 => 'd'; 1]);
+
+    sv.remove(1);
+    assert_eq!(sv.find_first_mut(), None);
+    assert_sv_eq!(sv, [; 1]: char);
+}
+
+#[test]
 fn find_last() {
     let mut sv = StableVec::from_vec(vec!['a', 'b']);
 
@@ -300,6 +316,22 @@ fn find_last() {
     sv.clear();
     assert_eq!(sv.find_last(), None);
     assert_sv_eq!(sv, []: char);
+}
+
+#[test]
+fn find_last_mut() {
+    let mut sv = StableVec::from_vec(vec!['a', 'b']);
+
+    *sv.find_last_mut().unwrap() = 'c';
+    assert_sv_eq!(sv, [0 => 'a', 1 => 'c'; 1]);
+
+    sv.remove(1);
+    *sv.find_last_mut().unwrap() = 'd';
+    assert_sv_eq!(sv, [0 => 'd'; 1]);
+
+    sv.remove(0);
+    assert_eq!(sv.find_last_mut(), None);
+    assert_sv_eq!(sv, [; 1]: char);
 }
 
 #[test]

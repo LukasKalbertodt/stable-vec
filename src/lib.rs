@@ -345,6 +345,31 @@ impl<T> StableVec<T> {
         self.find_first_index().map(|index| &self.data[index])
     }
 
+    /// Finds the first element and returns a mutable reference to it, or `None` if
+    /// the stable vector is empty.
+    ///
+    /// This method has a worst case time complexity of O(n).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::from(&[1, 2]);
+    /// {
+    ///     let first = sv.find_first_mut().unwrap();
+    ///     assert_eq!(*first, 1);
+    ///
+    ///     *first = 3;
+    /// }
+    /// assert_eq!(&sv.into_vec(), &[3, 2]);
+    /// ```
+    pub fn find_first_mut(&mut self) -> Option<&mut T> {
+        match self.find_first_index() {
+            Some(index) => Some(&mut self.data[index]),
+            None => None,
+        }
+    }
+
     /// Finds the last element and returns a reference to it, or `None` if
     /// the stable vector is empty.
     ///
@@ -360,6 +385,31 @@ impl<T> StableVec<T> {
     /// ```
     pub fn find_last(&self) -> Option<&T> {
         self.find_last_index().map(|index| &self.data[index])
+    }
+
+    /// Finds the last element and returns a mutable reference to it, or `None` if
+    /// the stable vector is empty.
+    ///
+    /// This method has a worst case time complexity of O(n).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::from(&[1, 2]);
+    /// {
+    ///     let last = sv.find_last_mut().unwrap();
+    ///     assert_eq!(*last, 2);
+    ///
+    ///     *last = 3;
+    /// }
+    /// assert_eq!(&sv.into_vec(), &[1, 3]);
+    /// ```
+    pub fn find_last_mut(&mut self) -> Option<&mut T> {
+        match self.find_last_index() {
+            Some(index) => Some(&mut self.data[index]),
+            None => None,
+        }
     }
 
     /// Finds the first element and returns it's index, or `None` if

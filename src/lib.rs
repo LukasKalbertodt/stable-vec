@@ -257,7 +257,7 @@ impl<T> StableVec<T> {
     }
 
     /// Removes and returns the last element from this collection, or `None` if
-    /// it's empty.
+    /// it's empty. Same as [`remove_last()`](#method.remove_last).
     ///
     /// This method uses exactly the same deletion strategy as
     /// [`remove()`](#method.remove).
@@ -277,7 +277,7 @@ impl<T> StableVec<T> {
     /// has a worst case time complexity of O(n). If you already know the
     /// index, use [`remove()`](#method.remove) instead.
     pub fn pop(&mut self) -> Option<T> {
-        self.find_last_index().and_then(|index| self.remove(index))
+        self.remove_last()
     }
 
     /// Removes and returns the first element from this collection, or `None` if
@@ -291,7 +291,7 @@ impl<T> StableVec<T> {
     /// ```
     /// # use stable_vec::StableVec;
     /// let mut sv = StableVec::from(&[1, 2, 3]);
-    /// assert_eq!(sv.pop_first(), Some(1));
+    /// assert_eq!(sv.remove_first(), Some(1));
     /// assert_eq!(sv.into_vec(), vec![2, 3]);
     /// ```
     ///
@@ -300,8 +300,32 @@ impl<T> StableVec<T> {
     /// This method needs to find index of the first valid element. Finding it
     /// has a worst case time complexity of O(n). If you already know the
     /// index, use [`remove()`](#method.remove) instead.
-    pub fn pop_first(&mut self) -> Option<T> {
+    pub fn remove_first(&mut self) -> Option<T> {
         self.find_first_index().and_then(|index| self.remove(index))
+    }
+
+    /// Removes and returns the last element from this collection, or `None` if
+    /// it's empty.
+    ///
+    /// This method uses exactly the same deletion strategy as
+    /// [`remove()`](#method.remove).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::from(&[1, 2, 3]);
+    /// assert_eq!(sv.remove_last(), Some(3));
+    /// assert_eq!(sv.into_vec(), vec![1, 2]);
+    /// ```
+    ///
+    /// # Note
+    ///
+    /// This method needs to find index of the last valid element. Finding it
+    /// has a worst case time complexity of O(n). If you already know the
+    /// index, use [`remove()`](#method.remove) instead.
+    pub fn remove_last(&mut self) -> Option<T> {
+        self.find_last_index().and_then(|index| self.remove(index))
     }
 
     /// Finds the first element and returns a reference to it, or `None` if it's empty.

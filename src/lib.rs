@@ -412,7 +412,7 @@ impl<T> StableVec<T> {
         }
     }
 
-    /// Finds the first element and returns it's index, or `None` if
+    /// Finds the first element and returns its index, or `None` if
     /// the stable vector is empty.
     ///
     /// This method has a worst case time complexity of O(n).
@@ -436,7 +436,7 @@ impl<T> StableVec<T> {
         }
     }
 
-    /// Finds the last element and returns it's index, or `None` if
+    /// Finds the last element and returns its index, or `None` if
     /// the stable vector is empty.
     ///
     /// This method has a worst case time complexity of O(n).

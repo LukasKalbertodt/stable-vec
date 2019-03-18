@@ -257,10 +257,19 @@ impl<T> StableVec<T> {
     }
 
     /// Removes and returns the last element from this collection, or `None` if
-    /// it's empty.
+    /// it's empty. Same as [`remove_last()`](#method.remove_last).
     ///
     /// This method uses exactly the same deletion strategy as
     /// [`remove()`](#method.remove).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::from(&[1, 2, 3]);
+    /// assert_eq!(sv.pop(), Some(3));
+    /// assert_eq!(sv.into_vec(), vec![1, 2]);
+    /// ```
     ///
     /// # Note
     ///
@@ -268,14 +277,188 @@ impl<T> StableVec<T> {
     /// has a worst case time complexity of O(n). If you already know the
     /// index, use [`remove()`](#method.remove) instead.
     pub fn pop(&mut self) -> Option<T> {
-        let last_index = self.deleted
-            .iter()
-            .enumerate()
-            .rev()
-            .find(|&(_, deleted)| !deleted)
-            .map(|(i, _)| i)
-            .unwrap_or(0);
-        self.remove(last_index)
+        self.remove_last()
+    }
+
+    /// Removes and returns the first element from this collection, or `None` if
+    /// it's empty.
+    ///
+    /// This method uses exactly the same deletion strategy as
+    /// [`remove()`](#method.remove).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::from(&[1, 2, 3]);
+    /// assert_eq!(sv.remove_first(), Some(1));
+    /// assert_eq!(sv.into_vec(), vec![2, 3]);
+    /// ```
+    ///
+    /// # Note
+    ///
+    /// This method needs to find index of the first valid element. Finding it
+    /// has a worst case time complexity of O(n). If you already know the
+    /// index, use [`remove()`](#method.remove) instead.
+    pub fn remove_first(&mut self) -> Option<T> {
+        self.find_first_index().and_then(|index| self.remove(index))
+    }
+
+    /// Removes and returns the last element from this collection, or `None` if
+    /// it's empty.
+    ///
+    /// This method uses exactly the same deletion strategy as
+    /// [`remove()`](#method.remove).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::from(&[1, 2, 3]);
+    /// assert_eq!(sv.remove_last(), Some(3));
+    /// assert_eq!(sv.into_vec(), vec![1, 2]);
+    /// ```
+    ///
+    /// # Note
+    ///
+    /// This method needs to find index of the last valid element. Finding it
+    /// has a worst case time complexity of O(n). If you already know the
+    /// index, use [`remove()`](#method.remove) instead.
+    pub fn remove_last(&mut self) -> Option<T> {
+        self.find_last_index().and_then(|index| self.remove(index))
+    }
+
+    /// Finds the first element and returns a reference to it, or `None` if
+    /// the stable vector is empty.
+    ///
+    /// This method has a worst case time complexity of O(n).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::from(&[1, 2]);
+    /// sv.remove(0);
+    /// assert_eq!(sv.find_first(), Some(&2));
+    /// ```
+    pub fn find_first(&self) -> Option<&T> {
+        self.find_first_index().map(|index| &self.data[index])
+    }
+
+    /// Finds the first element and returns a mutable reference to it, or `None` if
+    /// the stable vector is empty.
+    ///
+    /// This method has a worst case time complexity of O(n).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::from(&[1, 2]);
+    /// {
+    ///     let first = sv.find_first_mut().unwrap();
+    ///     assert_eq!(*first, 1);
+    ///
+    ///     *first = 3;
+    /// }
+    /// assert_eq!(&sv.into_vec(), &[3, 2]);
+    /// ```
+    pub fn find_first_mut(&mut self) -> Option<&mut T> {
+        match self.find_first_index() {
+            Some(index) => Some(&mut self.data[index]),
+            None => None,
+        }
+    }
+
+    /// Finds the last element and returns a reference to it, or `None` if
+    /// the stable vector is empty.
+    ///
+    /// This method has a worst case time complexity of O(n).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::from(&[1, 2]);
+    /// sv.remove(1);
+    /// assert_eq!(sv.find_last(), Some(&1));
+    /// ```
+    pub fn find_last(&self) -> Option<&T> {
+        self.find_last_index().map(|index| &self.data[index])
+    }
+
+    /// Finds the last element and returns a mutable reference to it, or `None` if
+    /// the stable vector is empty.
+    ///
+    /// This method has a worst case time complexity of O(n).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::from(&[1, 2]);
+    /// {
+    ///     let last = sv.find_last_mut().unwrap();
+    ///     assert_eq!(*last, 2);
+    ///
+    ///     *last = 3;
+    /// }
+    /// assert_eq!(&sv.into_vec(), &[1, 3]);
+    /// ```
+    pub fn find_last_mut(&mut self) -> Option<&mut T> {
+        match self.find_last_index() {
+            Some(index) => Some(&mut self.data[index]),
+            None => None,
+        }
+    }
+
+    /// Finds the first element and returns its index, or `None` if
+    /// the stable vector is empty.
+    ///
+    /// This method has a worst case time complexity of O(n).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::from(&[1, 2]);
+    /// sv.remove(0);
+    /// assert_eq!(sv.find_first_index(), Some(1));
+    /// ```
+    pub fn find_first_index(&self) -> Option<usize> {
+        match self.used_count {
+            0 => None,
+            _ => self.deleted
+                .iter()
+                .enumerate()
+                .find(|&(_, deleted)| !deleted)
+                .map(|(i, _)| i),
+        }
+    }
+
+    /// Finds the last element and returns its index, or `None` if
+    /// the stable vector is empty.
+    ///
+    /// This method has a worst case time complexity of O(n).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::from(&[1, 2]);
+    /// sv.remove(1);
+    /// assert_eq!(sv.find_last_index(), Some(0));
+    /// ```
+    pub fn find_last_index(&self) -> Option<usize> {
+        match self.used_count {
+            0 => None,
+            _ => self.deleted
+                .iter()
+                .enumerate()
+                .rev()
+                .find(|&(_, deleted)| !deleted)
+                .map(|(i, _)| i),
+        }
     }
 
     /// Inserts the given value at the given index if there is a hole there.
@@ -891,6 +1074,36 @@ impl<T> StableVec<T> {
 
         while let Some(idx) = next_valid_index(&mut pos, &self.deleted) {
             if !should_be_kept(&self[idx]) {
+                self.remove(idx);
+            }
+        }
+    }
+
+    /// Retains only the elements with indices specified by the given predicate.
+    ///
+    /// Each element with index `i` for which `should_be_kept(i)` returns `false` is
+    /// removed from the stable vector.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::new();
+    /// sv.push(1);
+    /// let two = sv.push(2);
+    /// sv.push(3);
+    /// sv.retain_indices(|i| i == two);
+    ///
+    /// assert_eq!(sv, &[2] as &[_]);
+    /// ```
+    pub fn retain_indices<P>(&mut self, mut should_be_kept: P)
+    where
+        P: FnMut(usize) -> bool,
+    {
+        let mut pos = 0;
+
+        while let Some(idx) = next_valid_index(&mut pos, &self.deleted) {
+            if !should_be_kept(idx) {
                 self.remove(idx);
             }
         }

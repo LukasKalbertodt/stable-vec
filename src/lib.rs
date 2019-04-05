@@ -492,7 +492,7 @@ impl<T> StableVec<T> {
     pub fn insert_into_hole(&mut self, index: usize, elem: T) -> Result<(), T> {
         // If the index is out of bounds or if the element at the given index
         // has not been marked as deleted, we cannot insert the new element.
-        if index >= self.data.len() || !self.deleted[index] {
+        if self.deleted.get(index) != Some(true) {
             Err(elem)
         } else {
             // We overwrite the removed element with the new one
@@ -634,7 +634,7 @@ impl<T> StableVec<T> {
     /// assert!(!sv.has_element_at(heart_idx)); // no: was removed
     /// ```
     pub fn has_element_at(&self, index: usize) -> bool {
-        index < self.data.len() && !self.deleted[index]
+        self.deleted.get(index) == Some(false)
     }
 
     /// Calls `shrink_to_fit()` on the underlying `Vec<T>`.
@@ -1330,7 +1330,7 @@ impl<'a, T> Iterator for IterMut<'a, T> {
     fn next(&mut self) -> Option<Self::Item> {
         // First, we advance until we have found an existing element or until
         // we have reached the end of all elements.
-        while self.pos < self.deleted.len() && self.deleted[self.pos] {
+        while self.deleted.get(self.pos) == Some(true) {
             self.pos += 1;
             self.vec_iter.next();
         }
@@ -1395,7 +1395,7 @@ impl ExactSizeIterator for Keys<'_> {}
 fn next_valid_index(pos: &mut usize, deleted: &BitVec) -> Option<usize> {
     // First, we advance until we have found an existing element or until
     // we have reached the end of all elements.
-    while *pos < deleted.len() && deleted[*pos] {
+    while deleted.get(*pos) == Some(true) {
         *pos += 1;
     }
 

@@ -6,6 +6,23 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.3.2] - 2019-04-09
+### Added
+- `remove_last`
+- `remove_first`
+- `find_first`
+- `find_first_mut`
+- `find_first_index`
+- `find_last`
+- `find_last_mut`
+- `find_last_index`
+- `retain_indices`
+
+### Fixed
+- Suboptimal use of `bit-vec` which lead to suboptimal generated assembly.
+  Now the most important occurences of this are fixed.
+
+
 ## [0.3.1] - 2019-01-24
 ### Fixed
 - Fix memory safety bug in `clone()`: cloning a non-compact stable vec before
@@ -85,7 +102,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Everything.
 
 
-[Unreleased]: https://github.com/LukasKalbertodt/stable-vec/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/LukasKalbertodt/stable-vec/compare/v0.3.2...HEAD
+[0.3.2]: https://github.com/LukasKalbertodt/stable-vec/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/LukasKalbertodt/stable-vec/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/LukasKalbertodt/stable-vec/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/LukasKalbertodt/stable-vec/compare/v0.2.1...v0.2.2

@@ -682,6 +682,24 @@ fn correct_drop() {
 //     assert_eq!(sv.clone().into_vec(), &['a', 'c', 'd']);
 // }
 
+#[test]
+fn extend_from_iter() {
+    use std::iter::FromIterator;
+
+    let sv = StableVec::<_>::from_iter(0..0);
+    assert_sv_eq!(sv.clone(), []: u32);
+
+    let sv = StableVec::<_>::from_iter(0..3);
+    assert_sv_eq!(sv.clone(), [0 => 0, 1 => 1, 2 => 2]);
+
+    let mut sv = StableVec::<_>::from_iter((0..3).map(|x| x * 3));
+    assert_sv_eq!(sv.clone(), [0 => 0, 1 => 3, 2 => 6]);
+
+    sv.remove(2);
+    sv.extend((7..10).rev());
+    assert_sv_eq!(sv.clone(), [0 => 0, 1 => 3, 3 => 9, 4 => 8, 5 => 7]);
+}
+
 // #[test]
 // fn size_hints() {
 //     let mut sv = StableVec::<()>::new();

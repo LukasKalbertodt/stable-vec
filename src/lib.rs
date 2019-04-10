@@ -28,6 +28,7 @@
 use std::{
     fmt,
     io,
+    iter::FromIterator,
     ops::{Index, IndexMut},
 };
 
@@ -1168,38 +1169,30 @@ where
     }
 }
 
-// impl<T> FromIterator<T> for StableVec<T> {
-//     fn from_iter<I>(iter: I) -> Self
-//     where
-//         I: IntoIterator<Item = T>,
-//     {
-//         let data = Vec::from_iter(iter);
-//         Self {
-//             num_elements: data.len(),
-//             deleted: BitVec::from_elem(data.len(), false),
-//             data,
-//         }
-//     }
-// }
+impl<T, C: Core<T>> FromIterator<T> for StableVec<T, C> {
+    fn from_iter<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = T>,
+    {
+        let mut out = Self::new();
+        out.extend(iter);
+        out
+    }
+}
 
-// impl<T> Extend<T> for StableVec<T> {
-//     fn extend<I>(&mut self, iter: I)
-//     where
-//         I: IntoIterator<Item = T>,
-//     {
-//         // This implementation is not completely exception safe. If the
-//         // `self.data.extend()` call panics, we won't drop any of the new
-//         // elements. This is "safe" in the Rust meaning of the word: not
-//         // calling `drop()` on values is not desireable but not considered
-//         // *unsafe*.
-//         let len_before = self.data.len();
-//         self.data.extend(iter);
+impl<T, C: Core<T>> Extend<T> for StableVec<T, C> {
+    fn extend<I>(&mut self, iter: I)
+    where
+        I: IntoIterator<Item = T>,
+    {
+        let it = iter.into_iter();
+        self.reserve(it.size_hint().0);
 
-//         let additional_count = self.data.len() - len_before;
-//         self.deleted.grow(additional_count, false);
-//         self.num_elements += additional_count;
-//     }
-// }
+        for elem in it {
+            self.push(elem);
+        }
+    }
+}
 
 /// Write into `StableVec<u8>` by appending `u8` elements. This is equivalent
 /// to calling `push` for each byte.

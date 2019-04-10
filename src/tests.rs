@@ -1,4 +1,8 @@
-use super::StableVec;
+use std::{
+    fmt::Debug,
+    panic::RefUnwindSafe,
+};
+use super::{Core, StableVec};
 
 macro_rules! assert_panic {
     ($($body:tt)*) => {{
@@ -13,6 +17,57 @@ macro_rules! assert_panic {
             );
         }
     }}
+}
+
+fn assert_sv_eq_fn<T: Debug + Eq + Copy + RefUnwindSafe, C: Core<T> + RefUnwindSafe>(
+    sv: &mut StableVec<T, C>,
+    indices: &[usize],
+    values: &mut [T],
+    last_index: usize,
+) {
+    let num_elements = values.len();
+
+    assert_eq!(sv.num_elements(), num_elements, "num_elements check failed");
+    assert_eq!(sv.is_empty(), num_elements == 0, "is_empty check failed");
+    assert_eq!(sv.is_compact(), last_index + 1 == num_elements, "is_compact check failed");
+    assert_eq!(sv.next_index(), last_index + 1, "next_index check failed");
+    assert!(sv.capacity() >= last_index + 1, "capacity check failed");
+
+    assert_eq!(sv.iter().cloned().collect::<Vec<_>>(), values);
+    assert_eq!(sv.iter_mut().map(|r| *r).collect::<Vec<_>>(), values);
+    assert_eq!((&*sv).into_iter().cloned().collect::<Vec<_>>(), values);
+    assert_eq!((&mut *sv).into_iter().map(|r| *r).collect::<Vec<_>>(), values);
+    assert_eq!(sv.indices().collect::<Vec<_>>(), indices);
+
+    let expected_hint = (num_elements, Some(num_elements));
+    assert_eq!(sv.iter().cloned().len(), num_elements);
+    assert_eq!(sv.iter().cloned().size_hint(), expected_hint);
+    assert_eq!(sv.iter_mut().map(|r| *r).size_hint(), expected_hint);
+    assert_eq!(sv.iter_mut().map(|r| *r).len(), num_elements);
+    assert_eq!((&*sv).into_iter().cloned().size_hint(), expected_hint);
+    assert_eq!((&mut *sv).into_iter().map(|r| *r).size_hint(), expected_hint);
+    assert_eq!(sv.indices().size_hint(), expected_hint);
+    assert_eq!(sv.indices().len(), num_elements);
+
+    assert_eq!(sv, &*values);
+    assert_eq!(sv, &values.to_vec());
+
+    assert_eq!(format!("{:?}", sv), format!("StableVec {:?}", values));
+    // assert_eq!(sv.clone().into_vec(), values);
+
+    for i in 0..last_index {
+        if let Ok(index_index) = indices.binary_search(&i) {
+            assert!(sv.has_element_at(i));
+            assert_eq!(sv.get(i), Some(&values[index_index]));
+            assert_eq!(sv.get_mut(i), Some(&mut values[index_index]));
+            assert_eq!(sv[i], values[index_index]);
+        } else {
+            assert!(!sv.has_element_at(i));
+            assert_eq!(sv.get(i), None);
+            assert_eq!(sv.get_mut(i), None);
+            assert_panic!(sv[i]);
+        }
+    }
 }
 
 macro_rules! assert_sv_eq {
@@ -41,11 +96,8 @@ macro_rules! assert_sv_eq {
         // assert!(sv.clone().into_vec().is_empty());
     }};
     ($left:expr, [$( $idx:literal => $val:expr ),* $(; $last_index:literal)*] $(,)*) => {{
-        let sv = &mut $left;
-
         let indices = [$($idx),*];
         let mut values = [$($val),*];
-        let num_elements = indices.len();
         let last_index = 0 $(+ $last_index)*;
         let last_index = if last_index == 0 {
             *indices.last().unwrap()
@@ -53,47 +105,7 @@ macro_rules! assert_sv_eq {
             last_index
         };
 
-        assert_eq!(sv.num_elements(), num_elements, "num_elements check failed");
-        assert_eq!(sv.is_empty(), num_elements == 0, "is_empty check failed");
-        assert_eq!(sv.is_compact(), last_index + 1 == num_elements, "is_compact check failed");
-        assert_eq!(sv.next_index(), last_index + 1, "next_index check failed");
-        assert!(sv.capacity() >= last_index + 1, "capacity check failed");
-
-        assert_eq!(sv.iter().cloned().collect::<Vec<_>>(), values);
-        assert_eq!(sv.iter_mut().map(|r| *r).collect::<Vec<_>>(), values);
-        assert_eq!((&*sv).into_iter().cloned().collect::<Vec<_>>(), values);
-        assert_eq!((&mut *sv).into_iter().map(|r| *r).collect::<Vec<_>>(), values);
-        assert_eq!(sv.indices().collect::<Vec<_>>(), indices);
-
-        let expected_hint = (num_elements, Some(num_elements));
-        assert_eq!(sv.iter().cloned().len(), num_elements);
-        assert_eq!(sv.iter().cloned().size_hint(), expected_hint);
-        assert_eq!(sv.iter_mut().map(|r| *r).size_hint(), expected_hint);
-        assert_eq!(sv.iter_mut().map(|r| *r).len(), num_elements);
-        assert_eq!((&*sv).into_iter().cloned().size_hint(), expected_hint);
-        assert_eq!((&mut *sv).into_iter().map(|r| *r).size_hint(), expected_hint);
-        assert_eq!(sv.indices().size_hint(), expected_hint);
-        assert_eq!(sv.indices().len(), num_elements);
-
-        assert_eq!(sv, &values as &[_]);
-        assert_eq!(sv, &values.to_vec());
-
-        assert_eq!(format!("{:?}", sv), format!("StableVec {:?}", values));
-        // assert_eq!(sv.clone().into_vec(), values);
-
-        for i in 0..last_index {
-            if let Ok(index_index) = indices.binary_search(&i) {
-                assert!(sv.has_element_at(i));
-                assert_eq!(sv.get(i), Some(&values[index_index]));
-                assert_eq!(sv.get_mut(i), Some(&mut values[index_index]));
-                assert_eq!(sv[i], values[index_index]);
-            } else {
-                assert!(!sv.has_element_at(i));
-                assert_eq!(sv.get(i), None);
-                assert_eq!(sv.get_mut(i), None);
-                assert_panic!(sv[i]);
-            }
-        }
+        assert_sv_eq_fn(&mut $left, &indices, &mut values, last_index);
     }};
 }
 

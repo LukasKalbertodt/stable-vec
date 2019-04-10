@@ -1,11 +1,7 @@
-extern crate stable_vec;
-
 use stable_vec::StableVec;
 
-
-
 fn main() {
-    let mut sv = StableVec::from(&[0, 1, 2, 3, 4, 5]);
+    let mut sv = StableVec::<_>::from(&[0, 1, 2, 3, 4, 5]);
     sv.remove(1);
     sv.remove(4);
 

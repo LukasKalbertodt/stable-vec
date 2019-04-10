@@ -1136,7 +1136,7 @@ fn index_fail(idx: usize) -> ! {
     panic!("attempt to index StableVec with index {}, but no element exists at that index", idx);
 }
 
-impl<T> Index<usize> for StableVec<T> {
+impl<T, C: Core<T>> Index<usize> for StableVec<T, C> {
     type Output = T;
 
     fn index(&self, index: usize) -> &T {
@@ -1144,19 +1144,19 @@ impl<T> Index<usize> for StableVec<T> {
     }
 }
 
-impl<T> IndexMut<usize> for StableVec<T> {
+impl<T, C: Core<T>> IndexMut<usize> for StableVec<T, C> {
     fn index_mut(&mut self, index: usize) -> &mut T {
         self.get_mut(index).unwrap_or_else(|| index_fail(index))
     }
 }
 
-impl<T> Default for StableVec<T> {
+impl<T, C: Core<T>> Default for StableVec<T, C> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T, S> From<S> for StableVec<T>
+impl<T, S, C: Core<T>> From<S> for StableVec<T, C>
 where
     S: AsRef<[T]>,
     T: Clone,
@@ -1339,7 +1339,7 @@ impl<T, C: Core<T>> Iterator for Indices<'_, T, C> {
 impl<T, C: Core<T>> ExactSizeIterator for Indices<'_, T, C> {}
 
 
-impl<T: fmt::Debug> fmt::Debug for StableVec<T> {
+impl<T: fmt::Debug, C: Core<T>> fmt::Debug for StableVec<T, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "StableVec ")?;
         f.debug_list().entries(self).finish()

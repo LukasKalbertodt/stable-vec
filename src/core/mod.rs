@@ -41,7 +41,7 @@ pub trait Core<T> {
     /// `used_len` is not automatically updated, so this method has to be used.
     ///
     /// # Safety
-    /// - The new value must be `< self.capacity()`
+    /// - The new value must be `≤ self.capacity()`
     /// - All existing elements must have indices smaller than `v`
     ///
     /// If any of those condition is violated, the behavior of this method is

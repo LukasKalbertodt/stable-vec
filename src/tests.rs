@@ -407,16 +407,16 @@ fn retain_indices() {
     assert_sv_eq!(sv, [; 4]: char);
 }
 
-// #[test]
-// fn grow() {
-//     let mut sv = StableVec::<_>::from_vec(vec!['a', 'b']);
+#[test]
+fn grow() {
+    let mut sv = StableVec::<_>::from_vec(vec!['a', 'b']);
 
-//     sv.grow(1);
-//     assert_sv_eq!(sv, [0 => 'a', 1 => 'b'; 2]);
+    sv.grow(1);
+    assert_sv_eq!(sv, [0 => 'a', 1 => 'b'; 2]);
 
-//     sv.grow(9);
-//     assert_sv_eq!(sv, [0 => 'a', 1 => 'b'; 11]);
-// }
+    sv.grow(9);
+    assert_sv_eq!(sv, [0 => 'a', 1 => 'b'; 11]);
+}
 
 #[test]
 fn remove() {
@@ -445,39 +445,39 @@ fn remove() {
     assert_sv_eq!(sv, [2 => 'c', 3 => 'd'; 4]);
 }
 
-// #[test]
-// fn insert_into_hole() {
-//     let mut sv = StableVec::<_>::from_vec(vec!['a', 'b', 'c']);
+#[test]
+fn insert_into_hole() {
+    let mut sv = StableVec::<_>::from_vec(vec!['a', 'b', 'c']);
 
-//     assert_eq!(sv.insert_into_hole(1, 'x'), Err('x'));
-//     assert_sv_eq!(sv, [0 => 'a', 1 => 'b', 2 => 'c']);
+    assert_eq!(sv.insert_into_hole(1, 'x'), Err('x'));
+    assert_sv_eq!(sv, [0 => 'a', 1 => 'b', 2 => 'c']);
 
-//     assert_eq!(sv.insert_into_hole(3, 'x'), Err('x'));
-//     assert_sv_eq!(sv, [0 => 'a', 1 => 'b', 2 => 'c']);
+    assert_eq!(sv.insert_into_hole(3, 'x'), Err('x'));
+    assert_sv_eq!(sv, [0 => 'a', 1 => 'b', 2 => 'c']);
 
-//     assert_eq!(sv.remove(1), Some('b'));
-//     assert_eq!(sv.insert_into_hole(1, 'd'), Ok(()));
-//     assert_sv_eq!(sv, [0 => 'a', 1 => 'd', 2 => 'c']);
+    assert_eq!(sv.remove(1), Some('b'));
+    assert_eq!(sv.insert_into_hole(1, 'd'), Ok(()));
+    assert_sv_eq!(sv, [0 => 'a', 1 => 'd', 2 => 'c']);
 
-//     assert_eq!(sv.insert_into_hole(1, 'x'), Err('x'));
-//     assert_sv_eq!(sv, [0 => 'a', 1 => 'd', 2 => 'c']);
+    assert_eq!(sv.insert_into_hole(1, 'x'), Err('x'));
+    assert_sv_eq!(sv, [0 => 'a', 1 => 'd', 2 => 'c']);
 
-//     assert_eq!(sv.remove(1), Some('d'));
-//     assert_sv_eq!(sv, [0 => 'a', 2 => 'c']);
+    assert_eq!(sv.remove(1), Some('d'));
+    assert_sv_eq!(sv, [0 => 'a', 2 => 'c']);
 
-//     assert_eq!(sv.insert_into_hole(1, 'e'), Ok(()));
-//     assert_sv_eq!(sv, [0 => 'a', 1 => 'e', 2 => 'c']);
+    assert_eq!(sv.insert_into_hole(1, 'e'), Ok(()));
+    assert_sv_eq!(sv, [0 => 'a', 1 => 'e', 2 => 'c']);
 
-//     sv.grow(2);
-//     assert_eq!(sv.insert_into_hole(5, 'x'), Err('x'));
-//     assert_sv_eq!(sv, [0 => 'a', 1 => 'e', 2 => 'c'; 4]);
+    sv.grow(2);
+    assert_eq!(sv.insert_into_hole(5, 'x'), Err('x'));
+    assert_sv_eq!(sv, [0 => 'a', 1 => 'e', 2 => 'c'; 4]);
 
-//     assert_eq!(sv.insert_into_hole(4, 'f'), Ok(()));
-//     assert_sv_eq!(sv, [0 => 'a', 1 => 'e', 2 => 'c', 4 => 'f']);
+    assert_eq!(sv.insert_into_hole(4, 'f'), Ok(()));
+    assert_sv_eq!(sv, [0 => 'a', 1 => 'e', 2 => 'c', 4 => 'f']);
 
-//     assert_eq!(sv.insert_into_hole(3, 'g'), Ok(()));
-//     assert_sv_eq!(sv, [0 => 'a', 1 => 'e', 2 => 'c', 3 => 'g', 4 => 'f']);
-// }
+    assert_eq!(sv.insert_into_hole(3, 'g'), Ok(()));
+    assert_sv_eq!(sv, [0 => 'a', 1 => 'e', 2 => 'c', 3 => 'g', 4 => 'f']);
+}
 
 #[test]
 fn clear() {
@@ -650,37 +650,37 @@ fn correct_drop() {
 //     assert_eq!(sv.into_vec(), &[1.0, 3.0]);
 // }
 
-// #[test]
-// fn insert_into_hole_and_grow() {
-//     let mut sv = StableVec::<_>::from(&['a', 'b']);
-//     sv.reserve(10);
+#[test]
+fn insert_into_hole_and_grow() {
+    let mut sv = StableVec::<_>::from(&['a', 'b']);
+    sv.reserve(10);
 
-//     assert_eq!(sv.num_elements(), 2);
-//     assert_eq!(sv.insert_into_hole(0, 'c'), Err('c'));
-//     assert_eq!(sv.insert_into_hole(1, 'c'), Err('c'));
-//     assert_eq!(sv.insert_into_hole(2, 'c'), Err('c'));
+    assert_eq!(sv.num_elements(), 2);
+    assert_eq!(sv.insert_into_hole(0, 'c'), Err('c'));
+    assert_eq!(sv.insert_into_hole(1, 'c'), Err('c'));
+    assert_eq!(sv.insert_into_hole(2, 'c'), Err('c'));
 
-//     sv.remove(1);
+    sv.remove(1);
 
-//     assert_eq!(sv.num_elements(), 1);
-//     assert_eq!(sv.insert_into_hole(0, 'c'), Err('c'));
+    assert_eq!(sv.num_elements(), 1);
+    assert_eq!(sv.insert_into_hole(0, 'c'), Err('c'));
 
-//     assert_eq!(sv.insert_into_hole(1, 'c'), Ok(()));
-//     assert_eq!(sv.insert_into_hole(1, 'd'), Err('d'));
-//     assert_eq!(sv.insert_into_hole(2, 'c'), Err('c'));
-//     assert_eq!(sv.num_elements(), 2);
-//     assert_eq!(sv.clone().into_vec(), &['a', 'c']);
+    assert_eq!(sv.insert_into_hole(1, 'c'), Ok(()));
+    assert_eq!(sv.insert_into_hole(1, 'd'), Err('d'));
+    assert_eq!(sv.insert_into_hole(2, 'c'), Err('c'));
+    assert_eq!(sv.num_elements(), 2);
+    // assert_eq!(sv.clone().into_vec(), &['a', 'c']);
 
-//     sv.grow(3);
-//     assert_eq!(sv.num_elements(), 2);
-//     assert_eq!(sv.clone().into_vec(), &['a', 'c']);
+    sv.grow(3);
+    assert_eq!(sv.num_elements(), 2);
+    // assert_eq!(sv.clone().into_vec(), &['a', 'c']);
 
-//     assert_eq!(sv.insert_into_hole(4, 'd'), Ok(()));
-//     assert_eq!(sv.insert_into_hole(4, 'e'), Err('e'));
+    assert_eq!(sv.insert_into_hole(4, 'd'), Ok(()));
+    assert_eq!(sv.insert_into_hole(4, 'e'), Err('e'));
 
-//     assert_eq!(sv.num_elements(), 3);
-//     assert_eq!(sv.clone().into_vec(), &['a', 'c', 'd']);
-// }
+    assert_eq!(sv.num_elements(), 3);
+    // assert_eq!(sv.clone().into_vec(), &['a', 'c', 'd']);
+}
 
 #[test]
 fn extend_from_iter() {

@@ -42,6 +42,10 @@ pub use self::core::{
 };
 
 
+/// The default core implementation of the stable vector.
+pub type DefaultCore<T> = OptionCore<T>;
+
+
 /// A `Vec<T>`-like collection which guarantees stable indices and features
 /// O(1) deletion of elements.
 ///
@@ -160,7 +164,7 @@ pub use self::core::{
 ///
 // #[derive(PartialEq, Eq)]
 #[derive(Clone)]
-pub struct StableVec<T, C: Core<T> = OptionCore<T>> {
+pub struct StableVec<T, C: Core<T> = DefaultCore<T>> {
     core: OwningCore<T, C>,
     num_elements: usize,
 }

@@ -108,7 +108,7 @@ fn from_vec(c: &mut Criterion) {
         |b, size| {
             b.iter_batched(
                 || Vec::from_iter(0..*size),
-                |v| StableVec::from_vec(v),
+                |v| StableVec::<_>::from_vec(v),
                 BatchSize::SmallInput,
             );
         },
@@ -119,7 +119,7 @@ fn from_vec(c: &mut Criterion) {
 fn push(c: &mut Criterion) {
     c.bench_function("push", |b| {
         b.iter_batched_ref(
-            || StableVec::with_capacity(1),
+            || StableVec::<_>::with_capacity(1),
             |sv| { black_box(sv.push('x')); },
             BatchSize::SmallInput,
         );

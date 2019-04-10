@@ -22,24 +22,24 @@
 //! use stable_vec::StableVec;
 //! ```
 
-#![deny(missing_debug_implementations)]
+// #![deny(missing_debug_implementations)] // TODO
 
-extern crate bit_vec;
-#[cfg(test)]
-#[macro_use]
-extern crate quickcheck;
 
-use bit_vec::BitVec;
-
-use std::fmt;
-use std::iter::FromIterator;
-use std::mem;
-use std::io;
-use std::ops::{Index, IndexMut};
-use std::ptr;
+use std::{
+    fmt,
+    io,
+    ops::{Index, IndexMut},
+};
 
 #[cfg(test)]
 mod tests;
+mod core;
+
+use self::core::OwningCore;
+pub use self::core::{
+    Core,
+    option::OptionCore,
+};
 
 
 /// A `Vec<T>`-like collection which guarantees stable indices and features
@@ -158,27 +158,21 @@ mod tests;
 /// - [`shrink_to_fit()`](#method.shrink_to_fit)
 /// - [`reserve()`](#method.reserve)
 ///
-#[derive(PartialEq, Eq)]
-pub struct StableVec<T> {
-    /// Storing the actual data.
-    data: Vec<T>,
-
-    /// A flag for each element saying whether the element was removed.
-    deleted: BitVec,
-
-    /// A cached value equal to `self.deleted.iter().filter(|&b| !b).count()`
-    used_count: usize,
+// #[derive(PartialEq, Eq)]
+#[derive(Clone)]
+pub struct StableVec<T, C: Core<T> = OptionCore<T>> {
+    core: OwningCore<T, C>,
+    num_elements: usize,
 }
 
-impl<T> StableVec<T> {
+impl<T, C: Core<T>> StableVec<T, C> {
     /// Constructs a new, empty `StableVec<T>`.
     ///
     /// The stable-vector will not allocate until elements are pushed onto it.
     pub fn new() -> Self {
         Self {
-            data: Vec::new(),
-            deleted: BitVec::new(),
-            used_count: 0,
+            core: OwningCore::new(C::new()),
+            num_elements: 0,
         }
     }
 
@@ -188,11 +182,9 @@ impl<T> StableVec<T> {
     /// without reallocating. If `capacity` is 0, the stable-vector will not
     /// allocate any memory.
     pub fn with_capacity(capacity: usize) -> Self {
-        Self {
-            data: Vec::with_capacity(capacity),
-            deleted: BitVec::with_capacity(capacity),
-            used_count: 0,
-        }
+        let mut out = Self::new();
+        out.reserve(capacity);
+        out
     }
 
     /// Creates a `StableVec<T>` from the given `Vec<T>`. The elements are not
@@ -216,23 +208,21 @@ impl<T> StableVec<T> {
     /// ```
     pub fn from_vec(vec: Vec<T>) -> Self {
         Self {
-            used_count: vec.len(),
-            deleted: BitVec::from_elem(vec.len(), false),
-            data: vec,
+            num_elements: vec.len(),
+            core: OwningCore::new(C::from_vec(vec)),
         }
     }
 
     /// Reserves capacity for at least `additional` more elements to be
     /// inserted.
     pub fn reserve(&mut self, additional: usize) {
-        self.data.reserve(additional);
-        self.deleted.reserve(additional);
+        self.core.grow(additional);
     }
 
     /// Appends a new element to the back of the collection and returns the
     /// index of the inserted element.
     ///
-    /// The inserted element will always be accessable via the returned index.
+    /// The inserted element will always be accessible via the returned index.
     ///
     /// # Example
     ///
@@ -250,34 +240,20 @@ impl<T> StableVec<T> {
     /// assert_eq!(sv.get(heart_idx), Some(&'♥'));
     /// ```
     pub fn push(&mut self, elem: T) -> usize {
-        self.data.push(elem);
-        self.deleted.push(false);
-        self.used_count += 1;
-        self.data.len() - 1
-    }
+        let index = self.core.used_len();
+        self.core.grow(1);
 
-    /// Removes and returns the last element from this collection, or `None` if
-    /// it's empty. Same as [`remove_last()`](#method.remove_last).
-    ///
-    /// This method uses exactly the same deletion strategy as
-    /// [`remove()`](#method.remove).
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::from(&[1, 2, 3]);
-    /// assert_eq!(sv.pop(), Some(3));
-    /// assert_eq!(sv.into_vec(), vec![1, 2]);
-    /// ```
-    ///
-    /// # Note
-    ///
-    /// This method needs to find index of the last valid element. Finding it
-    /// has a worst case time complexity of O(n). If you already know the
-    /// index, use [`remove()`](#method.remove) instead.
-    pub fn pop(&mut self) -> Option<T> {
-        self.remove_last()
+        unsafe {
+            // Due to growing the core to hold at least 1 additional element,
+            // we know that `index` is smaller than the capacity. We also know
+            // that at `index` there is no element (the definitoin of
+            // `used_len` guarantees this).
+            self.core.set_used_len(index + 1);
+            self.core.insert_at(index, elem);
+        }
+
+        self.num_elements += 1;
+        index
     }
 
     /// Removes and returns the first element from this collection, or `None` if
@@ -342,7 +318,7 @@ impl<T> StableVec<T> {
     /// assert_eq!(sv.find_first(), Some(&2));
     /// ```
     pub fn find_first(&self) -> Option<&T> {
-        self.find_first_index().map(|index| &self.data[index])
+        self.find_first_index().map(|index| unsafe { self.core.get_unchecked(index) })
     }
 
     /// Finds the first element and returns a mutable reference to it, or `None` if
@@ -364,10 +340,7 @@ impl<T> StableVec<T> {
     /// assert_eq!(&sv.into_vec(), &[3, 2]);
     /// ```
     pub fn find_first_mut(&mut self) -> Option<&mut T> {
-        match self.find_first_index() {
-            Some(index) => Some(&mut self.data[index]),
-            None => None,
-        }
+        self.find_first_index().map(move |index| unsafe { self.core.get_unchecked_mut(index) })
     }
 
     /// Finds the last element and returns a reference to it, or `None` if
@@ -384,7 +357,7 @@ impl<T> StableVec<T> {
     /// assert_eq!(sv.find_last(), Some(&1));
     /// ```
     pub fn find_last(&self) -> Option<&T> {
-        self.find_last_index().map(|index| &self.data[index])
+        self.find_last_index().map(|index| unsafe { self.core.get_unchecked(index) })
     }
 
     /// Finds the last element and returns a mutable reference to it, or `None` if
@@ -406,10 +379,7 @@ impl<T> StableVec<T> {
     /// assert_eq!(&sv.into_vec(), &[1, 3]);
     /// ```
     pub fn find_last_mut(&mut self) -> Option<&mut T> {
-        match self.find_last_index() {
-            Some(index) => Some(&mut self.data[index]),
-            None => None,
-        }
+        self.find_last_index().map(move |index| unsafe { self.core.get_unchecked_mut(index) })
     }
 
     /// Finds the first element and returns its index, or `None` if
@@ -426,14 +396,7 @@ impl<T> StableVec<T> {
     /// assert_eq!(sv.find_first_index(), Some(1));
     /// ```
     pub fn find_first_index(&self) -> Option<usize> {
-        match self.used_count {
-            0 => None,
-            _ => self.deleted
-                .iter()
-                .enumerate()
-                .find(|&(_, deleted)| !deleted)
-                .map(|(i, _)| i),
-        }
+        self.core.next_index_from(0)
     }
 
     /// Finds the last element and returns its index, or `None` if
@@ -450,98 +413,95 @@ impl<T> StableVec<T> {
     /// assert_eq!(sv.find_last_index(), Some(0));
     /// ```
     pub fn find_last_index(&self) -> Option<usize> {
-        match self.used_count {
-            0 => None,
-            _ => self.deleted
-                .iter()
-                .enumerate()
-                .rev()
-                .find(|&(_, deleted)| !deleted)
-                .map(|(i, _)| i),
-        }
-    }
-
-    /// Inserts the given value at the given index if there is a hole there.
-    ///
-    /// If there is an element marked as "deleted" at `index`, the `elem` is
-    /// inserted at that position and `Ok(())` is returned. If `index` is out of
-    /// bounds or there is an existing element at that position, the vector is
-    /// not changed and `elem` is returned as `Err(elem)`.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::new();
-    /// let star_idx = sv.push('★');
-    /// let heart_idx = sv.push('♥');
-    ///
-    /// // Inserting fails: there isn't a hole yet.
-    /// assert_eq!(sv.insert_into_hole(star_idx, 'x'), Err('x'));
-    /// assert_eq!(sv.num_elements(), 2);
-    ///
-    /// // After removing the star...
-    /// sv.remove(star_idx);
-    /// assert_eq!(sv.num_elements(), 1);
-    ///
-    /// // ...we can insert a new element at its place.
-    /// assert_eq!(sv.insert_into_hole(star_idx, 'x'), Ok(()));
-    /// assert_eq!(sv[star_idx], 'x');
-    /// assert_eq!(sv.num_elements(), 2);
-    /// ```
-    pub fn insert_into_hole(&mut self, index: usize, elem: T) -> Result<(), T> {
-        // If the index is out of bounds or if the element at the given index
-        // has not been marked as deleted, we cannot insert the new element.
-        if self.deleted.get(index) != Some(true) {
-            Err(elem)
+        let len = self.core.used_len();
+        if len == 0 {
+            None
         } else {
-            // We overwrite the removed element with the new one
-            unsafe {
-                ptr::write(&mut self.data[index], elem);
-                self.deleted.set(index, false);
-            }
-            self.used_count += 1;
-
-            Ok(())
+            self.core.prev_index_from(len - 1)
         }
     }
 
-    /// Grows the size of the stable vector by inserting deleted elements.
-    ///
-    /// This method does not add existing elements, but merely "deleted" ones.
-    /// Using this only makes sense when you are intending to use the holes
-    /// with [`insert_into_hole()`](#method.insert_into_hole) later. Otherwise,
-    /// this method will just waste memory.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::new();
-    /// let star_idx = sv.push('★');
-    ///
-    /// // After we inserted one element, the next element sits at index 1, as
-    /// // expected.
-    /// assert_eq!(sv.next_index(), 1);
-    ///
-    /// sv.grow(2); // insert two deleted elements
-    ///
-    /// assert_eq!(sv.num_elements(), 1); // Still only one existing element
-    /// assert_eq!(sv.next_index(), 3); // Due to grow(2), we skip two indices
-    ///
-    /// // Now we can insert an element at index 2.
-    /// sv.insert_into_hole(2, 'x').unwrap();
-    /// assert_eq!(sv.num_elements(), 2);
-    /// ```
-    pub fn grow(&mut self, count: usize) {
-        self.data.reserve(count);
-        let new_len = self.data.len() + count;
+    // /// Inserts the given value at the given index if there is a hole there.
+    // ///
+    // /// If there is an element marked as "deleted" at `index`, the `elem` is
+    // /// inserted at that position and `Ok(())` is returned. If `index` is out of
+    // /// bounds or there is an existing element at that position, the vector is
+    // /// not changed and `elem` is returned as `Err(elem)`.
+    // ///
+    // /// # Example
+    // ///
+    // /// ```
+    // /// # use stable_vec::StableVec;
+    // /// let mut sv = StableVec::new();
+    // /// let star_idx = sv.push('★');
+    // /// let heart_idx = sv.push('♥');
+    // ///
+    // /// // Inserting fails: there isn't a hole yet.
+    // /// assert_eq!(sv.insert_into_hole(star_idx, 'x'), Err('x'));
+    // /// assert_eq!(sv.num_elements(), 2);
+    // ///
+    // /// // After removing the star...
+    // /// sv.remove(star_idx);
+    // /// assert_eq!(sv.num_elements(), 1);
+    // ///
+    // /// // ...we can insert a new element at its place.
+    // /// assert_eq!(sv.insert_into_hole(star_idx, 'x'), Ok(()));
+    // /// assert_eq!(sv[star_idx], 'x');
+    // /// assert_eq!(sv.num_elements(), 2);
+    // /// ```
+    // pub fn insert_into_hole(&mut self, index: usize, elem: T) -> Result<(), T> {
+    //     // If the index is out of bounds or if the element at the given index
+    //     // has not been marked as deleted, we cannot insert the new element.
+    //     if self.deleted.get(index) != Some(true) {
+    //         Err(elem)
+    //     } else {
+    //         // We overwrite the removed element with the new one
+    //         unsafe {
+    //             ptr::write(&mut self.data[index], elem);
+    //             self.deleted.set(index, false);
+    //         }
+    //         self.num_elements += 1;
 
-        unsafe {
-            self.deleted.grow(count, true);
-            self.data.set_len(new_len);
-        }
-    }
+    //         Ok(())
+    //     }
+    // }
+
+    // /// Grows the size of the stable vector by inserting deleted elements.
+    // ///
+    // /// This method does not add existing elements, but merely "deleted" ones.
+    // /// Using this only makes sense when you are intending to use the holes
+    // /// with [`insert_into_hole()`](#method.insert_into_hole) later. Otherwise,
+    // /// this method will just waste memory.
+    // ///
+    // /// # Example
+    // ///
+    // /// ```
+    // /// # use stable_vec::StableVec;
+    // /// let mut sv = StableVec::new();
+    // /// let star_idx = sv.push('★');
+    // ///
+    // /// // After we inserted one element, the next element sits at index 1, as
+    // /// // expected.
+    // /// assert_eq!(sv.next_index(), 1);
+    // ///
+    // /// sv.grow(2); // insert two deleted elements
+    // ///
+    // /// assert_eq!(sv.num_elements(), 1); // Still only one existing element
+    // /// assert_eq!(sv.next_index(), 3); // Due to grow(2), we skip two indices
+    // ///
+    // /// // Now we can insert an element at index 2.
+    // /// sv.insert_into_hole(2, 'x').unwrap();
+    // /// assert_eq!(sv.num_elements(), 2);
+    // /// ```
+    // pub fn grow(&mut self, count: usize) {
+    //     self.data.reserve(count);
+    //     let new_len = self.data.len() + count;
+
+    //     unsafe {
+    //         self.deleted.grow(count, true);
+    //         self.data.set_len(new_len);
+    //     }
+    // }
 
     /// Removes and returns the element at position `index` if there exists an
     /// element at that index (as defined by
@@ -570,18 +530,13 @@ impl<T> StableVec<T> {
     /// ```
     pub fn remove(&mut self, index: usize) -> Option<T> {
         if self.has_element_at(index) {
-            // We move the requested element out of our `data` vector. Usually,
-            // it's impossible to move out of a vector without removing the
-            // element in the vector. We can achieve it by using unsafe code:
-            // We just read the value from the vector without changing
-            // anything. This is dangerous if we try to access this element
-            // in the vector later. To prevent any access, we mark the element
-            // as deleted.
+            // We checked with `Self::has_element_at` that the conditions for
+            // `remove_at` are met.
             let elem = unsafe {
-                self.deleted.set(index, true);
-                ptr::read(&self.data[index])
+                self.core.remove_at(index)
             };
-            self.used_count -= 1;
+
+            self.num_elements -= 1;
             Some(elem)
         } else {
             None
@@ -595,7 +550,12 @@ impl<T> StableVec<T> {
     /// rather use the index operator instead: `stable_vec[index]`.
     pub fn get(&self, index: usize) -> Option<&T> {
         if self.has_element_at(index) {
-            Some(&self.data[index])
+            // We might call this, because we checked both conditions via
+            // `Self::has_element_at`.
+            let elem = unsafe {
+                self.core.get_unchecked(index)
+            };
+            Some(elem)
         } else {
             None
         }
@@ -608,7 +568,12 @@ impl<T> StableVec<T> {
     /// rather use the index operator instead: `stable_vec[index]`.
     pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
         if self.has_element_at(index) {
-            Some(&mut self.data[index])
+            // We might call this, because we checked both conditions via
+            // `Self::has_element_at`.
+            let elem = unsafe {
+                self.core.get_unchecked_mut(index)
+            };
+            Some(elem)
         } else {
             None
         }
@@ -634,146 +599,154 @@ impl<T> StableVec<T> {
     /// assert!(!sv.has_element_at(heart_idx)); // no: was removed
     /// ```
     pub fn has_element_at(&self, index: usize) -> bool {
-        self.deleted.get(index) == Some(false)
-    }
-
-    /// Calls `shrink_to_fit()` on the underlying `Vec<T>`.
-    ///
-    /// Note that this does not move existing elements around and thus does
-    /// not invalidate indices. It only calls `shrink_to_fit()` on the
-    /// `Vec<T>` that holds the actual data.
-    ///
-    /// If you want to compact this `StableVec` by removing deleted elements,
-    /// use the method [`make_compact()`](#method.make_compact) instead.
-    pub fn shrink_to_fit(&mut self) {
-        self.data.shrink_to_fit();
-    }
-
-    /// Rearranges elements to reclaim memory. **Invalidates indices!**
-    ///
-    /// After calling this method, all existing elements stored contiguously
-    /// in memory. You might want to call [`shrink_to_fit()`](#method.shrink_to_fit)
-    /// afterwards to actually free memory previously used by removed elements.
-    /// This method itself does not deallocate any memory.
-    ///
-    /// In comparison to
-    /// [`reordering_make_compact()`](#method.reordering_make_compact), this
-    /// method does not change the order of elements. Due to this, this method
-    /// is a bit slower.
-    ///
-    /// # Warning
-    ///
-    /// This method invalidates the indices of all elements that are stored
-    /// after the first hole in the stable vector!
-    pub fn make_compact(&mut self) {
-        if self.is_compact() {
-            return;
-        }
-
-        // We only have to move elements, if we have any.
-        if self.used_count > 0 {
-            // We have to find the position of the first hole. We know that
-            // there is at least one hole, so we can unwrap.
-            let first_hole_index = self.deleted.iter().position(|d| d).unwrap();
-
-            // This variable will store the first possible index of an element
-            // which can be inserted in the hole.
-            let mut element_index = first_hole_index + 1;
-
-            // Beginning from the first hole, we have to fill each index with
-            // a new value. This is required to keep the order of elements.
-            for hole_index in first_hole_index..self.used_count {
-                // Actually find the next element which we can use to fill the
-                // hole. Note that we do not check if `element_index` runs out
-                // of bounds. This will never happen! We do have enough
-                // elements to fill all holes. And once all holes are filled,
-                // the outer loop will stop.
-                while self.deleted[element_index] {
-                    element_index += 1;
-                }
-
-                // So at this point `hole_index` points to a valid hole and
-                // `element_index` points to a valid element. Time to swap!
-                self.data.swap(hole_index, element_index);
-                self.deleted.set(hole_index, false);
-                self.deleted.set(element_index, true);
+        if self.core.capacity() <= index {
+            return false;
+        } else {
+            unsafe {
+                // The index is smaller than the capacity, as checked aboved,
+                // so we can call this without a problem.
+                self.core.has_element_at(index)
             }
         }
-
-        // We can safely call `set_len()` here: all elements that still need
-        // to be dropped are in the range 0..self.used_count.
-        unsafe {
-            self.data.set_len(self.used_count);
-            self.deleted.set_len(self.used_count);
-        }
     }
 
-    /// Rearranges elements to reclaim memory. **Invalidates indices and
-    /// changes the order of the elements!**
-    ///
-    /// After calling this method, all existing elements stored contiguously
-    /// in memory. You might want to call [`shrink_to_fit()`](#method.shrink_to_fit)
-    /// afterwards to actually free memory previously used by removed elements.
-    /// This method itself does not deallocate any memory.
-    ///
-    /// If you do need to preserve the order of elements, use
-    /// [`make_compact()`](#method.make_compact) instead. However, if you don't
-    /// care about element order, you should prefer using this method, because
-    /// it is faster.
-    ///
-    /// # Warning
-    ///
-    /// This method invalidates the indices of all elements that are stored
-    /// after the first hole and it does not preserve the order of elements!
-    pub fn reordering_make_compact(&mut self) {
-        if self.is_compact() {
-            return;
-        }
+    // /// Calls `shrink_to_fit()` on the underlying `Vec<T>`.
+    // ///
+    // /// Note that this does not move existing elements around and thus does
+    // /// not invalidate indices. It only calls `shrink_to_fit()` on the
+    // /// `Vec<T>` that holds the actual data.
+    // ///
+    // /// If you want to compact this `StableVec` by removing deleted elements,
+    // /// use the method [`make_compact()`](#method.make_compact) instead.
+    // pub fn shrink_to_fit(&mut self) {
+    //     self.data.shrink_to_fit();
+    // }
 
-        // We only have to move elements, if we have any.
-        if self.used_count > 0 {
-            // We use two indices:
-            //
-            // - `hole_index` starts from the front and searches for a hole
-            //   that can be filled with an element.
-            // - `element_index` starts from the back and searches for an
-            //   element.
-            let len = self.data.len();
-            let mut element_index = len - 1;
-            let mut hole_index = 0;
-            loop {
-                // Advance `element_index` until we found an element.
-                while element_index > 0 && self.deleted[element_index] {
-                    element_index -= 1;
-                }
+    // /// Rearranges elements to reclaim memory. **Invalidates indices!**
+    // ///
+    // /// After calling this method, all existing elements stored contiguously
+    // /// in memory. You might want to call [`shrink_to_fit()`](#method.shrink_to_fit)
+    // /// afterwards to actually free memory previously used by removed elements.
+    // /// This method itself does not deallocate any memory.
+    // ///
+    // /// In comparison to
+    // /// [`reordering_make_compact()`](#method.reordering_make_compact), this
+    // /// method does not change the order of elements. Due to this, this method
+    // /// is a bit slower.
+    // ///
+    // /// # Warning
+    // ///
+    // /// This method invalidates the indices of all elements that are stored
+    // /// after the first hole in the stable vector!
+    // pub fn make_compact(&mut self) {
+    //     if self.is_compact() {
+    //         return;
+    //     }
 
-                // Advance `hole_index` until we found a hole.
-                while hole_index < len && !self.deleted[hole_index] {
-                    hole_index += 1;
-                }
+    //     // We only have to move elements, if we have any.
+    //     if self.num_elements > 0 {
+    //         // We have to find the position of the first hole. We know that
+    //         // there is at least one hole, so we can unwrap.
+    //         let first_hole_index = self.deleted.iter().position(|d| d).unwrap();
 
-                // If both indices passed each other, we can stop. There are no
-                // holes left of `hole_index` and no element right of
-                // `element_index`.
-                if hole_index > element_index {
-                    break;
-                }
+    //         // This variable will store the first possible index of an element
+    //         // which can be inserted in the hole.
+    //         let mut element_index = first_hole_index + 1;
 
-                // We found an element and a hole left of the element. That
-                // means that we can swap.
-                self.data.swap(hole_index, element_index);
-                self.deleted.set(hole_index, false);
-                self.deleted.set(element_index, true);
-            }
-        }
+    //         // Beginning from the first hole, we have to fill each index with
+    //         // a new value. This is required to keep the order of elements.
+    //         for hole_index in first_hole_index..self.num_elements {
+    //             // Actually find the next element which we can use to fill the
+    //             // hole. Note that we do not check if `element_index` runs out
+    //             // of bounds. This will never happen! We do have enough
+    //             // elements to fill all holes. And once all holes are filled,
+    //             // the outer loop will stop.
+    //             while self.deleted[element_index] {
+    //                 element_index += 1;
+    //             }
 
-        // We can safely call `set_len()` here: all elements that still need
-        // to be dropped are in the range 0..self.used_count.
-        unsafe {
-            self.data.set_len(self.used_count);
-            self.deleted.set_len(self.used_count);
-        }
-    }
+    //             // So at this point `hole_index` points to a valid hole and
+    //             // `element_index` points to a valid element. Time to swap!
+    //             self.data.swap(hole_index, element_index);
+    //             self.deleted.set(hole_index, false);
+    //             self.deleted.set(element_index, true);
+    //         }
+    //     }
+
+    //     // We can safely call `set_len()` here: all elements that still need
+    //     // to be dropped are in the range 0..self.num_elements.
+    //     unsafe {
+    //         self.data.set_len(self.num_elements);
+    //         self.deleted.set_len(self.num_elements);
+    //     }
+    // }
+
+    // /// Rearranges elements to reclaim memory. **Invalidates indices and
+    // /// changes the order of the elements!**
+    // ///
+    // /// After calling this method, all existing elements stored contiguously
+    // /// in memory. You might want to call [`shrink_to_fit()`](#method.shrink_to_fit)
+    // /// afterwards to actually free memory previously used by removed elements.
+    // /// This method itself does not deallocate any memory.
+    // ///
+    // /// If you do need to preserve the order of elements, use
+    // /// [`make_compact()`](#method.make_compact) instead. However, if you don't
+    // /// care about element order, you should prefer using this method, because
+    // /// it is faster.
+    // ///
+    // /// # Warning
+    // ///
+    // /// This method invalidates the indices of all elements that are stored
+    // /// after the first hole and it does not preserve the order of elements!
+    // pub fn reordering_make_compact(&mut self) {
+    //     if self.is_compact() {
+    //         return;
+    //     }
+
+    //     // We only have to move elements, if we have any.
+    //     if self.num_elements > 0 {
+    //         // We use two indices:
+    //         //
+    //         // - `hole_index` starts from the front and searches for a hole
+    //         //   that can be filled with an element.
+    //         // - `element_index` starts from the back and searches for an
+    //         //   element.
+    //         let len = self.data.len();
+    //         let mut element_index = len - 1;
+    //         let mut hole_index = 0;
+    //         loop {
+    //             // Advance `element_index` until we found an element.
+    //             while element_index > 0 && self.deleted[element_index] {
+    //                 element_index -= 1;
+    //             }
+
+    //             // Advance `hole_index` until we found a hole.
+    //             while hole_index < len && !self.deleted[hole_index] {
+    //                 hole_index += 1;
+    //             }
+
+    //             // If both indices passed each other, we can stop. There are no
+    //             // holes left of `hole_index` and no element right of
+    //             // `element_index`.
+    //             if hole_index > element_index {
+    //                 break;
+    //             }
+
+    //             // We found an element and a hole left of the element. That
+    //             // means that we can swap.
+    //             self.data.swap(hole_index, element_index);
+    //             self.deleted.set(hole_index, false);
+    //             self.deleted.set(element_index, true);
+    //         }
+    //     }
+
+    //     // We can safely call `set_len()` here: all elements that still need
+    //     // to be dropped are in the range 0..self.num_elements.
+    //     unsafe {
+    //         self.data.set_len(self.num_elements);
+    //         self.deleted.set_len(self.num_elements);
+    //     }
+    // }
 
     /// Returns `true` if all existing elements are stored contiguously from
     /// the beginning.
@@ -792,7 +765,7 @@ impl<T> StableVec<T> {
     /// assert!(!sv.is_compact());
     /// ```
     pub fn is_compact(&self) -> bool {
-        self.used_count == self.data.len()
+        self.num_elements == self.core.used_len()
     }
 
     /// Returns the number of existing elements in this collection.
@@ -815,7 +788,7 @@ impl<T> StableVec<T> {
     /// assert_eq!(sv.num_elements(), 0);
     /// ```
     pub fn num_elements(&self) -> usize {
-        self.used_count
+        self.num_elements
     }
 
     /// Returns `true` if this collection doesn't contain any existing
@@ -838,7 +811,7 @@ impl<T> StableVec<T> {
     /// assert!(sv.is_empty());
     /// ```
     pub fn is_empty(&self) -> bool {
-        self.used_count == 0
+        self.num_elements == 0
     }
 
     /// Removes all elements from this collection.
@@ -858,23 +831,14 @@ impl<T> StableVec<T> {
     /// assert!(sv.capacity() >= 2);
     /// ```
     pub fn clear(&mut self) {
-        unsafe {
-            if mem::needs_drop::<T>() {
-                for e in &mut *self {
-                    ptr::drop_in_place(e);
-                }
-            }
-            self.data.set_len(0);
-        }
-
-        self.deleted.truncate(0);
-        self.used_count = 0;
+        self.core.clear();
+        self.num_elements = 0;
     }
 
     /// Returns the number of elements the stable-vector can hold without
     /// reallocating.
     pub fn capacity(&self) -> usize {
-        self.data.capacity()
+        self.core.capacity()
     }
 
     /// Returns the index that would be returned by calling
@@ -892,7 +856,7 @@ impl<T> StableVec<T> {
     /// assert_eq!(next_index, index_of_d);
     /// ```
     pub fn next_index(&self) -> usize {
-        self.data.len()
+        self.core.used_len()
     }
 
     /// Returns an iterator over immutable references to the existing elements
@@ -921,40 +885,44 @@ impl<T> StableVec<T> {
     ///     println!("{:?}", e);
     /// }
     /// ```
-    pub fn iter(&self) -> Iter<T> {
-        Iter { sv: self, pos: 0, count: self.used_count }
-    }
-
-    /// Returns an iterator over mutable references to the existing elements
-    /// of this stable vector.
-    ///
-    /// Note that you can also use the `IntoIterator` implementation of
-    /// `&mut StableVec` to obtain the same iterator.
-    ///
-    /// Through this iterator, the elements within the stable vector can be
-    /// mutated.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::from(&[1.0, 2.0, 3.0]);
-    ///
-    /// for e in &mut sv {
-    ///     *e *= 2.0;
-    /// }
-    ///
-    /// assert_eq!(sv, &[2.0, 4.0, 6.0] as &[_]);
-    /// ```
-    pub fn iter_mut(&mut self) -> IterMut<T> {
-        IterMut {
-            deleted: &mut self.deleted,
-            count: self.used_count,
-            used_count: &mut self.used_count,
-            vec_iter: self.data.iter_mut(),
+    pub fn iter(&self) -> Iter<'_, T, C> {
+        Iter {
+            core: &self.core,
             pos: 0,
+            count: self.num_elements,
         }
     }
+
+    // /// Returns an iterator over mutable references to the existing elements
+    // /// of this stable vector.
+    // ///
+    // /// Note that you can also use the `IntoIterator` implementation of
+    // /// `&mut StableVec` to obtain the same iterator.
+    // ///
+    // /// Through this iterator, the elements within the stable vector can be
+    // /// mutated.
+    // ///
+    // /// # Examples
+    // ///
+    // /// ```
+    // /// # use stable_vec::StableVec;
+    // /// let mut sv = StableVec::from(&[1.0, 2.0, 3.0]);
+    // ///
+    // /// for e in &mut sv {
+    // ///     *e *= 2.0;
+    // /// }
+    // ///
+    // /// assert_eq!(sv, &[2.0, 4.0, 6.0] as &[_]);
+    // /// ```
+    // pub fn iter_mut(&mut self) -> IterMut<T> {
+    //     IterMut {
+    //         deleted: &mut self.deleted,
+    //         count: self.num_elements,
+    //         num_elements: &mut self.num_elements,
+    //         vec_iter: self.data.iter_mut(),
+    //         pos: 0,
+    //     }
+    // }
 
     /// Returns an iterator over all valid indices of this stable vector.
     ///
@@ -982,11 +950,11 @@ impl<T> StableVec<T> {
     ///     println!("index: {}", index);
     /// }
     /// ```
-    pub fn keys(&self) -> Keys {
-        Keys {
-            deleted: &self.deleted,
+    pub fn indices(&self) -> Indices<'_, T, C> {
+        Indices {
+            core: &self.core,
             pos: 0,
-            count: self.used_count,
+            count: self.num_elements,
         }
     }
 
@@ -1013,44 +981,44 @@ impl<T> StableVec<T> {
         false
     }
 
-    /// Returns the stable vector as a standard `Vec<T>`.
-    ///
-    /// Returns a vector which contains all existing elements from this stable
-    /// vector. **All indices might be invalidated!** This method might call
-    /// [`make_compact()`](#method.make_compact); see that method's
-    /// documentation to learn about the effects on indices.
-    ///
-    /// This method does not allocate memory.
-    ///
-    /// # Note
-    ///
-    /// If the stable vector is not compact (as defined by `is_compact()`), the
-    /// runtime complexity of this function is O(n), because `make_compact()`
-    /// needs to be called.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::from(&['a', 'b', 'c']);
-    /// sv.remove(1);   // 'b' lives at index 1
-    ///
-    /// assert_eq!(sv.into_vec(), vec!['a', 'c']);
-    /// ```
-    pub fn into_vec(mut self) -> Vec<T> {
-        // Compact the stable vec to prepare the `data` vector for moving.
-        self.make_compact();
+    // /// Returns the stable vector as a standard `Vec<T>`.
+    // ///
+    // /// Returns a vector which contains all existing elements from this stable
+    // /// vector. **All indices might be invalidated!** This method might call
+    // /// [`make_compact()`](#method.make_compact); see that method's
+    // /// documentation to learn about the effects on indices.
+    // ///
+    // /// This method does not allocate memory.
+    // ///
+    // /// # Note
+    // ///
+    // /// If the stable vector is not compact (as defined by `is_compact()`), the
+    // /// runtime complexity of this function is O(n), because `make_compact()`
+    // /// needs to be called.
+    // ///
+    // /// # Example
+    // ///
+    // /// ```
+    // /// # use stable_vec::StableVec;
+    // /// let mut sv = StableVec::from(&['a', 'b', 'c']);
+    // /// sv.remove(1);   // 'b' lives at index 1
+    // ///
+    // /// assert_eq!(sv.into_vec(), vec!['a', 'c']);
+    // /// ```
+    // pub fn into_vec(mut self) -> Vec<T> {
+    //     // Compact the stable vec to prepare the `data` vector for moving.
+    //     self.make_compact();
 
-        // We reset all values to the "empty state" here. This is necessary to
-        // make sure the `drop()` impl doesn't do anything (except for actually
-        // freeing the memory of `deleted`).
-        self.used_count = 0;
-        self.deleted.truncate(0);
+    //     // We reset all values to the "empty state" here. This is necessary to
+    //     // make sure the `drop()` impl doesn't do anything (except for actually
+    //     // freeing the memory of `deleted`).
+    //     self.num_elements = 0;
+    //     self.deleted.truncate(0);
 
-        // The `data` vector is moved out of this data structure and replaced
-        // with an empty vector. After this line, `self` is dropped.
-        mem::replace(&mut self.data, Vec::new())
-    }
+    //     // The `data` vector is moved out of this data structure and replaced
+    //     // with an empty vector. After this line, `self` is dropped.
+    //     mem::replace(&mut self.data, Vec::new())
+    // }
 
     /// Retains only the elements specified by the given predicate.
     ///
@@ -1072,10 +1040,19 @@ impl<T> StableVec<T> {
     {
         let mut pos = 0;
 
-        while let Some(idx) = next_valid_index(&mut pos, &self.deleted) {
-            if !should_be_kept(&self[idx]) {
-                self.remove(idx);
+        while let Some(idx) = self.core.next_index_from(pos) {
+            // These unsafe calls are fine: indices returned by
+            // `next_index_from` are always valid and point to an existing
+            // element.
+            let elem = unsafe { self.core.get_unchecked(idx) };
+            if !should_be_kept(elem) {
+                unsafe {
+                    self.core.remove_at(idx);
+                }
+                self.num_elements -= 1;
             }
+
+            pos = idx + 1;
         }
     }
 
@@ -1102,10 +1079,18 @@ impl<T> StableVec<T> {
     {
         let mut pos = 0;
 
-        while let Some(idx) = next_valid_index(&mut pos, &self.deleted) {
+        while let Some(idx) = self.core.next_index_from(pos) {
             if !should_be_kept(idx) {
-                self.remove(idx);
+                // These unsafe call is fine: indices returned by
+                // `next_index_from` are always valid and point to an existing
+                // element.
+                unsafe {
+                    self.core.remove_at(idx);
+                }
+                self.num_elements -= 1;
             }
+
+            pos = idx + 1;
         }
     }
 
@@ -1115,81 +1100,49 @@ impl<T> StableVec<T> {
     where
         T: Clone,
     {
-        // This could be improved for `Copy` elements via specialization.
-        for elem in new_elements {
-            self.push(elem.clone());
+        let len = new_elements.len();
+
+        self.core.grow(len);
+        self.num_elements += len;
+
+        // It's important that a panic in `clone()` does not lead to memory
+        // unsafety! The only way that could happen is if some uninitialized
+        // values would be read when `out` is dropped. However, this won't
+        // happen: the core won't ever drop uninitialized elements.
+        //
+        // So that's good. But we also would like to drop all elements that
+        // have already been inserted. That's why we set the length first.
+        unsafe {
+            let mut i = self.core.used_len();
+            let new_len = self.core.used_len() + len;
+            self.core.set_used_len(new_len);
+
+            for elem in new_elements {
+                self.core.insert_at(i, elem.clone());
+                i += 1;
+            }
         }
     }
 }
 
-impl<T: Clone> Clone for StableVec<T> {
-    fn clone(&self) -> Self {
-        let mut new_vec = Vec::with_capacity(self.data.len());
 
-        unsafe {
-            new_vec.set_len(self.data.len());
-            for i in self.keys() {
-                ptr::write(new_vec.get_unchecked_mut(i), self[i].clone());
-            }
-        }
-
-        Self {
-            data: new_vec,
-            deleted: self.deleted.clone(),
-            used_count: self.used_count,
-        }
-    }
-}
-
-impl<T> Drop for StableVec<T> {
-    fn drop(&mut self) {
-        // We need to drop all elements that have not been removed. We can't
-        // just run Vec's drop impl for `self.data` because this would attempt
-        // to drop already dropped values. However, the Vec still needs to
-        // free its memory.
-        //
-        // To achieve all this, we manually drop all remaining elements, then
-        // tell the Vec that its length is 0 (its capacity stays the same!) and
-        // let the Vec drop itself in the end.
-        //
-        // When `T` doesn't need to be dropped, we can skip this next step.
-        // While `ptr::drop_in_place()` already uses the `mem::needs_drop()`
-        // check, it's still useful to check it here, to avoid executing these
-        // two loops completely.
-        if mem::needs_drop::<T>() {
-            let living_indices =
-                self.deleted
-                    .iter()
-                    .enumerate()
-                    .filter_map(|(i, deleted)| if deleted { None } else { Some(i) });
-            for i in living_indices {
-                unsafe {
-                    ptr::drop_in_place(&mut self.data[i]);
-                }
-            }
-        }
-
-        unsafe {
-            self.data.set_len(0);
-        }
-    }
+#[inline(never)]
+#[cold]
+fn index_fail(idx: usize) -> ! {
+    panic!("attempt to index StableVec with index {}, but no element exists at that index", idx);
 }
 
 impl<T> Index<usize> for StableVec<T> {
     type Output = T;
 
     fn index(&self, index: usize) -> &T {
-        assert!(self.has_element_at(index));
-
-        &self.data[index]
+        self.get(index).unwrap_or_else(|| index_fail(index))
     }
 }
 
 impl<T> IndexMut<usize> for StableVec<T> {
     fn index_mut(&mut self, index: usize) -> &mut T {
-        assert!(self.has_element_at(index));
-
-        &mut self.data[index]
+        self.get_mut(index).unwrap_or_else(|| index_fail(index))
     }
 }
 
@@ -1205,51 +1158,48 @@ where
     T: Clone,
 {
     fn from(slice: S) -> Self {
-        let len = slice.as_ref().len();
-        Self {
-            data: slice.as_ref().into(),
-            deleted: BitVec::from_elem(len, false),
-            used_count: len,
-        }
+        let mut out = Self::new();
+        out.extend_from_slice(slice.as_ref());
+        out
     }
 }
 
-impl<T> FromIterator<T> for StableVec<T> {
-    fn from_iter<I>(iter: I) -> Self
-    where
-        I: IntoIterator<Item = T>,
-    {
-        let data = Vec::from_iter(iter);
-        Self {
-            used_count: data.len(),
-            deleted: BitVec::from_elem(data.len(), false),
-            data,
-        }
-    }
-}
+// impl<T> FromIterator<T> for StableVec<T> {
+//     fn from_iter<I>(iter: I) -> Self
+//     where
+//         I: IntoIterator<Item = T>,
+//     {
+//         let data = Vec::from_iter(iter);
+//         Self {
+//             num_elements: data.len(),
+//             deleted: BitVec::from_elem(data.len(), false),
+//             data,
+//         }
+//     }
+// }
 
-impl<T> Extend<T> for StableVec<T> {
-    fn extend<I>(&mut self, iter: I)
-    where
-        I: IntoIterator<Item = T>,
-    {
-        // This implementation is not completely exception safe. If the
-        // `self.data.extend()` call panics, we won't drop any of the new
-        // elements. This is "safe" in the Rust meaning of the word: not
-        // calling `drop()` on values is not desireable but not considered
-        // *unsafe*.
-        let len_before = self.data.len();
-        self.data.extend(iter);
+// impl<T> Extend<T> for StableVec<T> {
+//     fn extend<I>(&mut self, iter: I)
+//     where
+//         I: IntoIterator<Item = T>,
+//     {
+//         // This implementation is not completely exception safe. If the
+//         // `self.data.extend()` call panics, we won't drop any of the new
+//         // elements. This is "safe" in the Rust meaning of the word: not
+//         // calling `drop()` on values is not desireable but not considered
+//         // *unsafe*.
+//         let len_before = self.data.len();
+//         self.data.extend(iter);
 
-        let additional_count = self.data.len() - len_before;
-        self.deleted.grow(additional_count, false);
-        self.used_count += additional_count;
-    }
-}
+//         let additional_count = self.data.len() - len_before;
+//         self.deleted.grow(additional_count, false);
+//         self.num_elements += additional_count;
+//     }
+// }
 
 /// Write into `StableVec<u8>` by appending `u8` elements. This is equivalent
 /// to calling `push` for each byte.
-impl io::Write for StableVec<u8> {
+impl<C: Core<u8>> io::Write for StableVec<u8, C> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.extend_from_slice(buf);
         Ok(buf.len())
@@ -1263,44 +1213,44 @@ impl io::Write for StableVec<u8> {
     fn flush(&mut self) -> io::Result<()> { Ok(()) }
 }
 
-impl<'a, T> IntoIterator for &'a StableVec<T> {
+impl<'a, T, C: Core<T>> IntoIterator for &'a StableVec<T, C> {
     type Item = &'a T;
-    type IntoIter = Iter<'a, T>;
+    type IntoIter = Iter<'a, T, C>;
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
     }
 }
 
-impl<'a, T> IntoIterator for &'a mut StableVec<T> {
-    type Item = &'a mut T;
-    type IntoIter = IterMut<'a, T>;
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter_mut()
-    }
-}
+// impl<'a, T> IntoIterator for &'a mut StableVec<T> {
+//     type Item = &'a mut T;
+//     type IntoIter = IterMut<'a, T>;
+//     fn into_iter(self) -> Self::IntoIter {
+//         self.iter_mut()
+//     }
+// }
 
 /// Iterator over immutable references to the elements of a `StableVec`.
 ///
 /// Use the method [`StableVec::iter()`](struct.StableVec.html#method.iter) or
 /// the `IntoIterator` implementation of `&StableVec` to obtain an iterator
 /// of this kind.
-#[derive(Debug)]
-pub struct Iter<'a, T: 'a> {
-    sv: &'a StableVec<T>,
+// #[derive(Debug)]
+pub struct Iter<'a, T, C: Core<T>> {
+    core: &'a OwningCore<T, C>,
     pos: usize,
     count: usize,
 }
 
-impl<'a, T: 'a> Iterator for Iter<'a, T> {
+impl<'a, T, C: Core<T>> Iterator for Iter<'a, T, C> {
     type Item = &'a T;
     fn next(&mut self) -> Option<Self::Item> {
-        let out = next_valid_index(&mut self.pos, &self.sv.deleted)
-            .map(|i| &self.sv.data[i]);
-        if out.is_some() {
+        let idx = self.core.next_index_from(self.pos);
+        if let Some(idx) = idx {
+            self.pos = idx + 1;
             self.count -= 1;
         }
 
-        out
+        idx.map(|idx| unsafe { self.core.get_unchecked(idx) })
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -1308,68 +1258,69 @@ impl<'a, T: 'a> Iterator for Iter<'a, T> {
     }
 }
 
-impl<T> ExactSizeIterator for Iter<'_, T> {}
+impl<T, C: Core<T>> ExactSizeIterator for Iter<'_, T, C> {}
 
-/// Iterator over mutable references to the elements of a `StableVec`.
-///
-/// Use the method [`StableVec::iter_mut()`](struct.StableVec.html#method.iter_mut)
-/// or the `IntoIterator` implementation of `&mut StableVec` to obtain an
-/// iterator of this kind.
-#[derive(Debug)]
-pub struct IterMut<'a, T: 'a> {
-    deleted: &'a mut BitVec,
-    used_count: &'a mut usize,
-    vec_iter: ::std::slice::IterMut<'a, T>,
-    pos: usize,
-    count: usize,
-}
+// /// Iterator over mutable references to the elements of a `StableVec`.
+// ///
+// /// Use the method [`StableVec::iter_mut()`](struct.StableVec.html#method.iter_mut)
+// /// or the `IntoIterator` implementation of `&mut StableVec` to obtain an
+// /// iterator of this kind.
+// #[derive(Debug)]
+// pub struct IterMut<'a, T: 'a> {
+//     deleted: &'a mut BitVec,
+//     num_elements: &'a mut usize,
+//     vec_iter: ::std::slice::IterMut<'a, T>,
+//     pos: usize,
+//     count: usize,
+// }
 
-impl<'a, T> Iterator for IterMut<'a, T> {
-    type Item = &'a mut T;
+// impl<'a, T> Iterator for IterMut<'a, T> {
+//     type Item = &'a mut T;
 
-    fn next(&mut self) -> Option<Self::Item> {
-        // First, we advance until we have found an existing element or until
-        // we have reached the end of all elements.
-        while self.deleted.get(self.pos) == Some(true) {
-            self.pos += 1;
-            self.vec_iter.next();
-        }
+//     fn next(&mut self) -> Option<Self::Item> {
+//         // First, we advance until we have found an existing element or until
+//         // we have reached the end of all elements.
+//         while self.deleted.get(self.pos) == Some(true) {
+//             self.pos += 1;
+//             self.vec_iter.next();
+//         }
 
-        // Next, we check whether we are at the very end.
-        if self.pos == self.deleted.len() {
-            None
-        } else {
-            // Advance the iterator by one and return current element.
-            self.pos += 1;
-            self.count -= 1;
-            self.vec_iter.next()
-        }
-    }
+//         // Next, we check whether we are at the very end.
+//         if self.pos == self.deleted.len() {
+//             None
+//         } else {
+//             // Advance the iterator by one and return current element.
+//             self.pos += 1;
+//             self.count -= 1;
+//             self.vec_iter.next()
+//         }
+//     }
 
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        (self.count, Some(self.count))
-    }
-}
+//     fn size_hint(&self) -> (usize, Option<usize>) {
+//         (self.count, Some(self.count))
+//     }
+// }
 
-impl<T> ExactSizeIterator for IterMut<'_, T> {}
+// impl<T> ExactSizeIterator for IterMut<'_, T> {}
+
 
 
 /// Iterator over all valid indices of a `StableVec`.
 ///
-/// Use the method [`StableVec::keys()`](struct.StableVec.html#method.keys) to
-/// obtain an iterator of this kind.
-#[derive(Debug)]
-pub struct Keys<'a> {
-    deleted: &'a BitVec,
+/// Use the method [`StableVec::indices`] to obtain an iterator of this kind.
+// #[derive(Debug)]
+pub struct Indices<'a, T, C: Core<T>> {
+    core: &'a OwningCore<T, C>,
     pos: usize,
     count: usize,
 }
 
-impl<'a> Iterator for Keys<'a> {
+impl<T, C: Core<T>> Iterator for Indices<'_, T, C> {
     type Item = usize;
     fn next(&mut self) -> Option<Self::Item> {
-        let out = next_valid_index(&mut self.pos, self.deleted);
-        if out.is_some() {
+        let out = self.core.next_index_from(self.pos);
+        if let Some(idx) = out {
+            self.pos = idx + 1;
             self.count -= 1;
         }
 
@@ -1381,33 +1332,8 @@ impl<'a> Iterator for Keys<'a> {
     }
 }
 
-impl ExactSizeIterator for Keys<'_> {}
+impl<T, C: Core<T>> ExactSizeIterator for Indices<'_, T, C> {}
 
-/// Advances the index `pos` while it points to a deleted element. Stops
-/// advancing once an existing element is found or the end is reached. In the
-/// former case, this element's index is returned; in the latter case, `None`
-/// is returned.
-///
-/// After this function was called, the value of `pos` is:
-///
-/// - `i + 1` if `Some(i)` was returned
-/// - `deleted.len()` if `None` was returned
-fn next_valid_index(pos: &mut usize, deleted: &BitVec) -> Option<usize> {
-    // First, we advance until we have found an existing element or until
-    // we have reached the end of all elements.
-    while deleted.get(*pos) == Some(true) {
-        *pos += 1;
-    }
-
-    // Next, we check whether we are at the very end.
-    if *pos == deleted.len() {
-        None
-    } else {
-        // Advance by one and return current position.
-        *pos += 1;
-        Some(*pos - 1)
-    }
-}
 
 impl<T: fmt::Debug> fmt::Debug for StableVec<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -1416,21 +1342,16 @@ impl<T: fmt::Debug> fmt::Debug for StableVec<T> {
     }
 }
 
-impl<A, B> PartialEq<[B]> for StableVec<A>
+impl<A, B, C: Core<A>> PartialEq<[B]> for StableVec<A, C>
 where
     A: PartialEq<B>,
 {
     fn eq(&self, other: &[B]) -> bool {
-        for (i, e) in self.iter().enumerate() {
-            if e != &other[i] {
-                return false;
-            }
-        }
-        true
+        self.iter().eq(other)
     }
 }
 
-impl<'other, A, B> PartialEq<&'other [B]> for StableVec<A>
+impl<'other, A, B, C: Core<A>> PartialEq<&'other [B]> for StableVec<A, C>
 where
     A: PartialEq<B>,
 {
@@ -1439,7 +1360,7 @@ where
     }
 }
 
-impl<A, B> PartialEq<Vec<B>> for StableVec<A>
+impl<A, B, C: Core<A>> PartialEq<Vec<B>> for StableVec<A, C>
 where
     A: PartialEq<B>,
 {

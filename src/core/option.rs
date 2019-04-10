@@ -1,5 +1,6 @@
 use std::{
     cmp,
+    fmt,
     hint::unreachable_unchecked,
     mem::ManuallyDrop,
     ops::DerefMut,
@@ -141,5 +142,16 @@ impl<T> Drop for OptionCore<T> {
     fn drop(&mut self) {
         // Drop all elements
         self.clear();
+    }
+}
+
+// This impl is usually not used. `StableVec` has its own impl which doesn't
+// use this one.
+impl<T> fmt::Debug for OptionCore<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("OptionCore")
+            .field("used_len", &self.used_len())
+            .field("capacity", &self.capacity())
+            .finish()
     }
 }

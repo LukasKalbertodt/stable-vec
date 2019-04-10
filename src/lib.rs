@@ -22,7 +22,7 @@
 //! use stable_vec::StableVec;
 //! ```
 
-// #![deny(missing_debug_implementations)] // TODO
+#![deny(missing_debug_implementations)]
 
 
 use std::{
@@ -1229,7 +1229,6 @@ impl<'a, T, C: Core<T>> IntoIterator for &'a mut StableVec<T, C> {
 /// Use the method [`StableVec::iter()`](struct.StableVec.html#method.iter) or
 /// the `IntoIterator` implementation of `&StableVec` to obtain an iterator
 /// of this kind.
-// #[derive(Debug)]
 pub struct Iter<'a, T, C: Core<T> = DefaultCore<T>> {
     core: &'a OwningCore<T, C>,
     pos: usize,
@@ -1255,12 +1254,21 @@ impl<'a, T, C: Core<T>> Iterator for Iter<'a, T, C> {
 
 impl<T, C: Core<T>> ExactSizeIterator for Iter<'_, T, C> {}
 
+impl<T, C: Core<T>> fmt::Debug for Iter<'_, T, C> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("Iter")
+            .field("pos", &self.pos)
+            .field("count", &self.count)
+            .finish()
+    }
+}
+
+
 /// Iterator over mutable references to the elements of a `StableVec`.
 ///
 /// Use the method [`StableVec::iter_mut()`](struct.StableVec.html#method.iter_mut)
 /// or the `IntoIterator` implementation of `&mut StableVec` to obtain an
 /// iterator of this kind.
-#[derive(Debug)]
 pub struct IterMut<'a, T, C: Core<T> = DefaultCore<T>> {
     sv: &'a mut StableVec<T, C>,
     pos: usize,
@@ -1295,11 +1303,19 @@ impl<'a, T, C: Core<T>> Iterator for IterMut<'a, T, C> {
 
 impl<T, C: Core<T>> ExactSizeIterator for IterMut<'_, T, C> {}
 
+impl<T, C: Core<T>> fmt::Debug for IterMut<'_, T, C> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("IterMut")
+            .field("pos", &self.pos)
+            .field("count", &self.count)
+            .finish()
+    }
+}
+
 
 /// Iterator over all valid indices of a `StableVec`.
 ///
 /// Use the method [`StableVec::indices`] to obtain an iterator of this kind.
-// #[derive(Debug)]
 pub struct Indices<'a, T, C: Core<T> = DefaultCore<T>> {
     core: &'a OwningCore<T, C>,
     pos: usize,
@@ -1324,6 +1340,15 @@ impl<T, C: Core<T>> Iterator for Indices<'_, T, C> {
 }
 
 impl<T, C: Core<T>> ExactSizeIterator for Indices<'_, T, C> {}
+
+impl<T, C: Core<T>> fmt::Debug for Indices<'_, T, C> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("Indices")
+            .field("pos", &self.pos)
+            .field("count", &self.count)
+            .finish()
+    }
+}
 
 
 impl<T: fmt::Debug, C: Core<T>> fmt::Debug for StableVec<T, C> {

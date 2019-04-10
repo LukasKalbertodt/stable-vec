@@ -1,5 +1,3 @@
-extern crate stable_vec;
-
 use stable_vec::StableVec;
 
 /// A dummy type which prints its character when dropped.
@@ -12,7 +10,7 @@ impl Drop for EchoDrop {
 }
 
 fn main() {
-    let mut sv = StableVec::new();
+    let mut sv = StableVec::<_>::new();
     sv.push(EchoDrop('a'));
     let b_idx = sv.push(EchoDrop('b'));
     sv.push(EchoDrop('c'));

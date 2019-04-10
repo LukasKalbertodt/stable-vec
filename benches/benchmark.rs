@@ -7,7 +7,7 @@ extern crate stable_vec;
 #[cfg(not(feature = "nightly-bench"))]
 compile_error!("`nightly-bench` feature not enabled; use `cargo bench --features nightly-bench`");
 
-use criterion::Criterion;
+use criterion::{black_box, BatchSize, Criterion};
 use stable_vec::StableVec;
 use std::{
     iter::FromIterator,
@@ -92,12 +92,10 @@ fn clear(c: &mut Criterion) {
     c.bench_function_over_inputs(
         "clear",
         |b, size| {
-            b.iter_with_setup(
+            b.iter_batched_ref(
                 || full_sv(*size),
-                |mut sv| {
-                    sv.clear();
-                    sv
-                },
+                |sv| sv.clear(),
+                BatchSize::SmallInput,
             );
         },
         vec![0, 1, 10, 1000, 100_000],
@@ -108,9 +106,10 @@ fn from_vec(c: &mut Criterion) {
     c.bench_function_over_inputs(
         "from_vec",
         |b, size| {
-            b.iter_with_setup(
+            b.iter_batched(
                 || Vec::from_iter(0..*size),
                 |v| StableVec::from_vec(v),
+                BatchSize::SmallInput,
             );
         },
         vec![0, 1, 10, 1000, 100_000],
@@ -119,12 +118,10 @@ fn from_vec(c: &mut Criterion) {
 
 fn push(c: &mut Criterion) {
     c.bench_function("push", |b| {
-        b.iter_with_setup(
+        b.iter_batched_ref(
             || StableVec::with_capacity(1),
-            |mut sv| {
-                sv.push('x');
-                sv
-            },
+            |sv| { black_box(sv.push('x')); },
+            BatchSize::SmallInput,
         );
     });
 }
@@ -140,16 +137,16 @@ fn delete_some_elements(c: &mut Criterion) {
     c.bench_function_over_inputs(
         "delete_some_elements_from_full",
         |b, &len| {
-            b.iter_with_setup(
+            b.iter_batched_ref(
                 || full_sv(len),
-                |mut sv| {
+                |sv| {
                     for i in 0..sv.next_index() {
                         if should_delete(i) {
                             sv.remove(i);
                         }
                     }
-                    sv
                 },
+                BatchSize::SmallInput,
             );
         },
         vec![10, 1000, 100_000],
@@ -158,16 +155,16 @@ fn delete_some_elements(c: &mut Criterion) {
     c.bench_function_over_inputs(
         "delete_some_elements_from_prime_holes",
         |b, &len| {
-            b.iter_with_setup(
+            b.iter_batched_ref(
                 || sv_with_prime_holes(len),
-                |mut sv| {
+                |sv| {
                     for i in 0..sv.next_index() {
                         if should_delete(i) {
                             sv.remove(i);
                         }
                     }
-                    sv
                 },
+                BatchSize::SmallInput,
             );
         },
         vec![10, 1000, 100_000],

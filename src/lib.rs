@@ -200,7 +200,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::from_vec(vec!['★', '♥']);
+    /// let mut sv = StableVec::<_>::from_vec(vec!['★', '♥']);
     ///
     /// assert_eq!(sv.get(0), Some(&'★'));
     /// assert_eq!(sv.get(1), Some(&'♥'));
@@ -232,7 +232,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::new();
+    /// let mut sv = StableVec::<_>::new();
     /// let star_idx = sv.push('★');
     /// let heart_idx = sv.push('♥');
     ///
@@ -270,7 +270,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::from(&[1, 2, 3]);
+    /// let mut sv = StableVec::<_>::from(&[1, 2, 3]);
     /// assert_eq!(sv.remove_first(), Some(1));
     /// assert_eq!(sv.into_vec(), vec![2, 3]);
     /// ```
@@ -294,7 +294,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::from(&[1, 2, 3]);
+    /// let mut sv = StableVec::<_>::from(&[1, 2, 3]);
     /// assert_eq!(sv.remove_last(), Some(3));
     /// assert_eq!(sv.into_vec(), vec![1, 2]);
     /// ```
@@ -317,7 +317,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::from(&[1, 2]);
+    /// let mut sv = StableVec::<_>::from(&[1, 2]);
     /// sv.remove(0);
     /// assert_eq!(sv.find_first(), Some(&2));
     /// ```
@@ -334,7 +334,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::from(&[1, 2]);
+    /// let mut sv = StableVec::<_>::from(&[1, 2]);
     /// {
     ///     let first = sv.find_first_mut().unwrap();
     ///     assert_eq!(*first, 1);
@@ -356,7 +356,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::from(&[1, 2]);
+    /// let mut sv = StableVec::<_>::from(&[1, 2]);
     /// sv.remove(1);
     /// assert_eq!(sv.find_last(), Some(&1));
     /// ```
@@ -373,7 +373,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::from(&[1, 2]);
+    /// let mut sv = StableVec::<_>::from(&[1, 2]);
     /// {
     ///     let last = sv.find_last_mut().unwrap();
     ///     assert_eq!(*last, 2);
@@ -395,7 +395,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::from(&[1, 2]);
+    /// let mut sv = StableVec::<_>::from(&[1, 2]);
     /// sv.remove(0);
     /// assert_eq!(sv.find_first_index(), Some(1));
     /// ```
@@ -412,7 +412,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::from(&[1, 2]);
+    /// let mut sv = StableVec::<_>::from(&[1, 2]);
     /// sv.remove(1);
     /// assert_eq!(sv.find_last_index(), Some(0));
     /// ```
@@ -436,7 +436,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     // ///
     // /// ```
     // /// # use stable_vec::StableVec;
-    // /// let mut sv = StableVec::new();
+    // /// let mut sv = StableVec::<_>::new();
     // /// let star_idx = sv.push('★');
     // /// let heart_idx = sv.push('♥');
     // ///
@@ -481,7 +481,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     // ///
     // /// ```
     // /// # use stable_vec::StableVec;
-    // /// let mut sv = StableVec::new();
+    // /// let mut sv = StableVec::<_>::new();
     // /// let star_idx = sv.push('★');
     // ///
     // /// // After we inserted one element, the next element sits at index 1, as
@@ -520,7 +520,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::new();
+    /// let mut sv = StableVec::<_>::new();
     /// let star_idx = sv.push('★');
     /// let heart_idx = sv.push('♥');
     ///
@@ -593,7 +593,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::new();
+    /// let mut sv = StableVec::<_>::new();
     /// assert!(!sv.has_element_at(3));         // no: index out of bounds
     ///
     /// let heart_idx = sv.push('♥');
@@ -762,7 +762,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::from(&[0, 1, 2, 3, 4]);
+    /// let mut sv = StableVec::<_>::from(&[0, 1, 2, 3, 4]);
     /// assert!(sv.is_compact());
     ///
     /// sv.remove(1);
@@ -782,7 +782,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::new();
+    /// let mut sv = StableVec::<_>::new();
     /// assert_eq!(sv.num_elements(), 0);
     ///
     /// let heart_idx = sv.push('♥');
@@ -805,7 +805,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::new();
+    /// let mut sv = StableVec::<_>::new();
     /// assert!(sv.is_empty());
     ///
     /// let heart_idx = sv.push('♥');
@@ -828,7 +828,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::from(&['a', 'b']);
+    /// let mut sv = StableVec::<_>::from(&['a', 'b']);
     ///
     /// sv.clear();
     /// assert_eq!(sv.num_elements(), 0);
@@ -852,7 +852,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::from(&['a', 'b', 'c']);
+    /// let mut sv = StableVec::<_>::from(&['a', 'b', 'c']);
     ///
     /// let next_index = sv.next_index();
     /// let index_of_d = sv.push('d');
@@ -873,7 +873,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::from(&[0, 1, 2, 3, 4]);
+    /// let mut sv = StableVec::<_>::from(&[0, 1, 2, 3, 4]);
     /// sv.remove(1);
     ///
     /// // Using the `iter()` method to apply a `filter()`.
@@ -910,7 +910,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     // ///
     // /// ```
     // /// # use stable_vec::StableVec;
-    // /// let mut sv = StableVec::from(&[1.0, 2.0, 3.0]);
+    // /// let mut sv = StableVec::<_>::from(&[1.0, 2.0, 3.0]);
     // ///
     // /// for e in &mut sv {
     // ///     *e *= 2.0;
@@ -934,7 +934,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::from(&['a', 'b', 'c', 'd']);
+    /// let mut sv = StableVec::<_>::from(&['a', 'b', 'c', 'd']);
     /// sv.remove(1);
     ///
     /// let mut it = sv.keys();
@@ -948,7 +948,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::from(&['a', 'b', 'c', 'd']);
+    /// let mut sv = StableVec::<_>::from(&['a', 'b', 'c', 'd']);
     ///
     /// for index in sv.keys() {
     ///     println!("index: {}", index);
@@ -967,7 +967,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::from(&['a', 'b', 'c']);
+    /// let mut sv = StableVec::<_>::from(&['a', 'b', 'c']);
     /// assert!(sv.contains(&'b'));
     ///
     /// sv.remove(1);   // 'b' is stored at index 1
@@ -1004,7 +1004,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     // ///
     // /// ```
     // /// # use stable_vec::StableVec;
-    // /// let mut sv = StableVec::from(&['a', 'b', 'c']);
+    // /// let mut sv = StableVec::<_>::from(&['a', 'b', 'c']);
     // /// sv.remove(1);   // 'b' lives at index 1
     // ///
     // /// assert_eq!(sv.into_vec(), vec!['a', 'c']);
@@ -1033,7 +1033,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::from(&[1, 2, 3, 4, 5]);
+    /// let mut sv = StableVec::<_>::from(&[1, 2, 3, 4, 5]);
     /// sv.retain(|&e| e % 2 == 0);
     ///
     /// assert_eq!(sv, &[2, 4] as &[_]);
@@ -1069,7 +1069,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::new();
+    /// let mut sv = StableVec::<_>::new();
     /// sv.push(1);
     /// let two = sv.push(2);
     /// sv.push(3);

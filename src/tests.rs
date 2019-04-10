@@ -700,37 +700,37 @@ fn extend_from_iter() {
     assert_sv_eq!(sv.clone(), [0 => 0, 1 => 3, 3 => 9, 4 => 8, 5 => 7]);
 }
 
-// #[test]
-// fn size_hints() {
-//     let mut sv = StableVec::<()>::new();
+#[test]
+fn size_hints() {
+    let sv = StableVec::<()>::new();
 
-//     assert_eq!(sv.iter().size_hint(), (0, Some(0)));
-//     assert_eq!(sv.iter_mut().size_hint(), (0, Some(0)));
-//     assert_eq!(sv.keys().size_hint(), (0, Some(0)));
+    assert_eq!(sv.iter().size_hint(), (0, Some(0)));
+    // assert_eq!(sv.iter_mut().size_hint(), (0, Some(0)));
+    assert_eq!(sv.indices().size_hint(), (0, Some(0)));
 
 
-//     let mut sv = StableVec::<_>::from(&[0, 1, 2, 3, 4]);
-//     sv.remove(1);
+    let mut sv = StableVec::<_>::from(&[0, 1, 2, 3, 4]);
+    sv.remove(1);
 
-//     macro_rules! check_iter {
-//         ($it:expr) => {{
-//             let mut it = $it;
-//             assert_eq!(it.size_hint(), (4, Some(4)));
-//             assert!(it.next().is_some());
-//             assert_eq!(it.size_hint(), (3, Some(3)));
-//             assert!(it.next().is_some());
-//             assert_eq!(it.size_hint(), (2, Some(2)));
-//             assert!(it.next().is_some());
-//             assert_eq!(it.size_hint(), (1, Some(1)));
-//             assert!(it.next().is_some());
-//             assert_eq!(it.size_hint(), (0, Some(0)));
-//         }}
-//     }
+    macro_rules! check_iter {
+        ($it:expr) => {{
+            let mut it = $it;
+            assert_eq!(it.size_hint(), (4, Some(4)));
+            assert!(it.next().is_some());
+            assert_eq!(it.size_hint(), (3, Some(3)));
+            assert!(it.next().is_some());
+            assert_eq!(it.size_hint(), (2, Some(2)));
+            assert!(it.next().is_some());
+            assert_eq!(it.size_hint(), (1, Some(1)));
+            assert!(it.next().is_some());
+            assert_eq!(it.size_hint(), (0, Some(0)));
+        }}
+    }
 
-//     check_iter!(sv.iter());
-//     check_iter!(sv.iter_mut());
-//     check_iter!(sv.keys());
-// }
+    check_iter!(sv.iter());
+    // check_iter!(sv.iter_mut());
+    check_iter!(sv.indices());
+}
 
 // quickcheck! {
 //     fn reordering_compact(insertions: u16, to_delete: Vec<u16>) -> bool {

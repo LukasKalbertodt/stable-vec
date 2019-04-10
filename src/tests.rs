@@ -29,9 +29,9 @@ macro_rules! assert_sv_eq {
         assert!(sv.capacity() >= next_index, "capacity check failed");
 
         assert_eq!(sv.iter().count(), 0);
-        // assert_eq!(sv.iter_mut().count(), 0);
+        assert_eq!(sv.iter_mut().count(), 0);
         assert_eq!((&*sv).into_iter().count(), 0);
-        // assert_eq!((&mut *sv).into_iter().count(), 0);
+        assert_eq!((&mut *sv).into_iter().count(), 0);
         assert_eq!(sv.indices().count(), 0);
 
         assert_eq!(sv, &[] as &[$ty]);
@@ -60,18 +60,18 @@ macro_rules! assert_sv_eq {
         assert!(sv.capacity() >= last_index + 1, "capacity check failed");
 
         assert_eq!(sv.iter().cloned().collect::<Vec<_>>(), values);
-        // assert_eq!(sv.iter_mut().map(|r| *r).collect::<Vec<_>>(), values);
+        assert_eq!(sv.iter_mut().map(|r| *r).collect::<Vec<_>>(), values);
         assert_eq!((&*sv).into_iter().cloned().collect::<Vec<_>>(), values);
-        // assert_eq!((&mut *sv).into_iter().map(|r| *r).collect::<Vec<_>>(), values);
+        assert_eq!((&mut *sv).into_iter().map(|r| *r).collect::<Vec<_>>(), values);
         assert_eq!(sv.indices().collect::<Vec<_>>(), indices);
 
         let expected_hint = (num_elements, Some(num_elements));
         assert_eq!(sv.iter().cloned().len(), num_elements);
         assert_eq!(sv.iter().cloned().size_hint(), expected_hint);
-        // assert_eq!(sv.iter_mut().map(|r| *r).size_hint(), expected_hint);
-        // assert_eq!(sv.iter_mut().map(|r| *r).len(), num_elements);
+        assert_eq!(sv.iter_mut().map(|r| *r).size_hint(), expected_hint);
+        assert_eq!(sv.iter_mut().map(|r| *r).len(), num_elements);
         assert_eq!((&*sv).into_iter().cloned().size_hint(), expected_hint);
-        // assert_eq!((&mut *sv).into_iter().map(|r| *r).size_hint(), expected_hint);
+        assert_eq!((&mut *sv).into_iter().map(|r| *r).size_hint(), expected_hint);
         assert_eq!(sv.indices().size_hint(), expected_hint);
         assert_eq!(sv.indices().len(), num_elements);
 
@@ -538,20 +538,20 @@ fn clone() {
     assert_sv_eq!(sv.clone(), [0 => 2, 2 => 4]);
 }
 
-// #[test]
-// fn iter_mut() {
-//     let mut sv = StableVec::<_>::from(&[2, 5, 4]);
+#[test]
+fn iter_mut() {
+    let mut sv = StableVec::<_>::from(&[2, 5, 4]);
 
-//     for x in &mut sv {
-//         *x *= 2;
-//     }
-//     assert_sv_eq!(sv, [0 => 4, 1 => 10, 2 => 8]);
+    for x in &mut sv {
+        *x *= 2;
+    }
+    assert_sv_eq!(sv, [0 => 4, 1 => 10, 2 => 8]);
 
-//     for x in sv.iter_mut() {
-//         *x -= 1;
-//     }
-//     assert_sv_eq!(sv, [0 => 3, 1 => 9, 2 => 7]);
-// }
+    for x in sv.iter_mut() {
+        *x -= 1;
+    }
+    assert_sv_eq!(sv, [0 => 3, 1 => 9, 2 => 7]);
+}
 
 #[test]
 fn index_mut() {
@@ -702,10 +702,10 @@ fn extend_from_iter() {
 
 #[test]
 fn size_hints() {
-    let sv = StableVec::<()>::new();
+    let mut sv = StableVec::<()>::new();
 
     assert_eq!(sv.iter().size_hint(), (0, Some(0)));
-    // assert_eq!(sv.iter_mut().size_hint(), (0, Some(0)));
+    assert_eq!(sv.iter_mut().size_hint(), (0, Some(0)));
     assert_eq!(sv.indices().size_hint(), (0, Some(0)));
 
 
@@ -728,7 +728,7 @@ fn size_hints() {
     }
 
     check_iter!(sv.iter());
-    // check_iter!(sv.iter_mut());
+    check_iter!(sv.iter_mut());
     check_iter!(sv.indices());
 }
 

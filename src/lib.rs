@@ -898,36 +898,34 @@ impl<T, C: Core<T>> StableVec<T, C> {
         }
     }
 
-    // /// Returns an iterator over mutable references to the existing elements
-    // /// of this stable vector.
-    // ///
-    // /// Note that you can also use the `IntoIterator` implementation of
-    // /// `&mut StableVec` to obtain the same iterator.
-    // ///
-    // /// Through this iterator, the elements within the stable vector can be
-    // /// mutated.
-    // ///
-    // /// # Examples
-    // ///
-    // /// ```
-    // /// # use stable_vec::StableVec;
-    // /// let mut sv = StableVec::<_>::from(&[1.0, 2.0, 3.0]);
-    // ///
-    // /// for e in &mut sv {
-    // ///     *e *= 2.0;
-    // /// }
-    // ///
-    // /// assert_eq!(sv, &[2.0, 4.0, 6.0] as &[_]);
-    // /// ```
-    // pub fn iter_mut(&mut self) -> IterMut<T> {
-    //     IterMut {
-    //         deleted: &mut self.deleted,
-    //         count: self.num_elements,
-    //         num_elements: &mut self.num_elements,
-    //         vec_iter: self.data.iter_mut(),
-    //         pos: 0,
-    //     }
-    // }
+    /// Returns an iterator over mutable references to the existing elements
+    /// of this stable vector.
+    ///
+    /// Note that you can also use the `IntoIterator` implementation of
+    /// `&mut StableVec` to obtain the same iterator.
+    ///
+    /// Through this iterator, the elements within the stable vector can be
+    /// mutated.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::<_>::from(&[1.0, 2.0, 3.0]);
+    ///
+    /// for e in &mut sv {
+    ///     *e *= 2.0;
+    /// }
+    ///
+    /// assert_eq!(sv, &[2.0, 4.0, 6.0] as &[_]);
+    /// ```
+    pub fn iter_mut(&mut self) -> IterMut<T, C> {
+        IterMut {
+            count: self.num_elements,
+            sv: self,
+            pos: 0,
+        }
+    }
 
     /// Returns an iterator over all valid indices of this stable vector.
     ///
@@ -1218,13 +1216,13 @@ impl<'a, T, C: Core<T>> IntoIterator for &'a StableVec<T, C> {
     }
 }
 
-// impl<'a, T> IntoIterator for &'a mut StableVec<T> {
-//     type Item = &'a mut T;
-//     type IntoIter = IterMut<'a, T>;
-//     fn into_iter(self) -> Self::IntoIter {
-//         self.iter_mut()
-//     }
-// }
+impl<'a, T, C: Core<T>> IntoIterator for &'a mut StableVec<T, C> {
+    type Item = &'a mut T;
+    type IntoIter = IterMut<'a, T, C>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter_mut()
+    }
+}
 
 /// Iterator over immutable references to the elements of a `StableVec`.
 ///
@@ -1232,7 +1230,7 @@ impl<'a, T, C: Core<T>> IntoIterator for &'a StableVec<T, C> {
 /// the `IntoIterator` implementation of `&StableVec` to obtain an iterator
 /// of this kind.
 // #[derive(Debug)]
-pub struct Iter<'a, T, C: Core<T>> {
+pub struct Iter<'a, T, C: Core<T> = DefaultCore<T>> {
     core: &'a OwningCore<T, C>,
     pos: usize,
     count: usize,
@@ -1257,56 +1255,52 @@ impl<'a, T, C: Core<T>> Iterator for Iter<'a, T, C> {
 
 impl<T, C: Core<T>> ExactSizeIterator for Iter<'_, T, C> {}
 
-// /// Iterator over mutable references to the elements of a `StableVec`.
-// ///
-// /// Use the method [`StableVec::iter_mut()`](struct.StableVec.html#method.iter_mut)
-// /// or the `IntoIterator` implementation of `&mut StableVec` to obtain an
-// /// iterator of this kind.
-// #[derive(Debug)]
-// pub struct IterMut<'a, T: 'a> {
-//     deleted: &'a mut BitVec,
-//     num_elements: &'a mut usize,
-//     vec_iter: ::std::slice::IterMut<'a, T>,
-//     pos: usize,
-//     count: usize,
-// }
+/// Iterator over mutable references to the elements of a `StableVec`.
+///
+/// Use the method [`StableVec::iter_mut()`](struct.StableVec.html#method.iter_mut)
+/// or the `IntoIterator` implementation of `&mut StableVec` to obtain an
+/// iterator of this kind.
+#[derive(Debug)]
+pub struct IterMut<'a, T, C: Core<T> = DefaultCore<T>> {
+    sv: &'a mut StableVec<T, C>,
+    pos: usize,
+    count: usize,
+}
 
-// impl<'a, T> Iterator for IterMut<'a, T> {
-//     type Item = &'a mut T;
+impl<'a, T, C: Core<T>> Iterator for IterMut<'a, T, C> {
+    type Item = &'a mut T;
 
-//     fn next(&mut self) -> Option<Self::Item> {
-//         // First, we advance until we have found an existing element or until
-//         // we have reached the end of all elements.
-//         while self.deleted.get(self.pos) == Some(true) {
-//             self.pos += 1;
-//             self.vec_iter.next();
-//         }
+    fn next(&mut self) -> Option<Self::Item> {
+        let idx = self.sv.core.next_index_from(self.pos);
+        if let Some(idx) = idx {
+            self.pos = idx + 1;
+            self.count -= 1;
+        }
 
-//         // Next, we check whether we are at the very end.
-//         if self.pos == self.deleted.len() {
-//             None
-//         } else {
-//             // Advance the iterator by one and return current element.
-//             self.pos += 1;
-//             self.count -= 1;
-//             self.vec_iter.next()
-//         }
-//     }
+        // This is... scary. We are extending the lifetime of the reference
+        // returned by `get_unchecked_mut`. We can do that because we know that
+        // we will never return the same reference twice. So the user can't
+        // have mutable aliases. Furthermore, all access to the original stable
+        // vector is blocked because we (`IterMut`) have a mutable reference to
+        // it. So it is fine to extend the lifetime to `'a`.
+        idx.map(|idx| {
+            unsafe { &mut *(self.sv.core.get_unchecked_mut(idx) as *mut T) }
+        })
+    }
 
-//     fn size_hint(&self) -> (usize, Option<usize>) {
-//         (self.count, Some(self.count))
-//     }
-// }
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.count, Some(self.count))
+    }
+}
 
-// impl<T> ExactSizeIterator for IterMut<'_, T> {}
-
+impl<T, C: Core<T>> ExactSizeIterator for IterMut<'_, T, C> {}
 
 
 /// Iterator over all valid indices of a `StableVec`.
 ///
 /// Use the method [`StableVec::indices`] to obtain an iterator of this kind.
 // #[derive(Debug)]
-pub struct Indices<'a, T, C: Core<T>> {
+pub struct Indices<'a, T, C: Core<T> = DefaultCore<T>> {
     core: &'a OwningCore<T, C>,
     pos: usize,
     count: usize,

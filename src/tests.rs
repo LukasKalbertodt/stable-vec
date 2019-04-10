@@ -99,7 +99,7 @@ macro_rules! assert_sv_eq {
 
 #[test]
 fn new() {
-    let mut sv: StableVec<String> = StableVec::new();
+    let mut sv = StableVec::<String>::new();
     assert_sv_eq!(sv, []: String);
 }
 
@@ -119,7 +119,7 @@ fn with_capacity() {
 
 #[test]
 fn reserve() {
-    let mut sv: StableVec<String> = StableVec::new();
+    let mut sv = StableVec::<String>::new();
 
     // Reserve for 5
     sv.reserve(5);
@@ -163,12 +163,12 @@ fn from_vec() {
     );
 
     assert_sv_eq!(
-        StableVec::from_vec(vec![1]),
+        StableVec::<_>::from_vec(vec![1]),
         [0 => 1],
     );
 
     assert_sv_eq!(
-        StableVec::from_vec(vec![2, 9, 5]),
+        StableVec::<_>::from_vec(vec![2, 9, 5]),
         [0 => 2, 1 => 9, 2 => 5],
     );
 }
@@ -181,19 +181,19 @@ fn from() {
     );
 
     assert_sv_eq!(
-        StableVec::from(&[1]),
+        StableVec::<_>::from(&[1]),
         [0 => 1],
     );
 
     assert_sv_eq!(
-        StableVec::from(&[2, 9, 5]),
+        StableVec::<_>::from(&[2, 9, 5]),
         [0 => 2, 1 => 9, 2 => 5],
     );
 }
 
 #[test]
 fn push_simple() {
-    let mut sv: StableVec<char> = StableVec::new();
+    let mut sv = StableVec::<_>::new();
 
     sv.push('a');
     assert_sv_eq!(sv, [0 => 'a']);
@@ -207,7 +207,7 @@ fn push_simple() {
 
 #[test]
 fn remove_first() {
-    let mut sv = StableVec::from_vec(vec!['a', 'b', 'c']);
+    let mut sv = StableVec::<_>::from_vec(vec!['a', 'b', 'c']);
 
     assert_eq!(sv.remove_first(), Some('a'));
     assert_sv_eq!(sv, [1 => 'b', 2 => 'c'; 2]);
@@ -233,7 +233,7 @@ fn remove_first() {
 
 #[test]
 fn remove_last() {
-    let mut sv = StableVec::from_vec(vec!['a', 'b', 'c']);
+    let mut sv = StableVec::<_>::from_vec(vec!['a', 'b', 'c']);
 
     assert_eq!(sv.remove_last(), Some('c'));
     assert_sv_eq!(sv, [0 => 'a', 1 => 'b'; 2]);
@@ -259,7 +259,7 @@ fn remove_last() {
 
 #[test]
 fn find_first() {
-    let mut sv = StableVec::from_vec(vec!['a', 'b']);
+    let mut sv = StableVec::<_>::from_vec(vec!['a', 'b']);
 
     assert_eq!(sv.find_first(), Some(&'a'));
     assert_sv_eq!(sv, [0 => 'a', 1 => 'b'; 1]);
@@ -283,7 +283,7 @@ fn find_first() {
 
 #[test]
 fn find_first_mut() {
-    let mut sv = StableVec::from_vec(vec!['a', 'b']);
+    let mut sv = StableVec::<_>::from_vec(vec!['a', 'b']);
 
     *sv.find_first_mut().unwrap() = 'c';
     assert_sv_eq!(sv, [0 => 'c', 1 => 'b'; 1]);
@@ -299,7 +299,7 @@ fn find_first_mut() {
 
 #[test]
 fn find_last() {
-    let mut sv = StableVec::from_vec(vec!['a', 'b']);
+    let mut sv = StableVec::<_>::from_vec(vec!['a', 'b']);
 
     assert_eq!(sv.find_last(), Some(&'b'));
     assert_sv_eq!(sv, [0 => 'a', 1 => 'b'; 1]);
@@ -323,7 +323,7 @@ fn find_last() {
 
 #[test]
 fn find_last_mut() {
-    let mut sv = StableVec::from_vec(vec!['a', 'b']);
+    let mut sv = StableVec::<_>::from_vec(vec!['a', 'b']);
 
     *sv.find_last_mut().unwrap() = 'c';
     assert_sv_eq!(sv, [0 => 'a', 1 => 'c'; 1]);
@@ -339,7 +339,7 @@ fn find_last_mut() {
 
 #[test]
 fn find_first_index() {
-    let mut sv = StableVec::from_vec(vec!['a', 'b']);
+    let mut sv = StableVec::<_>::from_vec(vec!['a', 'b']);
 
     assert_eq!(sv.find_first_index(), Some(0));
     assert_sv_eq!(sv, [0 => 'a', 1 => 'b'; 1]);
@@ -363,7 +363,7 @@ fn find_first_index() {
 
 #[test]
 fn find_last_index() {
-    let mut sv = StableVec::from_vec(vec!['a', 'b']);
+    let mut sv = StableVec::<_>::from_vec(vec!['a', 'b']);
 
     assert_eq!(sv.find_last_index(), Some(1));
     assert_sv_eq!(sv, [0 => 'a', 1 => 'b'; 1]);
@@ -387,7 +387,7 @@ fn find_last_index() {
 
 #[test]
 fn retain_indices() {
-    let mut sv = StableVec::from_vec(vec!['a', 'b', 'c', 'd', 'e']);
+    let mut sv = StableVec::<_>::from_vec(vec!['a', 'b', 'c', 'd', 'e']);
 
     assert_sv_eq!(sv, [0 => 'a', 1 => 'b', 2 => 'c', 3 => 'd', 4 => 'e'; 4]);
 
@@ -409,7 +409,7 @@ fn retain_indices() {
 
 // #[test]
 // fn grow() {
-//     let mut sv = StableVec::from_vec(vec!['a', 'b']);
+//     let mut sv = StableVec::<_>::from_vec(vec!['a', 'b']);
 
 //     sv.grow(1);
 //     assert_sv_eq!(sv, [0 => 'a', 1 => 'b'; 2]);
@@ -420,8 +420,7 @@ fn retain_indices() {
 
 #[test]
 fn remove() {
-    let mut sv = StableVec::from_vec(vec!['a', 'b', 'c']);
-    println!("{:?}", sv.next_index());
+    let mut sv = StableVec::<_>::from_vec(vec!['a', 'b', 'c']);
 
     assert_eq!(sv.remove(1), Some('b'));
     assert_sv_eq!(sv, [0 => 'a', 2 => 'c']);
@@ -448,7 +447,7 @@ fn remove() {
 
 // #[test]
 // fn insert_into_hole() {
-//     let mut sv = StableVec::from_vec(vec!['a', 'b', 'c']);
+//     let mut sv = StableVec::<_>::from_vec(vec!['a', 'b', 'c']);
 
 //     assert_eq!(sv.insert_into_hole(1, 'x'), Err('x'));
 //     assert_sv_eq!(sv, [0 => 'a', 1 => 'b', 2 => 'c']);
@@ -482,18 +481,18 @@ fn remove() {
 
 #[test]
 fn clear() {
-    let mut sv: StableVec<String> = StableVec::new();
+    let mut sv: StableVec<String> = StableVec::<_>::new();
     sv.clear();
     assert_sv_eq!(sv, []: String);
 
-    let mut sv: StableVec<u32> = StableVec::from_vec(vec![1, 3, 5]);
+    let mut sv = StableVec::<_>::from_vec(vec![1, 3, 5]);
     sv.clear();
     assert_sv_eq!(sv, []: u32);
 }
 
 #[test]
 fn extend_from_slice() {
-    let mut sv = StableVec::new();
+    let mut sv = StableVec::<_>::new();
 
     sv.extend_from_slice(&['a']);
     assert_sv_eq!(sv, [0 => 'a']);
@@ -513,7 +512,7 @@ fn extend_from_slice() {
 fn write() {
     use std::io::Write;
 
-    let mut sv = StableVec::new();
+    let mut sv = StableVec::<_>::new();
 
     sv.write_all(&[0, 7, 3]).unwrap();
     assert_sv_eq!(sv, [0 => 0, 1 => 7, 2 => 3]);
@@ -528,20 +527,20 @@ fn write() {
 
 #[test]
 fn clone() {
-    let sv: StableVec<String> = StableVec::new();
+    let sv = StableVec::<String>::new();
     assert_sv_eq!(sv.clone(), []: String);
 
-    let sv = StableVec::from(&[2, 4]);
+    let sv = StableVec::<_>::from(&[2, 4]);
     assert_sv_eq!(sv.clone(), [0 => 2, 1 => 4]);
 
-    let mut sv = StableVec::from(&[2, 5, 4]);
+    let mut sv = StableVec::<_>::from(&[2, 5, 4]);
     sv.remove(1);
     assert_sv_eq!(sv.clone(), [0 => 2, 2 => 4]);
 }
 
 // #[test]
 // fn iter_mut() {
-//     let mut sv = StableVec::from(&[2, 5, 4]);
+//     let mut sv = StableVec::<_>::from(&[2, 5, 4]);
 
 //     for x in &mut sv {
 //         *x *= 2;
@@ -556,7 +555,7 @@ fn clone() {
 
 #[test]
 fn index_mut() {
-    let mut sv = StableVec::from(&[2, 5, 4]);
+    let mut sv = StableVec::<_>::from(&[2, 5, 4]);
 
     sv[1] = 8;
     assert_sv_eq!(sv, [0 => 2, 1 => 8, 2 => 4]);
@@ -567,7 +566,7 @@ fn index_mut() {
 
 #[test]
 fn index_panic() {
-    let mut sv = StableVec::from(&[2, 5, 4]);
+    let mut sv: StableVec<_> = StableVec::<_>::from(&[2, 5, 4]);
     sv.remove(1);
 
     assert_panic!(sv[1]);
@@ -601,7 +600,7 @@ fn correct_drop() {
         }
     }
 
-    let mut sv: StableVec<Dummy> = StableVec::new();
+    let mut sv = StableVec::<_>::new();
 
     sv.push(Dummy::new('a'));
     assert_eq!(ALIVE_COUNT.load(Ordering::SeqCst), 1);
@@ -643,7 +642,7 @@ fn correct_drop() {
 
 // #[test]
 // fn compact_tiny() {
-//     let mut sv = StableVec::from(&[1.0, 2.0, 3.0]);
+//     let mut sv = StableVec::<_>::from(&[1.0, 2.0, 3.0]);
 //     assert_sv_eq!(sv, [0 => 1.0, 1 => 2.0, 2 => 3.0]);
 
 //     sv.remove(1);
@@ -653,7 +652,7 @@ fn correct_drop() {
 
 // #[test]
 // fn insert_into_hole_and_grow() {
-//     let mut sv = StableVec::from(&['a', 'b']);
+//     let mut sv = StableVec::<_>::from(&['a', 'b']);
 //     sv.reserve(10);
 
 //     assert_eq!(sv.num_elements(), 2);
@@ -692,7 +691,7 @@ fn correct_drop() {
 //     assert_eq!(sv.keys().size_hint(), (0, Some(0)));
 
 
-//     let mut sv = StableVec::from(&[0, 1, 2, 3, 4]);
+//     let mut sv = StableVec::<_>::from(&[0, 1, 2, 3, 4]);
 //     sv.remove(1);
 
 //     macro_rules! check_iter {
@@ -720,7 +719,7 @@ fn correct_drop() {
 //         let insertions = insertions + 1;
 //         // Create stable vector containing `insertions` zeros. Afterwards, we
 //         // remove at most half of those elements
-//         let mut sv = StableVec::from(vec![0; insertions as usize]);
+//         let mut sv = StableVec::<_>::from(vec![0; insertions as usize]);
 //         for i in to_delete {
 //             let i = (i % insertions) as usize;
 //             if sv.has_element_at(i) {
@@ -743,7 +742,7 @@ fn correct_drop() {
 //         let insertions = insertions + 1;
 //         // Create stable vector containing `insertions` zeros. Afterwards, we
 //         // remove at most half of those elements
-//         let mut sv = StableVec::from(vec![0; insertions as usize]);
+//         let mut sv = StableVec::<_>::from(vec![0; insertions as usize]);
 //         for i in to_delete {
 //             let i = (i % insertions) as usize;
 //             if sv.has_element_at(i) {
@@ -770,13 +769,13 @@ fn correct_drop() {
 //         let iter_a = items.iter().cloned();
 //         let iter_b = items.iter().cloned();
 
-//         let sv_a = StableVec::from_iter(iter_a);
+//         let sv_a = StableVec::<_>::from_iter(iter_a);
 //         let sv_b = {
-//             let mut sv = StableVec::new();
+//             let mut sv = StableVec::<_>::new();
 //             sv.extend(iter_b);
 //             sv
 //         };
-//         let sv_c = StableVec::from(&items);
+//         let sv_c = StableVec::<_>::from(&items);
 
 //         sv_a.num_elements() == items.len()
 //             && sv_a == sv_b

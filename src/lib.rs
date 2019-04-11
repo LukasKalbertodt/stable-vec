@@ -641,64 +641,63 @@ impl<T, C: Core<T>> StableVec<T, C> {
         }
     }
 
-    // /// Rearranges elements to reclaim memory. **Invalidates indices!**
-    // ///
-    // /// After calling this method, all existing elements stored contiguously
-    // /// in memory. You might want to call [`shrink_to_fit()`](#method.shrink_to_fit)
-    // /// afterwards to actually free memory previously used by removed elements.
-    // /// This method itself does not deallocate any memory.
-    // ///
-    // /// In comparison to
-    // /// [`reordering_make_compact()`](#method.reordering_make_compact), this
-    // /// method does not change the order of elements. Due to this, this method
-    // /// is a bit slower.
-    // ///
-    // /// # Warning
-    // ///
-    // /// This method invalidates the indices of all elements that are stored
-    // /// after the first hole in the stable vector!
-    // pub fn make_compact(&mut self) {
-    //     if self.is_compact() {
-    //         return;
-    //     }
+    /// Rearranges elements to reclaim memory. **Invalidates indices!**
+    ///
+    /// After calling this method, all existing elements stored contiguously
+    /// in memory. You might want to call [`shrink_to_fit()`](#method.shrink_to_fit)
+    /// afterwards to actually free memory previously used by removed elements.
+    /// This method itself does not deallocate any memory.
+    ///
+    /// In comparison to
+    /// [`reordering_make_compact()`](#method.reordering_make_compact), this
+    /// method does not change the order of elements. Due to this, this method
+    /// is a bit slower.
+    ///
+    /// # Warning
+    ///
+    /// This method invalidates the indices of all elements that are stored
+    /// after the first hole in the stable vector!
+    pub fn make_compact(&mut self) {
+        if self.is_compact() {
+            return;
+        }
 
-    //     // We only have to move elements, if we have any.
-    //     if self.num_elements > 0 {
-    //         // We have to find the position of the first hole. We know that
-    //         // there is at least one hole, so we can unwrap.
-    //         let first_hole_index = self.deleted.iter().position(|d| d).unwrap();
+        // We only have to move elements, if we have any.
+        if self.num_elements > 0 {
+            unsafe {
+                // We have to find the position of the first hole. We know that
+                // there is at least one hole, so we can unwrap.
+                let first_hole_index = self.core.next_hole_from(0).unwrap();
 
-    //         // This variable will store the first possible index of an element
-    //         // which can be inserted in the hole.
-    //         let mut element_index = first_hole_index + 1;
+                // This variable will store the first possible index of an element
+                // which can be inserted in the hole.
+                let mut element_index = first_hole_index + 1;
 
-    //         // Beginning from the first hole, we have to fill each index with
-    //         // a new value. This is required to keep the order of elements.
-    //         for hole_index in first_hole_index..self.num_elements {
-    //             // Actually find the next element which we can use to fill the
-    //             // hole. Note that we do not check if `element_index` runs out
-    //             // of bounds. This will never happen! We do have enough
-    //             // elements to fill all holes. And once all holes are filled,
-    //             // the outer loop will stop.
-    //             while self.deleted[element_index] {
-    //                 element_index += 1;
-    //             }
+                // Beginning from the first hole, we have to fill each index with
+                // a new value. This is required to keep the order of elements.
+                for hole_index in first_hole_index..self.num_elements {
+                    // Actually find the next element which we can use to fill the
+                    // hole. Note that we do not check if `element_index` runs out
+                    // of bounds. This will never happen! We do have enough
+                    // elements to fill all holes. And once all holes are filled,
+                    // the outer loop will stop.
+                    while !self.core.has_element_at(element_index) {
+                        element_index += 1;
+                    }
 
-    //             // So at this point `hole_index` points to a valid hole and
-    //             // `element_index` points to a valid element. Time to swap!
-    //             self.data.swap(hole_index, element_index);
-    //             self.deleted.set(hole_index, false);
-    //             self.deleted.set(element_index, true);
-    //         }
-    //     }
+                    // So at this point `hole_index` points to a valid hole and
+                    // `element_index` points to a valid element. Time to swap!
+                    self.core.swap(hole_index, element_index);
+                }
+            }
+        }
 
-    //     // We can safely call `set_len()` here: all elements that still need
-    //     // to be dropped are in the range 0..self.num_elements.
-    //     unsafe {
-    //         self.data.set_len(self.num_elements);
-    //         self.deleted.set_len(self.num_elements);
-    //     }
-    // }
+        // We can safely call `set_used_len()` here: all elements are in the
+        // range 0..self.num_elements.
+        unsafe {
+            self.core.set_used_len(self.num_elements);
+        }
+    }
 
     // /// Rearranges elements to reclaim memory. **Invalidates indices and
     // /// changes the order of the elements!**

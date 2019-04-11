@@ -153,6 +153,11 @@ pub trait Core<T> {
     /// or lower. Specifically, if an element at index `idx` exists,
     /// `Some(idx)` is returned. `idx` must be < `self.len`!
     fn prev_index_from(&self, idx: usize) -> Option<usize>;
+
+    fn next_hole_from(&self, idx: usize) -> Option<usize>;
+
+    /// a and b have to be smaller than capacity!
+    unsafe fn swap(&mut self, a: usize, b: usize);
 }
 
 

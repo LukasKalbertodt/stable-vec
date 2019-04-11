@@ -2,6 +2,7 @@ use std::{
     fmt::Debug,
     panic::RefUnwindSafe,
 };
+use quickcheck::quickcheck;
 use super::{Core, StableVec};
 
 macro_rules! assert_panic {
@@ -19,7 +20,7 @@ macro_rules! assert_panic {
     }}
 }
 
-fn assert_sv_eq_fn<T: Debug + Eq + Copy + RefUnwindSafe, C: Core<T> + RefUnwindSafe>(
+fn assert_sv_eq_fn<T: Debug + PartialEq + Copy + RefUnwindSafe, C: Core<T> + RefUnwindSafe>(
     sv: &mut StableVec<T, C>,
     indices: &[usize],
     values: &mut [T],
@@ -657,22 +658,23 @@ fn correct_drop() {
     assert_eq!(ALIVE_COUNT.load(Ordering::SeqCst), 2);
 
 
-    // sv.make_compact();
-    // assert_eq!(ALIVE_COUNT.load(Ordering::SeqCst), 2);
+    sv.make_compact();
+    assert_eq!(ALIVE_COUNT.load(Ordering::SeqCst), 2);
 
     sv.clear();
     assert_eq!(ALIVE_COUNT.load(Ordering::SeqCst), 0);
 }
 
-// #[test]
-// fn compact_tiny() {
-//     let mut sv = StableVec::<_>::from(&[1.0, 2.0, 3.0]);
-//     assert_sv_eq!(sv, [0 => 1.0, 1 => 2.0, 2 => 3.0]);
+#[test]
+fn compact_tiny() {
+    let mut sv = StableVec::<_>::from(&[1.0, 2.0, 3.0]);
+    sv.remove(1);
+    assert_sv_eq!(sv, [0 => 1.0, 2 => 3.0]);
 
-//     sv.remove(1);
-//     sv.make_compact();
-//     assert_eq!(sv.into_vec(), &[1.0, 3.0]);
-// }
+    sv.make_compact();
+    assert_sv_eq!(sv, [0 => 1.0, 1 => 3.0]);
+    // assert_eq!(sv.into_vec(), &[1.0, 3.0]);
+}
 
 #[test]
 fn insert_into_hole_and_grow() {
@@ -756,7 +758,7 @@ fn size_hints() {
     check_iter!(sv.indices());
 }
 
-// quickcheck! {
+quickcheck! {
 //     fn reordering_compact(insertions: u16, to_delete: Vec<u16>) -> bool {
 //         let insertions = insertions + 1;
 //         // Create stable vector containing `insertions` zeros. Afterwards, we
@@ -780,30 +782,30 @@ fn size_hints() {
 //             && sv_before.iter().all(|e| sv.contains(e))
 //     }
 
-//     fn compact(insertions: u16, to_delete: Vec<u16>) -> bool {
-//         let insertions = insertions + 1;
-//         // Create stable vector containing `insertions` zeros. Afterwards, we
-//         // remove at most half of those elements
-//         let mut sv = StableVec::<_>::from(vec![0; insertions as usize]);
-//         for i in to_delete {
-//             let i = (i % insertions) as usize;
-//             if sv.has_element_at(i) {
-//                 sv.remove(i);
-//             }
-//         }
+    fn compact(insertions: u16, to_delete: Vec<u16>) -> bool {
+        let insertions = insertions + 1;
+        // Create stable vector containing `insertions` zeros. Afterwards, we
+        // remove at most half of those elements
+        let mut sv = StableVec::<_>::from(vec![0; insertions as usize]);
+        for i in to_delete {
+            let i = (i % insertions) as usize;
+            if sv.has_element_at(i) {
+                sv.remove(i);
+            }
+        }
 
-//         // Remember the number of elements before and call compact.
-//         let sv_before = sv.clone();
-//         let items_before: Vec<_> = sv_before.iter().cloned().collect();
-//         let n_before_compact = sv.num_elements();
-//         sv.make_compact();
+        // Remember the number of elements before and call compact.
+        let sv_before = sv.clone();
+        let items_before: Vec<_> = sv_before.iter().cloned().collect();
+        let n_before_compact = sv.num_elements();
+        sv.make_compact();
 
 
-//         n_before_compact == sv.num_elements()
-//             && sv.is_compact()
-//             && (0..n_before_compact).all(|i| sv.get(i).is_some())
-//             && sv == items_before
-//     }
+        n_before_compact == sv.num_elements()
+            && sv.is_compact()
+            && (0..n_before_compact).all(|i| sv.get(i).is_some())
+            && sv == items_before
+    }
 
 //     fn from_and_extend_and_from_iter(items: Vec<u8>) -> bool {
 //         use std::iter::FromIterator;
@@ -823,4 +825,4 @@ fn size_hints() {
 //             && sv_a == sv_b
 //             && sv_a == sv_c
 //     }
-// }
+}

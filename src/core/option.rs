@@ -128,6 +128,19 @@ impl<T> Core<T> for OptionCore<T> {
             .rev()
             .find(|&idx| self.data[idx].is_some())
     }
+
+    fn next_hole_from(&self, idx: usize) -> Option<usize> {
+        (idx..self.used_len)
+            .find(|&idx| self.data[idx].is_none())
+    }
+
+    unsafe fn swap(&mut self, a: usize, b: usize) {
+        // We can't just have two mutable references, so we use `ptr::swap`
+        // instead of `mem::swap`.
+        let pa: *mut _ = self.data.get_unchecked_mut(a);
+        let pb: *mut _ = self.data.get_unchecked_mut(b);
+        ptr::swap(pa, pb);
+    }
 }
 
 impl<T> Drop for OptionCore<T> {

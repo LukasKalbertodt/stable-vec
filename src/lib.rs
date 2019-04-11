@@ -941,7 +941,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     /// let mut sv = StableVec::<_>::from(&['a', 'b', 'c', 'd']);
     /// sv.remove(1);
     ///
-    /// let mut it = sv.keys();
+    /// let mut it = sv.indices();
     /// assert_eq!(it.next(), Some(0));
     /// assert_eq!(it.next(), Some(2));
     /// assert_eq!(it.next(), Some(3));
@@ -954,7 +954,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     /// # use stable_vec::StableVec;
     /// let mut sv = StableVec::<_>::from(&['a', 'b', 'c', 'd']);
     ///
-    /// for index in sv.keys() {
+    /// for index in sv.indices() {
     ///     println!("index: {}", index);
     /// }
     /// ```

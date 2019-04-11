@@ -4,7 +4,7 @@ use stable_vec::StableVec;
 
 
 fn main() {
-    let mut sv = StableVec::new();
+    let mut sv = StableVec::<_>::new();
     sv.push('a');
     let b = sv.push('b');
     let c = sv.push('c');

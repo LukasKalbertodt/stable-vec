@@ -1243,6 +1243,18 @@ impl<'a, T, C: Core<T>> IntoIterator for &'a mut StableVec<T, C> {
     }
 }
 
+impl<T, C: Core<T>> IntoIterator for StableVec<T, C> {
+    type Item = T;
+    type IntoIter = IntoIter<T, C>;
+    fn into_iter(self) -> Self::IntoIter {
+        IntoIter {
+            sv: self,
+            pos: 0,
+        }
+    }
+}
+
+
 /// Iterator over immutable references to the elements of a `StableVec`.
 ///
 /// Use the method [`StableVec::iter()`](struct.StableVec.html#method.iter) or
@@ -1330,6 +1342,42 @@ impl<T, C: Core<T>> fmt::Debug for IterMut<'_, T, C> {
             .finish()
     }
 }
+
+
+/// Iterator over owned elements of a `StableVec`.
+///
+/// Use the method [`StableVec::into_iter`] to obtain an iterator of this kind.
+#[derive(Debug)]
+pub struct IntoIter<T, C: Core<T> = DefaultCore<T>> {
+    sv: StableVec<T, C>,
+    pos: usize,
+}
+
+impl<T, C: Core<T>> Iterator for IntoIter<T, C> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let idx = self.sv.core.next_index_from(self.pos);
+        if let Some(idx) = idx {
+            self.pos = idx + 1;
+            self.sv.num_elements -= 1;
+            let elem = unsafe {
+                // We know that `idx` is a valid.
+                self.sv.core.remove_at(idx)
+            };
+
+            Some(elem)
+        } else {
+            None
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.sv.num_elements, Some(self.sv.num_elements))
+    }
+}
+
+impl<T, C: Core<T>> ExactSizeIterator for IntoIter<T, C> {}
 
 
 /// Iterator over all valid indices of a `StableVec`.

@@ -38,6 +38,7 @@ fn assert_sv_eq_fn<T: Debug + PartialEq + Copy + RefUnwindSafe, C: Core<T> + Ref
     assert_eq!(sv.iter_mut().map(|r| *r).collect::<Vec<_>>(), values);
     assert_eq!((&*sv).into_iter().cloned().collect::<Vec<_>>(), values);
     assert_eq!((&mut *sv).into_iter().map(|r| *r).collect::<Vec<_>>(), values);
+    assert_eq!((*sv).clone().into_iter().collect::<Vec<_>>(), values);
     assert_eq!(sv.indices().collect::<Vec<_>>(), indices);
 
     let expected_hint = (num_elements, Some(num_elements));
@@ -47,6 +48,8 @@ fn assert_sv_eq_fn<T: Debug + PartialEq + Copy + RefUnwindSafe, C: Core<T> + Ref
     assert_eq!(sv.iter_mut().map(|r| *r).len(), num_elements);
     assert_eq!((&*sv).into_iter().cloned().size_hint(), expected_hint);
     assert_eq!((&mut *sv).into_iter().map(|r| *r).size_hint(), expected_hint);
+    assert_eq!(sv.into_iter().size_hint(), expected_hint);
+    assert_eq!(sv.into_iter().len(), num_elements);
     assert_eq!(sv.indices().size_hint(), expected_hint);
     assert_eq!(sv.indices().len(), num_elements);
 
@@ -88,6 +91,7 @@ macro_rules! assert_sv_eq {
         assert_eq!(sv.iter_mut().count(), 0);
         assert_eq!((&*sv).into_iter().count(), 0);
         assert_eq!((&mut *sv).into_iter().count(), 0);
+        assert_eq!(sv.into_iter().count(), 0);
         assert_eq!(sv.indices().count(), 0);
 
         assert_eq!(sv, &[] as &[$ty]);

@@ -56,13 +56,33 @@ pub trait Core<T> {
     /// elements with indices ≥ `used_len()` are deleted).
     fn capacity(&self) -> usize;
 
-    /// Reserves capacity for at least `additional` more elements to be added.
+    /// Reallocates the memory to have capacity for at least `new_cap` elements
+    /// (not new element, but all elements).
     ///
     /// This means that after calling this method, inserting elements at
-    /// indices in the range `len()..len() + additional` is valid. `capacity`
-    /// is equal to `len() + additional` after this call. If there is already
-    /// enough memory allocated, this method must do nothing.
-    fn grow(&mut self, additional: usize);
+    /// indices in the range `0..new_cap` is valid. `capacity` is ≥ `new_cap`
+    /// after this call. This method shall not check if there is already enough
+    /// capacity available.
+    ///
+    /// Implementors: mark this impl with `#[cold]` and `#[inline(never)]`.
+    ///
+    /// # Safety
+    ///
+    /// `new_cap` has to be >= `used_len` or else this method's behavior is
+    /// undefined.
+    unsafe fn realloc(&mut self, new_cap: usize);
+
+    /// Reserves memory for at least `additional` many elements to be inserted.
+    /// If the memory is already sufficient, does nothing.
+    fn reserve(&mut self, additional: usize) {
+        let new_cap = self.used_len() + additional;
+        if self.capacity() < new_cap {
+            unsafe {
+                // `new_cap` is clearly >= `capacity`
+                self.realloc(new_cap);
+            }
+        }
+    }
 
     /// Checks if there exists an element with index `idx`.
     ///

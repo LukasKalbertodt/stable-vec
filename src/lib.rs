@@ -221,7 +221,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     /// Reserves capacity for at least `additional` more elements to be
     /// inserted.
     pub fn reserve(&mut self, additional: usize) {
-        self.core.grow(additional);
+        self.core.reserve(additional);
     }
 
     /// Appends a new element to the back of the collection and returns the
@@ -246,7 +246,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     /// ```
     pub fn push(&mut self, elem: T) -> usize {
         let index = self.core.used_len();
-        self.core.grow(1);
+        self.core.reserve(1);
 
         unsafe {
             // Due to growing the core to hold at least 1 additional element,
@@ -511,7 +511,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     /// ```
     pub fn grow(&mut self, additional: usize) {
         let new_len = self.core.used_len() + additional;
-        self.core.grow(additional);
+        self.core.reserve(additional);
 
         unsafe {
             self.core.set_used_len(new_len);
@@ -1115,7 +1115,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     {
         let len = new_elements.len();
 
-        self.core.grow(len);
+        self.core.reserve(len);
         self.num_elements += len;
 
         // It's important that a panic in `clone()` does not lead to memory

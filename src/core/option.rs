@@ -28,7 +28,10 @@ impl<T> Core<T> for OptionCore<T> {
 
     fn from_vec(vec: Vec<T>) -> Self {
         let mut out = Self::new();
-        out.grow(vec.len());
+        unsafe {
+            // `vec.len()` is >= than `used_len` (0) here
+            out.realloc(vec.len());
+        }
 
         out.used_len = vec.len();
         for (i, elem) in vec.into_iter().enumerate() {
@@ -55,12 +58,9 @@ impl<T> Core<T> for OptionCore<T> {
         self.data.len()
     }
 
-    fn grow(&mut self, additional: usize) {
-        let new_cap = self.used_len + additional;
-        if self.capacity() >= new_cap {
-            return;
-        }
-
+    #[inline(never)]
+    #[cold]
+    unsafe fn realloc(&mut self, new_cap: usize) {
         // We at least double our capacity. Otherwise repeated `push`es are
         // O(n²).
         //

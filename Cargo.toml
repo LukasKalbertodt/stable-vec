@@ -18,6 +18,12 @@ readme = "README.md"
 travis-ci = { branch = "master", repository = "LukasKalbertodt/stable-vec" }
 maintenance = { status = "actively-developed" }
 
+
+[workspace]
+members = [
+    "asm-test",
+]
+
 [features]
 nightly-bench = ["criterion/real_blackbox"]
 

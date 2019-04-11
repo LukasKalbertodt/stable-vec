@@ -431,6 +431,18 @@ fn grow() {
 }
 
 #[test]
+fn shrink_to_fit() {
+    let mut sv = StableVec::<_>::from_vec(vec!['a', 'b', 'c', 'd', 'e', 'f']);
+    sv.reserve(100);
+    sv.retain_indices(|index| index != 1 && index != 3 && index != 5);
+    assert_sv_eq!(sv, [0 => 'a', 2 => 'c', 4 => 'e'; 5]);
+
+    sv.shrink_to_fit();
+    assert_sv_eq!(sv, [0 => 'a', 2 => 'c', 4 => 'e'; 5]);
+    assert_eq!(sv.capacity(), 6);
+}
+
+#[test]
 fn remove() {
     let mut sv = StableVec::<_>::from_vec(vec!['a', 'b', 'c']);
 

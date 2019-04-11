@@ -625,17 +625,21 @@ impl<T, C: Core<T>> StableVec<T, C> {
         }
     }
 
-    // /// Calls `shrink_to_fit()` on the underlying `Vec<T>`.
-    // ///
-    // /// Note that this does not move existing elements around and thus does
-    // /// not invalidate indices. It only calls `shrink_to_fit()` on the
-    // /// `Vec<T>` that holds the actual data.
-    // ///
-    // /// If you want to compact this `StableVec` by removing deleted elements,
-    // /// use the method [`make_compact()`](#method.make_compact) instead.
-    // pub fn shrink_to_fit(&mut self) {
-    //     self.data.shrink_to_fit();
-    // }
+    /// Calls `shrink_to_fit()` on the underlying `Vec<T>`.
+    ///
+    /// Note that this does not move existing elements around and thus does not
+    /// invalidate indices. This method also doesn't change what `next_index`
+    /// returns. Instead, only capacity is changed; specifically, it is equal
+    /// to `next_index` after calling this method.
+    ///
+    /// If you want to compact this `StableVec` by removing deleted elements,
+    /// use the method [`make_compact`] or [`reordering_make_compact`] instead.
+    pub fn shrink_to_fit(&mut self) {
+        let new_cap = self.core.used_len();
+        unsafe {
+            self.core.realloc(new_cap);
+        }
+    }
 
     // /// Rearranges elements to reclaim memory. **Invalidates indices!**
     // ///

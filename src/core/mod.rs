@@ -1,4 +1,5 @@
 use std::{
+    cmp,
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
@@ -60,9 +61,9 @@ pub trait Core<T> {
     /// (not new element, but all elements).
     ///
     /// This means that after calling this method, inserting elements at
-    /// indices in the range `0..new_cap` is valid. `capacity` is ≥ `new_cap`
-    /// after this call. This method shall not check if there is already enough
-    /// capacity available.
+    /// indices in the range `0..new_cap` is valid. `capacity` is equal to
+    /// `new_cap` after this call. This method shall not check if there is
+    /// already enough capacity available.
     ///
     /// Implementors: mark this impl with `#[cold]` and `#[inline(never)]`.
     ///
@@ -77,6 +78,13 @@ pub trait Core<T> {
     fn reserve(&mut self, additional: usize) {
         let new_cap = self.used_len() + additional;
         if self.capacity() < new_cap {
+            // We at least double our capacity. Otherwise repeated `push`es are
+            // O(n²).
+            //
+            // This multiplication can't overflow, because we know the capacity
+            // is below `isize::MAX` (the underlying `Vec`s ensure this).
+            let new_cap = cmp::max(new_cap, 2 * self.capacity());
+
             unsafe {
                 // `new_cap` is clearly >= `capacity`
                 self.realloc(new_cap);

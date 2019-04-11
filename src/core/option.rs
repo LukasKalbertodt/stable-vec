@@ -61,20 +61,14 @@ impl<T> Core<T> for OptionCore<T> {
     #[inline(never)]
     #[cold]
     unsafe fn realloc(&mut self, new_cap: usize) {
-        // We at least double our capacity. Otherwise repeated `push`es are
-        // O(n²).
-        //
-        // This multiplication can't overflow, because we know the capacity is
-        // below `isize::MAX` (`Vec` ensures this).
-        let new_cap = cmp::max(new_cap, 2 * self.capacity());
-
         let mut new: Vec<ManuallyDrop<Option<T>>> = Vec::with_capacity(new_cap);
 
         // Copy all old elements over to the new vector. After we do this, we
         // can just drop the box which will deallocate the old memory block,
         // but not touch the old values anymore (thanks to `ManuallyDrop`).
-        ptr::copy_nonoverlapping(self.data.as_ptr(), new.as_mut_ptr(), self.data.len());
-        new.set_len(self.data.len());
+        let copy_len = cmp::min(self.data.len(), new_cap);
+        ptr::copy_nonoverlapping(self.data.as_ptr(), new.as_mut_ptr(), copy_len);
+        new.set_len(copy_len);
 
         // Fill the rest of the vector with deleted elements.
         new.resize_with(new_cap, || ManuallyDrop::new(None));

@@ -73,10 +73,8 @@ impl<T> Core<T> for OptionCore<T> {
         // Copy all old elements over to the new vector. After we do this, we
         // can just drop the box which will deallocate the old memory block,
         // but not touch the old values anymore (thanks to `ManuallyDrop`).
-        unsafe {
-            ptr::copy_nonoverlapping(self.data.as_ptr(), new.as_mut_ptr(), self.data.len());
-            new.set_len(self.data.len());
-        }
+        ptr::copy_nonoverlapping(self.data.as_ptr(), new.as_mut_ptr(), self.data.len());
+        new.set_len(self.data.len());
 
         // Fill the rest of the vector with deleted elements.
         new.resize_with(new_cap, || ManuallyDrop::new(None));

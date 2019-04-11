@@ -1149,13 +1149,19 @@ impl<T, C: Core<T>> Index<usize> for StableVec<T, C> {
     type Output = T;
 
     fn index(&self, index: usize) -> &T {
-        self.get(index).unwrap_or_else(|| index_fail(index))
+        match self.get(index) {
+            Some(v) => v,
+            None => index_fail(index),
+        }
     }
 }
 
 impl<T, C: Core<T>> IndexMut<usize> for StableVec<T, C> {
     fn index_mut(&mut self, index: usize) -> &mut T {
-        self.get_mut(index).unwrap_or_else(|| index_fail(index))
+        match self.get_mut(index) {
+            Some(v) => v,
+            None => index_fail(index),
+        }
     }
 }
 

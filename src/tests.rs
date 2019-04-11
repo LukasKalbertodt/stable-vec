@@ -20,12 +20,16 @@ macro_rules! assert_panic {
     }}
 }
 
-fn assert_sv_eq_fn<T: Debug + PartialEq + Copy + RefUnwindSafe, C: Core<T> + RefUnwindSafe>(
+fn assert_sv_eq_fn<T, C>(
     sv: &mut StableVec<T, C>,
     indices: &[usize],
     values: &mut [T],
     last_index: usize,
-) {
+)
+where
+    T: Debug + PartialEq + Copy + RefUnwindSafe,
+    C: Core<T> + RefUnwindSafe + Clone,
+{
     let num_elements = values.len();
 
     assert_eq!(sv.num_elements(), num_elements, "num_elements check failed");
@@ -57,7 +61,7 @@ fn assert_sv_eq_fn<T: Debug + PartialEq + Copy + RefUnwindSafe, C: Core<T> + Ref
     assert_eq!(sv, &values.to_vec());
 
     assert_eq!(format!("{:?}", sv), format!("StableVec {:?}", values));
-    // assert_eq!(sv.clone().into_vec(), values);
+    assert_eq!(sv.clone().into_vec(), values);
 
     for i in 0..last_index {
         if let Ok(index_index) = indices.binary_search(&i) {
@@ -98,7 +102,7 @@ macro_rules! assert_sv_eq {
         assert_eq!(sv, &vec![] as &Vec<$ty>);
 
         assert_eq!(format!("{:?}", sv), "StableVec []");
-        // assert!(sv.clone().into_vec().is_empty());
+        assert!(sv.clone().into_vec().is_empty());
     }};
     ($left:expr, [$( $idx:literal => $val:expr ),* $(; $last_index:literal)*] $(,)*) => {{
         let indices = [$($idx),*];
@@ -677,7 +681,7 @@ fn compact_tiny() {
 
     sv.make_compact();
     assert_sv_eq!(sv, [0 => 1.0, 1 => 3.0]);
-    // assert_eq!(sv.into_vec(), &[1.0, 3.0]);
+    assert_eq!(sv.into_vec(), &[1.0, 3.0]);
 }
 
 #[test]
@@ -699,17 +703,17 @@ fn insert_into_hole_and_grow() {
     assert_eq!(sv.insert_into_hole(1, 'd'), Err('d'));
     assert_eq!(sv.insert_into_hole(2, 'c'), Err('c'));
     assert_eq!(sv.num_elements(), 2);
-    // assert_eq!(sv.clone().into_vec(), &['a', 'c']);
+    assert_eq!(sv.clone().into_vec(), &['a', 'c']);
 
     sv.grow(3);
     assert_eq!(sv.num_elements(), 2);
-    // assert_eq!(sv.clone().into_vec(), &['a', 'c']);
+    assert_eq!(sv.clone().into_vec(), &['a', 'c']);
 
     assert_eq!(sv.insert_into_hole(4, 'd'), Ok(()));
     assert_eq!(sv.insert_into_hole(4, 'e'), Err('e'));
 
     assert_eq!(sv.num_elements(), 3);
-    // assert_eq!(sv.clone().into_vec(), &['a', 'c', 'd']);
+    assert_eq!(sv.clone().into_vec(), &['a', 'c', 'd']);
 }
 
 #[test]
@@ -811,22 +815,22 @@ quickcheck! {
             && sv == items_before
     }
 
-//     fn from_and_extend_and_from_iter(items: Vec<u8>) -> bool {
-//         use std::iter::FromIterator;
+    fn from_and_extend_and_from_iter(items: Vec<u8>) -> bool {
+        use std::iter::FromIterator;
 
-//         let iter_a = items.iter().cloned();
-//         let iter_b = items.iter().cloned();
+        let iter_a = items.iter().cloned();
+        let iter_b = items.iter().cloned();
 
-//         let sv_a = StableVec::<_>::from_iter(iter_a);
-//         let sv_b = {
-//             let mut sv = StableVec::<_>::new();
-//             sv.extend(iter_b);
-//             sv
-//         };
-//         let sv_c = StableVec::<_>::from(&items);
+        let sv_a = StableVec::<_>::from_iter(iter_a);
+        let sv_b = {
+            let mut sv = StableVec::<_>::new();
+            sv.extend(iter_b);
+            sv
+        };
+        let sv_c = StableVec::<_>::from(&items);
 
-//         sv_a.num_elements() == items.len()
-//             && sv_a == sv_b
-//             && sv_a == sv_c
-//     }
+        sv_a.num_elements() == items.len()
+            && sv_a == sv_b
+            && sv_a == sv_c
+    }
 }

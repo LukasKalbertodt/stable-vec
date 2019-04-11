@@ -997,44 +997,27 @@ impl<T, C: Core<T>> StableVec<T, C> {
         false
     }
 
-    // /// Returns the stable vector as a standard `Vec<T>`.
-    // ///
-    // /// Returns a vector which contains all existing elements from this stable
-    // /// vector. **All indices might be invalidated!** This method might call
-    // /// [`make_compact()`](#method.make_compact); see that method's
-    // /// documentation to learn about the effects on indices.
-    // ///
-    // /// This method does not allocate memory.
-    // ///
-    // /// # Note
-    // ///
-    // /// If the stable vector is not compact (as defined by `is_compact()`), the
-    // /// runtime complexity of this function is O(n), because `make_compact()`
-    // /// needs to be called.
-    // ///
-    // /// # Example
-    // ///
-    // /// ```
-    // /// # use stable_vec::StableVec;
-    // /// let mut sv = StableVec::<_>::from(&['a', 'b', 'c']);
-    // /// sv.remove(1);   // 'b' lives at index 1
-    // ///
-    // /// assert_eq!(sv.into_vec(), vec!['a', 'c']);
-    // /// ```
-    // pub fn into_vec(mut self) -> Vec<T> {
-    //     // Compact the stable vec to prepare the `data` vector for moving.
-    //     self.make_compact();
-
-    //     // We reset all values to the "empty state" here. This is necessary to
-    //     // make sure the `drop()` impl doesn't do anything (except for actually
-    //     // freeing the memory of `deleted`).
-    //     self.num_elements = 0;
-    //     self.deleted.truncate(0);
-
-    //     // The `data` vector is moved out of this data structure and replaced
-    //     // with an empty vector. After this line, `self` is dropped.
-    //     mem::replace(&mut self.data, Vec::new())
-    // }
+    /// Returns the stable vector as a standard `Vec<T>`.
+    ///
+    /// Returns a vector which contains all existing elements from this stable
+    /// vector. **All indices might be invalidated!** This method is equivalent
+    /// to `self.into_iter().colect()`.
+    ///
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::<_>::from(&['a', 'b', 'c']);
+    /// sv.remove(1);   // 'b' lives at index 1
+    ///
+    /// assert_eq!(sv.into_vec(), vec!['a', 'c']);
+    /// ```
+    pub fn into_vec(self) -> Vec<T> {
+        // TODO: maybe improve performance in special case: if vector is
+        // compact and core already stores a `Vec<T>`.
+        self.into_iter().collect()
+    }
 
     /// Retains only the elements specified by the given predicate.
     ///
@@ -1422,6 +1405,15 @@ impl<T: fmt::Debug, C: Core<T>> fmt::Debug for StableVec<T, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "StableVec ")?;
         f.debug_list().entries(self).finish()
+    }
+}
+
+impl<Ta, Tb, Ca: Core<Ta>, Cb: Core<Tb>> PartialEq<StableVec<Tb, Cb>> for StableVec<Ta, Ca>
+where
+    Ta: PartialEq<Tb>,
+{
+    fn eq(&self, other: &StableVec<Tb, Cb>) -> bool {
+        self.iter().eq(other)
     }
 }
 

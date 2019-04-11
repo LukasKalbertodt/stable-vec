@@ -699,72 +699,64 @@ impl<T, C: Core<T>> StableVec<T, C> {
         }
     }
 
-    // /// Rearranges elements to reclaim memory. **Invalidates indices and
-    // /// changes the order of the elements!**
-    // ///
-    // /// After calling this method, all existing elements stored contiguously
-    // /// in memory. You might want to call [`shrink_to_fit()`](#method.shrink_to_fit)
-    // /// afterwards to actually free memory previously used by removed elements.
-    // /// This method itself does not deallocate any memory.
-    // ///
-    // /// If you do need to preserve the order of elements, use
-    // /// [`make_compact()`](#method.make_compact) instead. However, if you don't
-    // /// care about element order, you should prefer using this method, because
-    // /// it is faster.
-    // ///
-    // /// # Warning
-    // ///
-    // /// This method invalidates the indices of all elements that are stored
-    // /// after the first hole and it does not preserve the order of elements!
-    // pub fn reordering_make_compact(&mut self) {
-    //     if self.is_compact() {
-    //         return;
-    //     }
+    /// Rearranges elements to reclaim memory. **Invalidates indices and
+    /// changes the order of the elements!**
+    ///
+    /// After calling this method, all existing elements stored contiguously
+    /// in memory. You might want to call [`shrink_to_fit()`](#method.shrink_to_fit)
+    /// afterwards to actually free memory previously used by removed elements.
+    /// This method itself does not deallocate any memory.
+    ///
+    /// If you do need to preserve the order of elements, use
+    /// [`make_compact()`](#method.make_compact) instead. However, if you don't
+    /// care about element order, you should prefer using this method, because
+    /// it is faster.
+    ///
+    /// # Warning
+    ///
+    /// This method invalidates the indices of all elements that are stored
+    /// after the first hole and it does not preserve the order of elements!
+    pub fn reordering_make_compact(&mut self) {
+        if self.is_compact() {
+            return;
+        }
 
-    //     // We only have to move elements, if we have any.
-    //     if self.num_elements > 0 {
-    //         // We use two indices:
-    //         //
-    //         // - `hole_index` starts from the front and searches for a hole
-    //         //   that can be filled with an element.
-    //         // - `element_index` starts from the back and searches for an
-    //         //   element.
-    //         let len = self.data.len();
-    //         let mut element_index = len - 1;
-    //         let mut hole_index = 0;
-    //         loop {
-    //             // Advance `element_index` until we found an element.
-    //             while element_index > 0 && self.deleted[element_index] {
-    //                 element_index -= 1;
-    //             }
+        // We only have to move elements, if we have any.
+        if self.num_elements > 0 {
+            // We use two indices:
+            //
+            // - `hole_index` starts from the front and searches for a hole
+            //   that can be filled with an element.
+            // - `element_index` starts from the back and searches for an
+            //   element.
+            let len = self.core.used_len();
+            let mut element_index = len - 1;
+            let mut hole_index = 0;
+            loop {
+                element_index = self.core.prev_index_from(element_index).unwrap_or(0);
+                hole_index = self.core.next_hole_from(hole_index).unwrap_or(len);
 
-    //             // Advance `hole_index` until we found a hole.
-    //             while hole_index < len && !self.deleted[hole_index] {
-    //                 hole_index += 1;
-    //             }
+                // If both indices passed each other, we can stop. There are no
+                // holes left of `hole_index` and no element right of
+                // `element_index`.
+                if hole_index > element_index {
+                    break;
+                }
 
-    //             // If both indices passed each other, we can stop. There are no
-    //             // holes left of `hole_index` and no element right of
-    //             // `element_index`.
-    //             if hole_index > element_index {
-    //                 break;
-    //             }
+                // We found an element and a hole left of the element. That
+                // means that we can swap.
+                unsafe {
+                    self.core.swap(hole_index, element_index);
+                }
+            }
+        }
 
-    //             // We found an element and a hole left of the element. That
-    //             // means that we can swap.
-    //             self.data.swap(hole_index, element_index);
-    //             self.deleted.set(hole_index, false);
-    //             self.deleted.set(element_index, true);
-    //         }
-    //     }
-
-    //     // We can safely call `set_len()` here: all elements that still need
-    //     // to be dropped are in the range 0..self.num_elements.
-    //     unsafe {
-    //         self.data.set_len(self.num_elements);
-    //         self.deleted.set_len(self.num_elements);
-    //     }
-    // }
+        // We can safely call `set_used_len()` here: all elements are in the
+        // range 0..self.num_elements.
+        unsafe {
+            self.core.set_used_len(self.num_elements);
+        }
+    }
 
     /// Returns `true` if all existing elements are stored contiguously from
     /// the beginning.

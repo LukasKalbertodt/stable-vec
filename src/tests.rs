@@ -657,11 +657,11 @@ fn correct_drop() {
     assert_eq!(ALIVE_COUNT.load(Ordering::SeqCst), 2);
 
     {
-        let _clone = sv.clone();
+        let mut clone = sv.clone();
         assert_eq!(ALIVE_COUNT.load(Ordering::SeqCst), 4);
 
-        // clone.reordering_make_compact();
-        // assert_eq!(ALIVE_COUNT.load(Ordering::SeqCst), 4);
+        clone.reordering_make_compact();
+        assert_eq!(ALIVE_COUNT.load(Ordering::SeqCst), 4);
     }
     assert_eq!(ALIVE_COUNT.load(Ordering::SeqCst), 2);
 
@@ -767,28 +767,28 @@ fn size_hints() {
 }
 
 quickcheck! {
-//     fn reordering_compact(insertions: u16, to_delete: Vec<u16>) -> bool {
-//         let insertions = insertions + 1;
-//         // Create stable vector containing `insertions` zeros. Afterwards, we
-//         // remove at most half of those elements
-//         let mut sv = StableVec::<_>::from(vec![0; insertions as usize]);
-//         for i in to_delete {
-//             let i = (i % insertions) as usize;
-//             if sv.has_element_at(i) {
-//                 sv.remove(i);
-//             }
-//         }
+    fn reordering_compact(insertions: u16, to_delete: Vec<u16>) -> bool {
+        let insertions = insertions + 1;
+        // Create stable vector containing `insertions` zeros. Afterwards, we
+        // remove at most half of those elements
+        let mut sv = StableVec::<_>::from(vec![0; insertions as usize]);
+        for i in to_delete {
+            let i = (i % insertions) as usize;
+            if sv.has_element_at(i) {
+                sv.remove(i);
+            }
+        }
 
-//         // Remember the number of elements before and call compact.
-//         let sv_before = sv.clone();
-//         let n_before_compact = sv.num_elements();
-//         sv.reordering_make_compact();
+        // Remember the number of elements before and call compact.
+        let sv_before = sv.clone();
+        let n_before_compact = sv.num_elements();
+        sv.reordering_make_compact();
 
-//         n_before_compact == sv.num_elements()
-//             && sv.is_compact()
-//             && (0..n_before_compact).all(|i| sv.get(i).is_some())
-//             && sv_before.iter().all(|e| sv.contains(e))
-//     }
+        n_before_compact == sv.num_elements()
+            && sv.is_compact()
+            && (0..n_before_compact).all(|i| sv.get(i).is_some())
+            && sv_before.iter().all(|e| sv.contains(e))
+    }
 
     fn compact(insertions: u16, to_delete: Vec<u16>) -> bool {
         let insertions = insertions + 1;

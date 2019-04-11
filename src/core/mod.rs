@@ -146,15 +146,16 @@ pub trait Core<T> {
 
     /// Returns the index of the next non-deleted element with index `idx` or
     /// higher. Specifically, if an element at index `idx` exists, `Some(idx)`
-    /// is returned. `idx` must be < `self.len`!
-    fn next_index_from(&self, idx: usize) -> Option<usize>;
+    /// is returned. `idx` must be <= `self.len`!
+    unsafe fn next_index_from(&self, idx: usize) -> Option<usize>;
 
     /// Returns the index of the previous non-deleted element with index `idx`
     /// or lower. Specifically, if an element at index `idx` exists,
     /// `Some(idx)` is returned. `idx` must be < `self.len`!
-    fn prev_index_from(&self, idx: usize) -> Option<usize>;
+    unsafe fn prev_index_from(&self, idx: usize) -> Option<usize>;
 
-    fn next_hole_from(&self, idx: usize) -> Option<usize>;
+    /// `idx` must be <= `self.len`!
+    unsafe fn next_hole_from(&self, idx: usize) -> Option<usize>;
 
     /// a and b have to be smaller than capacity!
     unsafe fn swap(&mut self, a: usize, b: usize);

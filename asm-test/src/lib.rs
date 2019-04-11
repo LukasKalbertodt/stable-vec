@@ -10,3 +10,7 @@ pub fn index_u32_option(sv: &StableVec<u32>, index: usize) -> u32 {
 pub fn push_u32_option(sv: &mut StableVec<u32>, val: u32) -> usize {
     sv.push(val)
 }
+
+pub fn count_u32_option(sv: &StableVec<u32>) -> usize {
+    sv.indices().count()
+}

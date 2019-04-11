@@ -401,7 +401,9 @@ impl<T, C: Core<T>> StableVec<T, C> {
     /// assert_eq!(sv.find_first_index(), Some(1));
     /// ```
     pub fn find_first_index(&self) -> Option<usize> {
-        self.core.next_index_from(0)
+        unsafe {
+            self.core.next_index_from(0)
+        }
     }
 
     /// Finds the last element and returns its index, or `None` if
@@ -422,7 +424,9 @@ impl<T, C: Core<T>> StableVec<T, C> {
         if len == 0 {
             None
         } else {
-            self.core.prev_index_from(len - 1)
+            unsafe {
+                self.core.prev_index_from(len - 1)
+            }
         }
     }
 
@@ -723,29 +727,29 @@ impl<T, C: Core<T>> StableVec<T, C> {
 
         // We only have to move elements, if we have any.
         if self.num_elements > 0 {
-            // We use two indices:
-            //
-            // - `hole_index` starts from the front and searches for a hole
-            //   that can be filled with an element.
-            // - `element_index` starts from the back and searches for an
-            //   element.
-            let len = self.core.used_len();
-            let mut element_index = len - 1;
-            let mut hole_index = 0;
-            loop {
-                element_index = self.core.prev_index_from(element_index).unwrap_or(0);
-                hole_index = self.core.next_hole_from(hole_index).unwrap_or(len);
+            unsafe {
+                // We use two indices:
+                //
+                // - `hole_index` starts from the front and searches for a hole
+                //   that can be filled with an element.
+                // - `element_index` starts from the back and searches for an
+                //   element.
+                let len = self.core.used_len();
+                let mut element_index = len - 1;
+                let mut hole_index = 0;
+                loop {
+                    element_index = self.core.prev_index_from(element_index).unwrap_or(0);
+                    hole_index = self.core.next_hole_from(hole_index).unwrap_or(len);
 
-                // If both indices passed each other, we can stop. There are no
-                // holes left of `hole_index` and no element right of
-                // `element_index`.
-                if hole_index > element_index {
-                    break;
-                }
+                    // If both indices passed each other, we can stop. There are no
+                    // holes left of `hole_index` and no element right of
+                    // `element_index`.
+                    if hole_index > element_index {
+                        break;
+                    }
 
-                // We found an element and a hole left of the element. That
-                // means that we can swap.
-                unsafe {
+                    // We found an element and a hole left of the element. That
+                    // means that we can swap.
                     self.core.swap(hole_index, element_index);
                 }
             }
@@ -1031,7 +1035,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     {
         let mut pos = 0;
 
-        while let Some(idx) = self.core.next_index_from(pos) {
+        while let Some(idx) = unsafe { self.core.next_index_from(pos) } {
             // These unsafe calls are fine: indices returned by
             // `next_index_from` are always valid and point to an existing
             // element.
@@ -1070,7 +1074,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     {
         let mut pos = 0;
 
-        while let Some(idx) = self.core.next_index_from(pos) {
+        while let Some(idx) = unsafe { self.core.next_index_from(pos) } {
             if !should_be_kept(idx) {
                 // These unsafe call is fine: indices returned by
                 // `next_index_from` are always valid and point to an existing
@@ -1244,7 +1248,7 @@ pub struct Iter<'a, T, C: Core<T> = DefaultCore<T>> {
 impl<'a, T, C: Core<T>> Iterator for Iter<'a, T, C> {
     type Item = &'a T;
     fn next(&mut self) -> Option<Self::Item> {
-        let idx = self.core.next_index_from(self.pos);
+        let idx = unsafe { self.core.next_index_from(self.pos) };
         if let Some(idx) = idx {
             self.pos = idx + 1;
             self.count -= 1;
@@ -1285,7 +1289,7 @@ impl<'a, T, C: Core<T>> Iterator for IterMut<'a, T, C> {
     type Item = &'a mut T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let idx = self.sv.core.next_index_from(self.pos);
+        let idx = unsafe { self.sv.core.next_index_from(self.pos) };
         if let Some(idx) = idx {
             self.pos = idx + 1;
             self.count -= 1;
@@ -1332,7 +1336,7 @@ impl<T, C: Core<T>> Iterator for IntoIter<T, C> {
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let idx = self.sv.core.next_index_from(self.pos);
+        let idx = unsafe { self.sv.core.next_index_from(self.pos) };
         if let Some(idx) = idx {
             self.pos = idx + 1;
             self.sv.num_elements -= 1;
@@ -1367,7 +1371,7 @@ pub struct Indices<'a, T, C: Core<T> = DefaultCore<T>> {
 impl<T, C: Core<T>> Iterator for Indices<'_, T, C> {
     type Item = usize;
     fn next(&mut self) -> Option<Self::Item> {
-        let out = self.core.next_index_from(self.pos);
+        let out = unsafe { self.core.next_index_from(self.pos) };
         if let Some(idx) = out {
             self.pos = idx + 1;
             self.count -= 1;

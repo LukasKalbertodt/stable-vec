@@ -118,20 +118,20 @@ impl<T> Core<T> for OptionCore<T> {
         self.used_len = 0;
     }
 
-    fn next_index_from(&self, idx: usize) -> Option<usize> {
+    unsafe fn next_index_from(&self, idx: usize) -> Option<usize> {
         (idx..self.used_len)
-            .find(|&idx| self.data[idx].is_some())
+            .find(|&idx| self.data.get_unchecked(idx).is_some())
     }
 
-    fn prev_index_from(&self, idx: usize) -> Option<usize> {
+    unsafe fn prev_index_from(&self, idx: usize) -> Option<usize> {
         (0..=idx)
             .rev()
-            .find(|&idx| self.data[idx].is_some())
+            .find(|&idx| self.data.get_unchecked(idx).is_some())
     }
 
-    fn next_hole_from(&self, idx: usize) -> Option<usize> {
+    unsafe fn next_hole_from(&self, idx: usize) -> Option<usize> {
         (idx..self.used_len)
-            .find(|&idx| self.data[idx].is_none())
+            .find(|&idx| self.data.get_unchecked(idx).is_none())
     }
 
     unsafe fn swap(&mut self, a: usize, b: usize) {

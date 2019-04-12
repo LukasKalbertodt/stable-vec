@@ -15,25 +15,25 @@ use super::Core;
 #[derive(Clone)]
 pub struct OptionCore<T> {
     data: Box<[ManuallyDrop<Option<T>>]>,
-    used_len: usize,
+    len: usize,
 }
 
 impl<T> Core<T> for OptionCore<T> {
     fn new() -> Self {
         Self {
             data: Box::default(),
-            used_len: 0,
+            len: 0,
         }
     }
 
     fn from_vec(vec: Vec<T>) -> Self {
         let mut out = Self::new();
         unsafe {
-            // `vec.len()` is >= than `used_len` (0) here
+            // `vec.len()` is >= than `len` (0) here
             out.realloc(vec.len());
         }
 
-        out.used_len = vec.len();
+        out.len = vec.len();
         for (i, elem) in vec.into_iter().enumerate() {
             // Due to the `grow` above we know that `i` is always greater than
             // `out.capacity()`. And because we started with an empty
@@ -46,15 +46,15 @@ impl<T> Core<T> for OptionCore<T> {
         out
     }
 
-    fn used_len(&self) -> usize {
-        self.used_len
+    fn len(&self) -> usize {
+        self.len
     }
 
-    unsafe fn set_used_len(&mut self, v: usize) {
-        self.used_len = v;
+    unsafe fn set_len(&mut self, v: usize) {
+        self.len = v;
     }
 
-    fn capacity(&self) -> usize {
+    fn cap(&self) -> usize {
         self.data.len()
     }
 
@@ -107,19 +107,19 @@ impl<T> Core<T> for OptionCore<T> {
 
     fn clear(&mut self) {
         // We can assume that all existing elements have an index lower than
-        // `used_len` (this is one of the invariants of the `Core` interface).
-        for idx in 0..self.used_len {
+        // `len` (this is one of the invariants of the `Core` interface).
+        for idx in 0..self.len {
             unsafe {
                 // Call `Option::take` to overwrite everything with `None` and
                 // drop all existing values.
                 self.data.get_unchecked_mut(idx).deref_mut().take();
             }
         }
-        self.used_len = 0;
+        self.len = 0;
     }
 
     unsafe fn next_index_from(&self, idx: usize) -> Option<usize> {
-        (idx..self.used_len)
+        (idx..self.len)
             .find(|&idx| self.data.get_unchecked(idx).is_some())
     }
 
@@ -130,7 +130,7 @@ impl<T> Core<T> for OptionCore<T> {
     }
 
     unsafe fn next_hole_from(&self, idx: usize) -> Option<usize> {
-        (idx..self.used_len)
+        (idx..self.len)
             .find(|&idx| self.data.get_unchecked(idx).is_none())
     }
 
@@ -155,8 +155,8 @@ impl<T> Drop for OptionCore<T> {
 impl<T> fmt::Debug for OptionCore<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("OptionCore")
-            .field("used_len", &self.used_len())
-            .field("capacity", &self.capacity())
+            .field("len", &self.len())
+            .field("cap", &self.cap())
             .finish()
     }
 }

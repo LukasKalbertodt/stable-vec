@@ -245,15 +245,15 @@ impl<T, C: Core<T>> StableVec<T, C> {
     /// assert_eq!(sv.get(heart_idx), Some(&'♥'));
     /// ```
     pub fn push(&mut self, elem: T) -> usize {
-        let index = self.core.used_len();
+        let index = self.core.len();
         self.core.reserve(1);
 
         unsafe {
             // Due to growing the core to hold at least 1 additional element,
             // we know that `index` is smaller than the capacity. We also know
             // that at `index` there is no element (the definitoin of
-            // `used_len` guarantees this).
-            self.core.set_used_len(index + 1);
+            // `len` guarantees this).
+            self.core.set_len(index + 1);
             self.core.insert_at(index, elem);
         }
 
@@ -420,7 +420,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     /// assert_eq!(sv.find_last_index(), Some(0));
     /// ```
     pub fn find_last_index(&self) -> Option<usize> {
-        let len = self.core.used_len();
+        let len = self.core.len();
         if len == 0 {
             None
         } else {
@@ -460,7 +460,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     /// ```
     pub fn insert_into_hole(&mut self, index: usize, elem: T) -> Result<(), T> {
         // If the index is out of bounds, we cannot insert the new element.
-        if index >= self.core.used_len() {
+        if index >= self.core.len() {
             return Err(elem);
         }
 
@@ -470,11 +470,11 @@ impl<T, C: Core<T>> StableVec<T, C> {
         }
 
         self.num_elements += 1;
-        if self.core.used_len() <= index {
+        if self.core.len() <= index {
             // Due to the bounds check above, we know that `index + 1` is ≤
             // `capacity`.
             unsafe {
-                self.core.set_used_len(index + 1);
+                self.core.set_len(index + 1);
             }
         }
 
@@ -514,11 +514,11 @@ impl<T, C: Core<T>> StableVec<T, C> {
     /// assert_eq!(sv.num_elements(), 2);
     /// ```
     pub fn grow(&mut self, additional: usize) {
-        let new_len = self.core.used_len() + additional;
+        let new_len = self.core.len() + additional;
         self.core.reserve(additional);
 
         unsafe {
-            self.core.set_used_len(new_len);
+            self.core.set_len(new_len);
         }
     }
 
@@ -618,7 +618,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     /// assert!(!sv.has_element_at(heart_idx)); // no: was removed
     /// ```
     pub fn has_element_at(&self, index: usize) -> bool {
-        if self.core.capacity() <= index {
+        if self.core.cap() <= index {
             return false;
         } else {
             unsafe {
@@ -639,7 +639,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     /// If you want to compact this `StableVec` by removing deleted elements,
     /// use the method [`make_compact`] or [`reordering_make_compact`] instead.
     pub fn shrink_to_fit(&mut self) {
-        let new_cap = self.core.used_len();
+        let new_cap = self.core.len();
         unsafe {
             self.core.realloc(new_cap);
         }
@@ -696,10 +696,10 @@ impl<T, C: Core<T>> StableVec<T, C> {
             }
         }
 
-        // We can safely call `set_used_len()` here: all elements are in the
+        // We can safely call `set_len()` here: all elements are in the
         // range 0..self.num_elements.
         unsafe {
-            self.core.set_used_len(self.num_elements);
+            self.core.set_len(self.num_elements);
         }
     }
 
@@ -734,7 +734,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
                 //   that can be filled with an element.
                 // - `element_index` starts from the back and searches for an
                 //   element.
-                let len = self.core.used_len();
+                let len = self.core.len();
                 let mut element_index = len - 1;
                 let mut hole_index = 0;
                 loop {
@@ -755,10 +755,10 @@ impl<T, C: Core<T>> StableVec<T, C> {
             }
         }
 
-        // We can safely call `set_used_len()` here: all elements are in the
+        // We can safely call `set_len()` here: all elements are in the
         // range 0..self.num_elements.
         unsafe {
-            self.core.set_used_len(self.num_elements);
+            self.core.set_len(self.num_elements);
         }
     }
 
@@ -779,7 +779,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     /// assert!(!sv.is_compact());
     /// ```
     pub fn is_compact(&self) -> bool {
-        self.num_elements == self.core.used_len()
+        self.num_elements == self.core.len()
     }
 
     /// Returns the number of existing elements in this collection.
@@ -852,7 +852,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     /// Returns the number of elements the stable-vector can hold without
     /// reallocating.
     pub fn capacity(&self) -> usize {
-        self.core.capacity()
+        self.core.cap()
     }
 
     /// Returns the index that would be returned by calling
@@ -870,7 +870,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     /// assert_eq!(next_index, index_of_d);
     /// ```
     pub fn next_index(&self) -> usize {
-        self.core.used_len()
+        self.core.len()
     }
 
     /// Returns an iterator over immutable references to the existing elements
@@ -1108,9 +1108,9 @@ impl<T, C: Core<T>> StableVec<T, C> {
         // So that's good. But we also would like to drop all elements that
         // have already been inserted. That's why we set the length first.
         unsafe {
-            let mut i = self.core.used_len();
-            let new_len = self.core.used_len() + len;
-            self.core.set_used_len(new_len);
+            let mut i = self.core.len();
+            let new_len = self.core.len() + len;
+            self.core.set_len(new_len);
 
             for elem in new_elements {
                 self.core.insert_at(i, elem.clone());

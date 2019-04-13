@@ -31,6 +31,19 @@ pub struct BitVecCore<T> {
 
 const BITS_PER_USIZE: usize = size_of::<usize>() * 8;
 
+impl<T> BitVecCore<T> {
+    /// Deallocates both pointers, sets them to the same value as `new()` does
+    /// and sets `cap` to 0.
+    ///
+    /// # Formal
+    ///
+    /// **Preconditions**:
+    /// - `self.len == 0`
+    /// - All slots are empty
+    unsafe fn dealloc(&mut self) {
+
+    }
+}
 
 impl<T> Core<T> for BitVecCore<T> {
     fn new() -> Self {
@@ -57,10 +70,30 @@ impl<T> Core<T> for BitVecCore<T> {
     #[inline(never)]
     #[cold]
     unsafe fn realloc(&mut self, new_cap: usize) {
-        // TODO: handle new_cap = 0 case
+        #[inline(never)]
+        #[cold]
+        fn capacity_overflow() -> ! {
+            panic!("capacity overflow in `stable_vec::BitVecCore::realloc` (attempt \
+                to allocate more than `usize::MAX` bytes");
+        }
 
+        // Handle special case
+        if new_cap == 0 {
+            // Due to preconditions, we know that `self.len == 0` and that in
+            // turn tells us that there aren't any filled slots. So we can just
+            // deallocate the memory.
+            self.dealloc();
+            return;
+        }
+
+
+        // Prepare the allocation layouts for the new allocations
+        let elem_len = match new_cap.checked_mul(size_of::<T>()) {
+            None => capacity_overflow(),
+            Some(elem_len) => elem_len,
+        };
         let new_elem_layout = Layout::from_size_align_unchecked(
-            new_cap * size_of::<T>(), // TODO: think about overflow
+            elem_len,
             align_of::<T>(),
         );
         let new_bit_layout = Layout::from_size_align_unchecked(
@@ -68,6 +101,8 @@ impl<T> Core<T> for BitVecCore<T> {
             align_of::<usize>(),
         );
 
+        // Do different things, depending on whether or not we alrady have some
+        // memory.
         let (elem_ptr, bit_ptr) = if self.cap == 0 {
             let elem_ptr = alloc(new_elem_layout);
             let bit_ptr = alloc_zeroed(new_bit_layout);
@@ -78,6 +113,7 @@ impl<T> Core<T> for BitVecCore<T> {
 
             (elem_ptr, bit_ptr)
         } else {
+            // Create the layouts that were used for the last allocation.
             let old_elem_layout = Layout::from_size_align_unchecked(
                 // This can't overflow due to being previously allocated.
                 self.cap * size_of::<T>(),

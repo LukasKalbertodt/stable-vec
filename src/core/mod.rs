@@ -71,7 +71,7 @@ pub trait Core<T> {
     ///
     /// **Preconditions**:
     /// - `new_len ≤ self.cap()`
-    /// - ∀ i in `new_len..vec.cap()` ⇒ `out.has_element_at(i) == false`
+    /// - ∀ i in `new_len..vec.cap()` ⇒ `self.has_element_at(i) == false`
     ///
     /// **Invariants**:
     /// - *slot data*

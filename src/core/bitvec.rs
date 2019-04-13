@@ -87,6 +87,10 @@ impl<T> Core<T> for BitVecCore<T> {
     }
 
     unsafe fn set_len(&mut self, new_len: usize) {
+        debug_assert!(new_len <= self.cap());
+        // Other precondition is too expensive to test, even in debug:
+        // ∀ i in `new_len..vec.cap()` ⇒ `self.has_element_at(i) == false`
+
         self.len = new_len;
     }
 
@@ -97,6 +101,9 @@ impl<T> Core<T> for BitVecCore<T> {
     #[inline(never)]
     #[cold]
     unsafe fn realloc(&mut self, new_cap: usize) {
+        debug_assert!(new_cap >= self.len());
+        debug_assert!(new_cap <= isize::max_value() as usize);
+
         #[inline(never)]
         #[cold]
         fn capacity_overflow() -> ! {
@@ -153,6 +160,11 @@ impl<T> Core<T> for BitVecCore<T> {
 
         // ----- (Re)allocate bitvec memory ----------------------------------
         {
+            // TODO: remove
+            let sum_before = (0..num_usizes_for(self.cap))
+                .map(|i| *self.bit_ptr.as_ptr().add(i))
+                .fold(0, |acc, i| acc ^ i);
+
             let new_bit_layout = Layout::from_size_align_unchecked(
                 size_of::<usize>() * num_usizes_for(new_cap),
                 align_of::<usize>(),
@@ -185,6 +197,19 @@ impl<T> Core<T> for BitVecCore<T> {
                 }
             }
 
+            // TODO: remove
+            let sum_after = (0..num_usizes_for(new_cap))
+                .map(|i| *(ptr as *mut usize).add(i))
+                .fold(0, |acc, i| acc ^ i);
+
+            if sum_before != sum_after {
+                panic!(
+                    "incorrect bit realloc! before: {}, after: {}",
+                    sum_before,
+                    sum_after,
+                );
+            }
+
             self.bit_ptr = NonNull::new_unchecked(ptr as *mut _);
         }
 
@@ -192,6 +217,8 @@ impl<T> Core<T> for BitVecCore<T> {
     }
 
     unsafe fn has_element_at(&self, idx: usize) -> bool {
+        debug_assert!(idx < self.cap());
+
         // The divisions will be turned into shift and and instructions
         let usize_pos = idx / BITS_PER_USIZE;
         let bit_pos = idx % BITS_PER_USIZE;
@@ -201,6 +228,9 @@ impl<T> Core<T> for BitVecCore<T> {
     }
 
     unsafe fn insert_at(&mut self, idx: usize, elem: T) {
+        debug_assert!(idx < self.cap());
+        debug_assert!(self.has_element_at(idx) == false);
+
         // We first write the value and then update the bitvector to avoid
         // potential double drops if a random panic appears.
         ptr::write(self.elem_ptr.as_ptr().add(idx), elem);
@@ -213,6 +243,9 @@ impl<T> Core<T> for BitVecCore<T> {
     }
 
     unsafe fn remove_at(&mut self, idx: usize) -> T {
+        debug_assert!(idx < self.cap());
+        debug_assert!(self.has_element_at(idx));
+
         // We first mark the value as deleted and then read the value.
         // Otherwise, a random panic could lead to a double drop.
         let usize_pos = idx / BITS_PER_USIZE;
@@ -225,6 +258,9 @@ impl<T> Core<T> for BitVecCore<T> {
     }
 
     unsafe fn get_unchecked(&self, idx: usize) -> &T {
+        debug_assert!(idx < self.cap());
+        debug_assert!(self.has_element_at(idx));
+
         // The preconditions of this function guarantees us that all
         // preconditions for `add` are met and that we can safely dereference
         // the pointer.
@@ -232,6 +268,9 @@ impl<T> Core<T> for BitVecCore<T> {
     }
 
     unsafe fn get_unchecked_mut(&mut self, idx: usize) -> &mut T {
+        debug_assert!(idx < self.cap());
+        debug_assert!(self.has_element_at(idx));
+
         // The preconditions of this function guarantees us that all
         // preconditions for `add` are met and that we can safely dereference
         // the pointer.
@@ -255,17 +294,23 @@ impl<T> Core<T> for BitVecCore<T> {
     }
 
     unsafe fn next_index_from(&self, idx: usize) -> Option<usize> {
+        debug_assert!(idx <= self.len());
+
         (idx..self.len)
             .find(|&idx| self.has_element_at(idx))
     }
 
     unsafe fn prev_index_from(&self, idx: usize) -> Option<usize> {
+        debug_assert!(idx < self.len());
+
         (0..=idx)
             .rev()
             .find(|&idx| self.has_element_at(idx))
     }
 
     unsafe fn next_hole_from(&self, idx: usize) -> Option<usize> {
+        debug_assert!(idx <= self.len());
+
         (idx..self.len)
             .find(|&idx| !self.has_element_at(idx))
     }

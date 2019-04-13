@@ -10,7 +10,7 @@ impl Drop for EchoDrop {
 }
 
 fn main() {
-    let mut sv = StableVec::<_>::new();
+    let mut sv = StableVec::new();
     sv.push(EchoDrop('a'));
     let b_idx = sv.push(EchoDrop('b'));
     sv.push(EchoDrop('c'));

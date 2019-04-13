@@ -1,7 +1,8 @@
 use stable_vec::StableVec;
 
+
 fn main() {
-    let mut sv = StableVec::<_>::from(&['a', 'b', 'c', 'd', 'e', 'f']);
+    let mut sv = StableVec::from(&['a', 'b', 'c', 'd', 'e', 'f']);
     println!("{:?}", sv);
 
     sv.remove(1);

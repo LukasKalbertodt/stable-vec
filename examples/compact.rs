@@ -1,10 +1,8 @@
-extern crate stable_vec;
-
 use stable_vec::StableVec;
 
 
 fn main() {
-    let mut sv = StableVec::<_>::new();
+    let mut sv = StableVec::new();
     sv.push('a');
     let b = sv.push('b');
     let c = sv.push('c');

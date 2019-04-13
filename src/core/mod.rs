@@ -129,9 +129,10 @@ pub trait Core<T> {
 
         //:    new_cap = len + additional ∧ additional >= 0
         //: => new_cap >= len
-        let new_cap = self.len()
-            .checked_add(additional)
-            .unwrap_or_else(|| capacity_overflow());
+        let new_cap = match self.len().checked_add(additional) {
+            None => capacity_overflow(),
+            Some(new_cap) => new_cap,
+        };
 
         if self.cap() < new_cap {
             // We at least double our capacity. Otherwise repeated `push`es are

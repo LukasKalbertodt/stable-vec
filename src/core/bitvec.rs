@@ -179,6 +179,7 @@ impl<T> Core<T> for BitVecCore<T> {
                     new_bit_layout.size(),
                 )
             };
+            let ptr = ptr as *mut usize;
 
             if ptr.is_null() {
                  handle_alloc_error(new_bit_layout);

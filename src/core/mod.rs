@@ -5,6 +5,7 @@ use std::{
 };
 
 pub(crate) mod option;
+pub(crate) mod bitvec;
 
 
 /// The core of a stable vector: conceptually a `Vec<Option<T>>`.

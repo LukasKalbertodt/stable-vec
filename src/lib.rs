@@ -40,11 +40,12 @@ use self::core::OwningCore;
 pub use self::core::{
     Core,
     option::OptionCore,
+    bitvec::BitVecCore,
 };
 
 
 /// The default core implementation of the stable vector.
-pub type DefaultCore<T> = OptionCore<T>;
+pub type DefaultCore<T> = BitVecCore<T>;
 
 
 /// A `Vec<T>`-like collection which guarantees stable indices and features

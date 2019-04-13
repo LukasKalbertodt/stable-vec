@@ -479,6 +479,37 @@ fn remove() {
 }
 
 #[test]
+fn zero_sized_type() {
+    println!("hi");
+    println!("hi");
+    println!("hi");
+    println!("hi");
+    let mut sv = StableVec::<()>::from(&[(), (), ()]);
+
+    assert_eq!(sv.remove(1), Some(()));
+    assert_sv_eq!(sv, [0 => (), 2 => ()]);
+
+    assert_eq!(sv.remove(3), None);
+    assert_sv_eq!(sv, [0 => (), 2 => ()]);
+
+    sv.extend_from_slice(&[(), ()]);
+    assert_eq!(sv.remove(4), Some(()));
+    assert_sv_eq!(sv, [0 => (), 2 => (), 3 => (); 4]);
+
+    assert_eq!(sv.remove(4), None);
+    assert_sv_eq!(sv, [0 => (), 2 => (), 3 => (); 4]);
+
+    assert_eq!(sv.remove(5), None);
+    assert_sv_eq!(sv, [0 => (), 2 => (), 3 => (); 4]);
+
+    assert_eq!(sv.remove(1), None);
+    assert_sv_eq!(sv, [0 => (), 2 => (), 3 => (); 4]);
+
+    assert_eq!(sv.remove(0), Some(()));
+    assert_sv_eq!(sv, [2 => (), 3 => (); 4]);
+}
+
+#[test]
 fn insert_into_hole() {
     let mut sv = StableVec::<_>::from_vec(vec!['a', 'b', 'c']);
 

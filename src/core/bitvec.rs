@@ -114,85 +114,80 @@ impl<T> Core<T> for BitVecCore<T> {
         }
 
 
-        // Prepare the allocation layouts for the new allocations
-        let elem_len = match new_cap.checked_mul(size_of::<T>()) {
-            None => capacity_overflow(),
-            Some(elem_len) => elem_len,
-        };
-        let new_elem_layout = Layout::from_size_align_unchecked(
-            elem_len,
-            align_of::<T>(),
-        );
-        let new_bit_layout = Layout::from_size_align_unchecked(
-            size_of::<usize>() * num_usizes_for(new_cap),
-            align_of::<usize>(),
-        );
+        // ----- (Re)allocate element memory ---------------------------------
 
-        // Do different things, depending on whether or not we alrady have some
-        // memory.
-        let (elem_ptr, bit_ptr) = if self.cap == 0 {
-            let elem_ptr = alloc(new_elem_layout);
-            let bit_ptr = alloc_zeroed(new_bit_layout);
+        // We only have to allocate if our size are not zero-sized. Else, we
+        // just don't do anything.
+        if size_of::<T>() != 0 {
+            // Build layout for allocation
+            let new_elem_layout = {
+                let len = match new_cap.checked_mul(size_of::<T>()) {
+                    None => capacity_overflow(),
+                    Some(len) => len,
+                };
 
-            if bit_ptr.is_null() {
-                 handle_alloc_error(new_bit_layout);
+                Layout::from_size_align_unchecked(len, align_of::<T>())
+            };
+
+            let ptr = if self.cap == 0 {
+                alloc(new_elem_layout)
+            } else {
+                realloc(
+                    self.elem_ptr.as_ptr() as *mut _,
+                    self.old_elem_layout(),
+                    new_elem_layout.size(),
+                )
+            };
+
+            // If the element allocation failed, we quit the program with an
+            // OOM error.
+            if ptr.is_null() {
+                 handle_alloc_error(new_elem_layout);
             }
 
-            (elem_ptr, bit_ptr)
-        } else {
-            // Create the layouts that were used for the last allocation.
-            let old_elem_layout = Layout::from_size_align_unchecked(
-                // This can't overflow due to being previously allocated.
-                self.cap * size_of::<T>(),
-                align_of::<T>(),
-            );
-            let old_bit_layout = Layout::from_size_align_unchecked(
-                size_of::<usize>() * num_usizes_for(self.cap),
+            // We already overwrite the pointer here. It is not read/changed
+            // anywhere else in this function.
+            self.elem_ptr = NonNull::new_unchecked(ptr as *mut _);
+        };
+
+
+        // ----- (Re)allocate bitvec memory ----------------------------------
+        {
+            let new_bit_layout = Layout::from_size_align_unchecked(
+                size_of::<usize>() * num_usizes_for(new_cap),
                 align_of::<usize>(),
             );
 
+            let ptr = if self.cap == 0 {
+                alloc_zeroed(new_bit_layout)
+            } else {
+                realloc(
+                    self.bit_ptr.as_ptr() as *mut _,
+                    self.old_bit_layout(),
+                    new_bit_layout.size(),
+                )
+            };
 
-            // Reallocate the element memory
-            let elem_ptr = realloc(
-                self.elem_ptr.as_ptr() as *mut _,
-                old_elem_layout,
-                new_elem_layout.size(),
-            );
-
-            // Reallocate the bit memory
-            let bit_ptr = realloc(
-                self.bit_ptr.as_ptr() as *mut _,
-                old_bit_layout,
-                new_elem_layout.size(),
-            );
-
-            // Check for reallocation failure
-            if bit_ptr.is_null() {
+            if ptr.is_null() {
                  handle_alloc_error(new_bit_layout);
             }
 
-            // Zero out new bit blocks
-            let initialized_usizes = num_usizes_for(self.cap);
-            let new_usizes = num_usizes_for(new_cap);
-            if new_usizes > initialized_usizes {
-                ptr::write_bytes(
-                    bit_ptr.add(initialized_usizes),
-                    0,
-                    new_usizes - initialized_usizes,
-                );
+            if self.cap != 0 {
+                // Zero out new bit blocks
+                let initialized_usizes = num_usizes_for(self.cap);
+                let new_usizes = num_usizes_for(new_cap);
+                if new_usizes > initialized_usizes {
+                    ptr::write_bytes(
+                        ptr.add(initialized_usizes),
+                        0,
+                        new_usizes - initialized_usizes,
+                    );
+                }
             }
 
-            (elem_ptr, bit_ptr)
-        };
-
-        // If the element allocation failed, we quit the program with an OOM
-        // error. The `bit` allocation was already checked above.
-        if elem_ptr.is_null() {
-             handle_alloc_error(new_elem_layout);
+            self.bit_ptr = NonNull::new_unchecked(ptr as *mut _);
         }
 
-        self.elem_ptr = NonNull::new_unchecked(elem_ptr as *mut _);
-        self.bit_ptr = NonNull::new_unchecked(bit_ptr as *mut _);
         self.cap = new_cap;
     }
 
@@ -322,52 +317,36 @@ impl<T> Drop for BitVecCore<T> {
 
 impl<T: Clone> Clone for BitVecCore<T> {
     fn clone(&self) -> Self {
-        if self.cap == 0 {
-            return Self::new();
-        }
+        let mut out = Self::new();
 
-        // All of this is scary
-        unsafe {
-            // Prepare allocation. These calculations can't overflow because we
-            // once already allocated that much memory.
-            let elem_layout = Layout::from_size_align_unchecked(
-                self.cap * size_of::<T>(),
-                align_of::<T>(),
-            );
-            let bit_layout = Layout::from_size_align_unchecked(
-                size_of::<usize>() * num_usizes_for(self.cap),
-                align_of::<usize>(),
-            );
+        if self.cap != 0 {
+            // All of this is scary
+            unsafe {
+                out.realloc(self.cap);
 
-            // Allocate memory
-            let elem_ptr = alloc(elem_layout) as *mut T;
-            let bit_ptr = alloc(bit_layout) as *mut usize;
+                // Copy element data over
+                if size_of::<T>() != 0 {
+                    let mut idx = 0;
+                    while let Some(next) = self.next_index_from(idx) {
+                        let clone = self.get_unchecked(next).clone();
+                        ptr::write(out.elem_ptr.as_ptr().add(next), clone);
 
-            // Check for allocation failures
-            if elem_ptr.is_null() {
-                 handle_alloc_error(elem_layout);
-            }
-            if bit_ptr.is_null() {
-                 handle_alloc_error(bit_layout);
-            }
+                        idx = next + 1;
+                    }
+                }
 
-            // Copy data over
-            let mut idx = 0;
-            while let Some(next) = self.next_index_from(idx) {
-                let clone = self.get_unchecked(next).clone();
-                ptr::write(elem_ptr.add(next), clone);
+                // Copy bitvec data over
+                ptr::copy_nonoverlapping(
+                    self.bit_ptr.as_ptr(),
+                    out.bit_ptr.as_ptr(),
+                    num_usizes_for(self.cap)
+                );
 
-                idx = next + 1;
-            }
-            ptr::copy_nonoverlapping(self.bit_ptr.as_ptr(), bit_ptr, num_usizes_for(self.cap));
-
-            Self {
-                elem_ptr: NonNull::new_unchecked(elem_ptr),
-                bit_ptr: NonNull::new_unchecked(bit_ptr),
-                cap: self.cap,
-                len: self.len,
+                out.set_len(self.len);
             }
         }
+
+        out
     }
 }
 
@@ -382,6 +361,7 @@ impl<T> fmt::Debug for BitVecCore<T> {
     }
 }
 
+#[inline(always)]
 fn num_usizes_for(cap: usize) -> usize {
     // We need ⌈new_cap / BITS_PER_USIZE⌉ many usizes to store all required
     // bits. We do rounding up by first adding the (BITS_PER_USIZE - 1).

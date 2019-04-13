@@ -284,7 +284,12 @@ impl<T> Drop for BitVecCore<T> {
     fn drop(&mut self) {
         // Drop all elements
         self.clear();
-        // TODO: dealloc
+
+        unsafe {
+            // Deallocate the memory. `clear()` sets the length to 0 and drops
+            // all existing elements, so it's fine to call `dealloc`.
+            self.dealloc();
+        }
     }
 }
 

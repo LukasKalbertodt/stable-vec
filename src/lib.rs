@@ -47,6 +47,9 @@ pub use self::core::{
 /// The default core implementation of the stable vector.
 pub type DefaultCore<T> = BitVecCore<T>;
 
+pub type StableVec<T> = StableVecFacade<T, DefaultCore<T>>;
+pub type InlineStableVec<T> = StableVecFacade<T, OptionCore<T>>;
+pub type ExternStableVec<T> = StableVecFacade<T, BitVecCore<T>>;
 
 /// A `Vec<T>`-like collection which guarantees stable indices and features
 /// O(1) deletion of elements.
@@ -166,13 +169,13 @@ pub type DefaultCore<T> = BitVecCore<T>;
 ///
 // #[derive(PartialEq, Eq)]
 #[derive(Clone)]
-pub struct StableVec<T, C: Core<T> = DefaultCore<T>> {
+pub struct StableVecFacade<T, C: Core<T>> {
     core: OwningCore<T, C>,
     num_elements: usize,
 }
 
-impl<T, C: Core<T>> StableVec<T, C> {
-    /// Constructs a new, empty `StableVec<T>`.
+impl<T, C: Core<T>> StableVecFacade<T, C> {
+    /// Constructs a new, empty `StableVecFacade<T>`.
     ///
     /// The stable-vector will not allocate until elements are pushed onto it.
     pub fn new() -> Self {
@@ -182,7 +185,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
         }
     }
 
-    /// Constructs a new, empty `StableVec<T>` with the specified capacity.
+    /// Constructs a new, empty `StableVecFacade<T>` with the specified capacity.
     ///
     /// The stable-vector will be able to hold exactly `capacity` elements
     /// without reallocating. If `capacity` is 0, the stable-vector will not
@@ -193,7 +196,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
         out
     }
 
-    /// Creates a `StableVec<T>` from the given `Vec<T>`. The elements are not
+    /// Creates a `StableVecFacade<T>` from the given `Vec<T>`. The elements are not
     /// cloned (just moved) and the indices of the vector are preserved.
     ///
     /// Note that this function will still allocate memory.
@@ -202,7 +205,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::<_>::from_vec(vec!['★', '♥']);
+    /// let mut sv = StableVec::from_vec(vec!['★', '♥']);
     ///
     /// assert_eq!(sv.get(0), Some(&'★'));
     /// assert_eq!(sv.get(1), Some(&'♥'));
@@ -249,7 +252,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::<_>::new();
+    /// let mut sv = StableVec::new();
     /// let star_idx = sv.push('★');
     /// let heart_idx = sv.push('♥');
     ///
@@ -287,7 +290,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::<_>::from(&[1, 2, 3]);
+    /// let mut sv = StableVec::from(&[1, 2, 3]);
     /// assert_eq!(sv.remove_first(), Some(1));
     /// assert_eq!(sv.into_vec(), vec![2, 3]);
     /// ```
@@ -311,7 +314,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::<_>::from(&[1, 2, 3]);
+    /// let mut sv = StableVec::from(&[1, 2, 3]);
     /// assert_eq!(sv.remove_last(), Some(3));
     /// assert_eq!(sv.into_vec(), vec![1, 2]);
     /// ```
@@ -334,7 +337,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::<_>::from(&[1, 2]);
+    /// let mut sv = StableVec::from(&[1, 2]);
     /// sv.remove(0);
     /// assert_eq!(sv.find_first(), Some(&2));
     /// ```
@@ -351,7 +354,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::<_>::from(&[1, 2]);
+    /// let mut sv = StableVec::from(&[1, 2]);
     /// {
     ///     let first = sv.find_first_mut().unwrap();
     ///     assert_eq!(*first, 1);
@@ -373,7 +376,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::<_>::from(&[1, 2]);
+    /// let mut sv = StableVec::from(&[1, 2]);
     /// sv.remove(1);
     /// assert_eq!(sv.find_last(), Some(&1));
     /// ```
@@ -390,7 +393,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::<_>::from(&[1, 2]);
+    /// let mut sv = StableVec::from(&[1, 2]);
     /// {
     ///     let last = sv.find_last_mut().unwrap();
     ///     assert_eq!(*last, 2);
@@ -412,7 +415,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::<_>::from(&[1, 2]);
+    /// let mut sv = StableVec::from(&[1, 2]);
     /// sv.remove(0);
     /// assert_eq!(sv.find_first_index(), Some(1));
     /// ```
@@ -431,7 +434,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::<_>::from(&[1, 2]);
+    /// let mut sv = StableVec::from(&[1, 2]);
     /// sv.remove(1);
     /// assert_eq!(sv.find_last_index(), Some(0));
     /// ```
@@ -457,7 +460,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::<_>::new();
+    /// let mut sv = StableVec::new();
     /// let star_idx = sv.push('★');
     /// let heart_idx = sv.push('♥');
     ///
@@ -513,7 +516,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::<_>::new();
+    /// let mut sv = StableVec::new();
     /// let star_idx = sv.push('★');
     ///
     /// // After we inserted one element, the next element sits at index 1, as
@@ -551,7 +554,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::<_>::new();
+    /// let mut sv = StableVec::new();
     /// let star_idx = sv.push('★');
     /// let heart_idx = sv.push('♥');
     ///
@@ -624,7 +627,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::<_>::new();
+    /// let mut sv = StableVec::new();
     /// assert!(!sv.has_element_at(3));         // no: index out of bounds
     ///
     /// let heart_idx = sv.push('♥');
@@ -652,7 +655,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     /// returns. Instead, only capacity is changed; specifically, it is equal
     /// to `next_index` after calling this method.
     ///
-    /// If you want to compact this `StableVec` by removing deleted elements,
+    /// If you want to compact this stable vector by removing deleted elements,
     /// use the method [`make_compact`] or [`reordering_make_compact`] instead.
     pub fn shrink_to_fit(&mut self) {
         let new_cap = self.core.len();
@@ -788,7 +791,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::<_>::from(&[0, 1, 2, 3, 4]);
+    /// let mut sv = StableVec::from(&[0, 1, 2, 3, 4]);
     /// assert!(sv.is_compact());
     ///
     /// sv.remove(1);
@@ -808,7 +811,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::<_>::new();
+    /// let mut sv = StableVec::new();
     /// assert_eq!(sv.num_elements(), 0);
     ///
     /// let heart_idx = sv.push('♥');
@@ -831,7 +834,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::<_>::new();
+    /// let mut sv = StableVec::new();
     /// assert!(sv.is_empty());
     ///
     /// let heart_idx = sv.push('♥');
@@ -854,7 +857,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::<_>::from(&['a', 'b']);
+    /// let mut sv = StableVec::from(&['a', 'b']);
     ///
     /// sv.clear();
     /// assert_eq!(sv.num_elements(), 0);
@@ -878,7 +881,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::<_>::from(&['a', 'b', 'c']);
+    /// let mut sv = StableVec::from(&['a', 'b', 'c']);
     ///
     /// let next_index = sv.next_index();
     /// let index_of_d = sv.push('d');
@@ -893,13 +896,13 @@ impl<T, C: Core<T>> StableVec<T, C> {
     /// of this stable vector.
     ///
     /// Note that you can also use the `IntoIterator` implementation of
-    /// `&StableVec` to obtain the same iterator.
+    /// `&StableVecFacade` to obtain the same iterator.
     ///
     /// # Example
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::<_>::from(&[0, 1, 2, 3, 4]);
+    /// let mut sv = StableVec::from(&[0, 1, 2, 3, 4]);
     /// sv.remove(1);
     ///
     /// // Using the `iter()` method to apply a `filter()`.
@@ -927,7 +930,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     /// of this stable vector.
     ///
     /// Note that you can also use the `IntoIterator` implementation of
-    /// `&mut StableVec` to obtain the same iterator.
+    /// `&mut StableVecFacade` to obtain the same iterator.
     ///
     /// Through this iterator, the elements within the stable vector can be
     /// mutated.
@@ -936,7 +939,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::<_>::from(&[1.0, 2.0, 3.0]);
+    /// let mut sv = StableVec::from(&[1.0, 2.0, 3.0]);
     ///
     /// for e in &mut sv {
     ///     *e *= 2.0;
@@ -958,7 +961,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::<_>::from(&['a', 'b', 'c', 'd']);
+    /// let mut sv = StableVec::from(&['a', 'b', 'c', 'd']);
     /// sv.remove(1);
     ///
     /// let mut it = sv.indices();
@@ -972,7 +975,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::<_>::from(&['a', 'b', 'c', 'd']);
+    /// let mut sv = StableVec::from(&['a', 'b', 'c', 'd']);
     ///
     /// for index in sv.indices() {
     ///     println!("index: {}", index);
@@ -991,7 +994,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::<_>::from(&['a', 'b', 'c']);
+    /// let mut sv = StableVec::from(&['a', 'b', 'c']);
     /// assert!(sv.contains(&'b'));
     ///
     /// sv.remove(1);   // 'b' is stored at index 1
@@ -1020,7 +1023,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::<_>::from(&['a', 'b', 'c']);
+    /// let mut sv = StableVec::from(&['a', 'b', 'c']);
     /// sv.remove(1);   // 'b' lives at index 1
     ///
     /// assert_eq!(sv.into_vec(), vec!['a', 'c']);
@@ -1040,7 +1043,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::<_>::from(&[1, 2, 3, 4, 5]);
+    /// let mut sv = StableVec::from(&[1, 2, 3, 4, 5]);
     /// sv.retain(|&e| e % 2 == 0);
     ///
     /// assert_eq!(sv, &[2, 4] as &[_]);
@@ -1076,7 +1079,7 @@ impl<T, C: Core<T>> StableVec<T, C> {
     ///
     /// ```
     /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::<_>::new();
+    /// let mut sv = StableVec::new();
     /// sv.push(1);
     /// let two = sv.push(2);
     /// sv.push(3);
@@ -1105,8 +1108,8 @@ impl<T, C: Core<T>> StableVec<T, C> {
         }
     }
 
-    /// Appends all elements in `new_elements` to this `StableVec<T>`. This is
-    /// equivalent to calling [`push()`][StableVec::push] for each element.
+    /// Appends all elements in `new_elements` to this stable vector. This is
+    /// equivalent to calling [`push()`][StableVecFacade::push] for each element.
     pub fn extend_from_slice(&mut self, new_elements: &[T])
     where
         T: Clone,
@@ -1143,7 +1146,7 @@ fn index_fail(idx: usize) -> ! {
     panic!("attempt to index StableVec with index {}, but no element exists at that index", idx);
 }
 
-impl<T, C: Core<T>> Index<usize> for StableVec<T, C> {
+impl<T, C: Core<T>> Index<usize> for StableVecFacade<T, C> {
     type Output = T;
 
     fn index(&self, index: usize) -> &T {
@@ -1154,7 +1157,7 @@ impl<T, C: Core<T>> Index<usize> for StableVec<T, C> {
     }
 }
 
-impl<T, C: Core<T>> IndexMut<usize> for StableVec<T, C> {
+impl<T, C: Core<T>> IndexMut<usize> for StableVecFacade<T, C> {
     fn index_mut(&mut self, index: usize) -> &mut T {
         match self.get_mut(index) {
             Some(v) => v,
@@ -1163,13 +1166,13 @@ impl<T, C: Core<T>> IndexMut<usize> for StableVec<T, C> {
     }
 }
 
-impl<T, C: Core<T>> Default for StableVec<T, C> {
+impl<T, C: Core<T>> Default for StableVecFacade<T, C> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T, S, C: Core<T>> From<S> for StableVec<T, C>
+impl<T, S, C: Core<T>> From<S> for StableVecFacade<T, C>
 where
     S: AsRef<[T]>,
     T: Clone,
@@ -1181,7 +1184,7 @@ where
     }
 }
 
-impl<T, C: Core<T>> FromIterator<T> for StableVec<T, C> {
+impl<T, C: Core<T>> FromIterator<T> for StableVecFacade<T, C> {
     fn from_iter<I>(iter: I) -> Self
     where
         I: IntoIterator<Item = T>,
@@ -1192,7 +1195,7 @@ impl<T, C: Core<T>> FromIterator<T> for StableVec<T, C> {
     }
 }
 
-impl<T, C: Core<T>> Extend<T> for StableVec<T, C> {
+impl<T, C: Core<T>> Extend<T> for StableVecFacade<T, C> {
     fn extend<I>(&mut self, iter: I)
     where
         I: IntoIterator<Item = T>,
@@ -1206,9 +1209,9 @@ impl<T, C: Core<T>> Extend<T> for StableVec<T, C> {
     }
 }
 
-/// Write into `StableVec<u8>` by appending `u8` elements. This is equivalent
+/// Write into `StableVecFacade<u8>` by appending `u8` elements. This is equivalent
 /// to calling `push` for each byte.
-impl<C: Core<u8>> io::Write for StableVec<u8, C> {
+impl<C: Core<u8>> io::Write for StableVecFacade<u8, C> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.extend_from_slice(buf);
         Ok(buf.len())
@@ -1222,7 +1225,7 @@ impl<C: Core<u8>> io::Write for StableVec<u8, C> {
     fn flush(&mut self) -> io::Result<()> { Ok(()) }
 }
 
-impl<'a, T, C: Core<T>> IntoIterator for &'a StableVec<T, C> {
+impl<'a, T, C: Core<T>> IntoIterator for &'a StableVecFacade<T, C> {
     type Item = &'a T;
     type IntoIter = Iter<'a, T, C>;
     fn into_iter(self) -> Self::IntoIter {
@@ -1230,7 +1233,7 @@ impl<'a, T, C: Core<T>> IntoIterator for &'a StableVec<T, C> {
     }
 }
 
-impl<'a, T, C: Core<T>> IntoIterator for &'a mut StableVec<T, C> {
+impl<'a, T, C: Core<T>> IntoIterator for &'a mut StableVecFacade<T, C> {
     type Item = &'a mut T;
     type IntoIter = IterMut<'a, T, C>;
     fn into_iter(self) -> Self::IntoIter {
@@ -1238,7 +1241,7 @@ impl<'a, T, C: Core<T>> IntoIterator for &'a mut StableVec<T, C> {
     }
 }
 
-impl<T, C: Core<T>> IntoIterator for StableVec<T, C> {
+impl<T, C: Core<T>> IntoIterator for StableVecFacade<T, C> {
     type Item = T;
     type IntoIter = IntoIter<T, C>;
     fn into_iter(self) -> Self::IntoIter {
@@ -1250,12 +1253,12 @@ impl<T, C: Core<T>> IntoIterator for StableVec<T, C> {
 }
 
 
-/// Iterator over immutable references to the elements of a `StableVec`.
+/// Iterator over immutable references to the elements of a `StableVecFacade`.
 ///
-/// Use the method [`StableVec::iter()`](struct.StableVec.html#method.iter) or
-/// the `IntoIterator` implementation of `&StableVec` to obtain an iterator
+/// Use the method [`StableVecFacade::iter()`](struct.StableVecFacade.html#method.iter) or
+/// the `IntoIterator` implementation of `&StableVecFacade` to obtain an iterator
 /// of this kind.
-pub struct Iter<'a, T, C: Core<T> = DefaultCore<T>> {
+pub struct Iter<'a, T, C: Core<T>> {
     core: &'a OwningCore<T, C>,
     pos: usize,
     count: usize,
@@ -1290,13 +1293,13 @@ impl<T, C: Core<T>> fmt::Debug for Iter<'_, T, C> {
 }
 
 
-/// Iterator over mutable references to the elements of a `StableVec`.
+/// Iterator over mutable references to the elements of a `StableVecFacade`.
 ///
-/// Use the method [`StableVec::iter_mut()`](struct.StableVec.html#method.iter_mut)
-/// or the `IntoIterator` implementation of `&mut StableVec` to obtain an
+/// Use the method [`StableVecFacade::iter_mut()`](struct.StableVecFacade.html#method.iter_mut)
+/// or the `IntoIterator` implementation of `&mut StableVecFacade` to obtain an
 /// iterator of this kind.
-pub struct IterMut<'a, T, C: Core<T> = DefaultCore<T>> {
-    sv: &'a mut StableVec<T, C>,
+pub struct IterMut<'a, T, C: Core<T>> {
+    sv: &'a mut StableVecFacade<T, C>,
     pos: usize,
     count: usize,
 }
@@ -1339,12 +1342,12 @@ impl<T, C: Core<T>> fmt::Debug for IterMut<'_, T, C> {
 }
 
 
-/// Iterator over owned elements of a `StableVec`.
+/// Iterator over owned elements of a `StableVecFacade`.
 ///
-/// Use the method [`StableVec::into_iter`] to obtain an iterator of this kind.
+/// Use the method [`StableVecFacade::into_iter`] to obtain an iterator of this kind.
 #[derive(Debug)]
-pub struct IntoIter<T, C: Core<T> = DefaultCore<T>> {
-    sv: StableVec<T, C>,
+pub struct IntoIter<T, C: Core<T>> {
+    sv: StableVecFacade<T, C>,
     pos: usize,
 }
 
@@ -1375,10 +1378,10 @@ impl<T, C: Core<T>> Iterator for IntoIter<T, C> {
 impl<T, C: Core<T>> ExactSizeIterator for IntoIter<T, C> {}
 
 
-/// Iterator over all valid indices of a `StableVec`.
+/// Iterator over all valid indices of a `StableVecFacade`.
 ///
-/// Use the method [`StableVec::indices`] to obtain an iterator of this kind.
-pub struct Indices<'a, T, C: Core<T> = DefaultCore<T>> {
+/// Use the method [`StableVecFacade::indices`] to obtain an iterator of this kind.
+pub struct Indices<'a, T, C: Core<T>> {
     core: &'a OwningCore<T, C>,
     pos: usize,
     count: usize,
@@ -1413,23 +1416,23 @@ impl<T, C: Core<T>> fmt::Debug for Indices<'_, T, C> {
 }
 
 
-impl<T: fmt::Debug, C: Core<T>> fmt::Debug for StableVec<T, C> {
+impl<T: fmt::Debug, C: Core<T>> fmt::Debug for StableVecFacade<T, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "StableVec ")?;
         f.debug_list().entries(self).finish()
     }
 }
 
-impl<Ta, Tb, Ca: Core<Ta>, Cb: Core<Tb>> PartialEq<StableVec<Tb, Cb>> for StableVec<Ta, Ca>
+impl<Ta, Tb, Ca: Core<Ta>, Cb: Core<Tb>> PartialEq<StableVecFacade<Tb, Cb>> for StableVecFacade<Ta, Ca>
 where
     Ta: PartialEq<Tb>,
 {
-    fn eq(&self, other: &StableVec<Tb, Cb>) -> bool {
+    fn eq(&self, other: &StableVecFacade<Tb, Cb>) -> bool {
         self.iter().eq(other)
     }
 }
 
-impl<A, B, C: Core<A>> PartialEq<[B]> for StableVec<A, C>
+impl<A, B, C: Core<A>> PartialEq<[B]> for StableVecFacade<A, C>
 where
     A: PartialEq<B>,
 {
@@ -1438,7 +1441,7 @@ where
     }
 }
 
-impl<'other, A, B, C: Core<A>> PartialEq<&'other [B]> for StableVec<A, C>
+impl<'other, A, B, C: Core<A>> PartialEq<&'other [B]> for StableVecFacade<A, C>
 where
     A: PartialEq<B>,
 {
@@ -1447,7 +1450,7 @@ where
     }
 }
 
-impl<A, B, C: Core<A>> PartialEq<Vec<B>> for StableVec<A, C>
+impl<A, B, C: Core<A>> PartialEq<Vec<B>> for StableVecFacade<A, C>
 where
     A: PartialEq<B>,
 {

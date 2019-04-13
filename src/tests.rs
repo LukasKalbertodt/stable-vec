@@ -480,6 +480,40 @@ macro_rules! gen_tests_for {
         }
 
         #[test]
+        fn large() {
+            let mut sv = $ty::new();
+
+            const LIMIT: usize = 200;
+            sv.extend((0u32..LIMIT as u32).rev());
+            sv.push(2 * LIMIT as u32);
+
+            for i in 0..LIMIT {
+                assert!(sv.has_element_at(i));
+                assert_eq!(sv.get(i).copied(), Some(LIMIT as u32 - 1 - i as u32));
+            }
+            assert_eq!(sv.num_elements(), LIMIT + 1);
+            assert_eq!(sv.indices().count(), LIMIT + 1);
+            assert_eq!(sv.iter().count(), LIMIT + 1);
+            assert_eq!(sv.iter_mut().count(), LIMIT + 1);
+            assert_eq!(sv.clone().into_iter().count(), LIMIT + 1);
+
+            for hole in 0..LIMIT {
+                let mut clone = sv.clone();
+                clone.remove(hole);
+
+                for i in 0..LIMIT {
+                    if i != hole {
+                        assert!(clone.has_element_at(i));
+                        assert_eq!(clone.get(i).copied(), Some(LIMIT as u32 - 1 - i as u32));
+                    } else {
+                        assert!(!clone.has_element_at(i));
+                        assert_eq!(clone.get(i), None);
+                    }
+                }
+            }
+        }
+
+        #[test]
         fn zero_sized_type() {
             println!("hi");
             println!("hi");

@@ -1,5 +1,5 @@
 use std::{
-    alloc::{alloc, alloc_zeroed, handle_alloc_error, realloc, Layout},
+    alloc::{alloc, alloc_zeroed, dealloc, handle_alloc_error, realloc, Layout},
     fmt,
     mem::{align_of, size_of},
     ptr::{self, NonNull},
@@ -41,7 +41,34 @@ impl<T> BitVecCore<T> {
     /// - `self.len == 0`
     /// - All slots are empty
     unsafe fn dealloc(&mut self) {
+        if self.cap != 0 {
+            if size_of::<T>() != 0 {
+                dealloc(self.elem_ptr.as_ptr() as *mut _, self.old_elem_layout());
+            }
 
+            dealloc(self.bit_ptr.as_ptr() as *mut _, self.old_bit_layout());
+            self.cap = 0;
+        }
+    }
+
+    /// Returns the layout that was used for the last allocation of `elem_ptr`.
+    /// `self.cap` must not be 0 and `T` must not be a ZST, or else this
+    /// method's behavior is undefined.
+    unsafe fn old_elem_layout(&self) -> Layout {
+        Layout::from_size_align_unchecked(
+            // This can't overflow due to being previously allocated.
+            self.cap * size_of::<T>(),
+            align_of::<T>(),
+        )
+    }
+
+    /// Returns the layout that was used for the last allocation of `bit_ptr`.
+    /// `self.cap` must not be 0 or else this method's behavior is undefined.
+    unsafe fn old_bit_layout(&self) -> Layout {
+        Layout::from_size_align_unchecked(
+            size_of::<usize>() * num_usizes_for(self.cap),
+            align_of::<usize>(),
+        )
     }
 }
 

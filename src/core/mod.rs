@@ -60,16 +60,6 @@ pub trait Core<T> {
     /// - `out.cap() == 0`
     fn new() -> Self;
 
-    /// Creates an instance with the elements from `vec`.
-    ///
-    /// # Formal
-    ///
-    /// **Postconditons** (of returned instance `out`):
-    /// - `out.len() == vec.len()`
-    /// - `out.cap() >= vec.len()`
-    /// - ∀ i in `0..vec.len()` ⇒ `out.get_unchecked(i) == &vec[i]`
-    fn from_vec(vec: Vec<T>) -> Self;
-
     /// Returns the length of this core (the `len`). See [the crate docs][Core]
     /// for more information.
     fn len(&self) -> usize;

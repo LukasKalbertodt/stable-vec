@@ -26,26 +26,6 @@ impl<T> Core<T> for OptionCore<T> {
         }
     }
 
-    fn from_vec(vec: Vec<T>) -> Self {
-        let mut out = Self::new();
-        unsafe {
-            // `vec.len()` is >= than `len` (0) here
-            out.realloc(vec.len());
-        }
-
-        out.len = vec.len();
-        for (i, elem) in vec.into_iter().enumerate() {
-            // Due to the `grow` above we know that `i` is always greater than
-            // `out.capacity()`. And because we started with an empty
-            // instance, all elements start out as deleted.
-            unsafe {
-                out.insert_at(i, elem);
-            }
-        }
-
-        out
-    }
-
     fn len(&self) -> usize {
         self.len
     }

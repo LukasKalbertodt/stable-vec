@@ -193,9 +193,9 @@ impl<T, C: Core<T>> StableVec<T, C> {
     }
 
     /// Creates a `StableVec<T>` from the given `Vec<T>`. The elements are not
-    /// copied and the indices of the vector are preserved.
+    /// cloned (just moved) and the indices of the vector are preserved.
     ///
-    /// Note that this function will still allocate memory to store meta data.
+    /// Note that this function will still allocate memory.
     ///
     /// # Example
     ///
@@ -212,9 +212,24 @@ impl<T, C: Core<T>> StableVec<T, C> {
     /// assert_eq!(sv.get(1), Some(&'♥'));
     /// ```
     pub fn from_vec(vec: Vec<T>) -> Self {
+        let mut core = C::new();
+        let len = vec.len();
+
+        unsafe {
+            core.realloc(len);
+            core.set_len(len);
+
+            for (i, elem) in vec.into_iter().enumerate() {
+                // Due to the `grow` above we know that `i` is always greater
+                // than `core.capacity()`. And because we started with an empty
+                // instance, all elements start out as deleted.
+                core.insert_at(i, elem);
+            }
+        }
+
         Self {
-            num_elements: vec.len(),
-            core: OwningCore::new(C::from_vec(vec)),
+            num_elements: len,
+            core: OwningCore::new(core),
         }
     }
 

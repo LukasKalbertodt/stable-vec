@@ -240,7 +240,45 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     /// Reserves capacity for at least `additional` more elements to be
     /// inserted.
     pub fn reserve(&mut self, additional: usize) {
-        self.core.reserve(additional);
+        #[inline(never)]
+        #[cold]
+        fn capacity_overflow() -> ! {
+            panic!("capacity overflow in `stable_vec::StableVecFacade::reserve` (attempt \
+                to allocate more than `isize::MAX` elements");
+        }
+
+        //:    new_cap = len + additional  ∧  additional >= 0
+        //: => new_cap >= len
+        let new_cap = match self.core.len().checked_add(additional) {
+            None => capacity_overflow(),
+            Some(new_cap) => new_cap,
+        };
+
+        if self.core.cap() < new_cap {
+            // We at least double our capacity. Otherwise repeated `push`es are
+            // O(n²).
+            //
+            // This multiplication can't overflow, because we know the capacity
+            // is `<= isize::MAX`.
+            //
+            //:    new_cap = max(new_cap_before, 2 * cap)
+            //:        ∧ cap >= len
+            //:        ∧ new_cap_before >= len
+            //: => new_cap >= len
+            let new_cap = cmp::max(new_cap, 2 * self.core.cap());
+
+            if new_cap > isize::max_value() as usize {
+                capacity_overflow();
+            }
+
+            //: new_cap >= len  ∧  new_cap <= isize::MAX
+            //
+            // These both properties are exactly the preconditions of
+            // `realloc`, so we can safely call that method.
+            unsafe {
+                self.core.realloc(new_cap);
+            }
+        }
     }
 
     /// Appends a new element to the back of the collection and returns the
@@ -265,13 +303,13 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     /// ```
     pub fn push(&mut self, elem: T) -> usize {
         let index = self.core.len();
-        self.core.reserve(1);
+        self.reserve(1);
 
         unsafe {
-            // Due to growing the core to hold at least 1 additional element,
-            // we know that `index` is smaller than the capacity. We also know
-            // that at `index` there is no element (the definitoin of
-            // `len` guarantees this).
+            // Due to `reserve`, the core holds at least one empty slot, so we
+            // know that `index` is smaller than the capacity. We also know
+            // that at `index` there is no element (the definition of `len`
+            // guarantees this).
             self.core.set_len(index + 1);
             self.core.insert_at(index, elem);
         }

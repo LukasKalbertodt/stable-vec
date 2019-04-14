@@ -1,5 +1,4 @@
 use std::{
-    cmp,
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
@@ -106,60 +105,6 @@ pub trait Core<T> {
     /// **Postconditons**:
     /// - `self.cap() == new_cap`
     unsafe fn realloc(&mut self, new_cap: usize);
-
-    /// Reserves memory for at least `additional` many elements to be inserted.
-    /// If the memory is already sufficient, does nothing. May allocate more
-    /// memory than needed to avoid frequent allocations.
-    ///
-    /// # Formal
-    ///
-    /// **Invariants**:
-    /// - *slot data*
-    /// - `self.len()`
-    ///
-    /// **Postconditons**:
-    /// - `self.cap() ≥ self.len() + additional`
-    fn reserve(&mut self, additional: usize) {
-        #[inline(never)]
-        #[cold]
-        fn capacity_overflow() -> ! {
-            panic!("capacity overflow in `stable_vec::Core::reserve` (attempt \
-                to allocate more than `isize::MAX` elements");
-        }
-
-        //:    new_cap = len + additional ∧ additional >= 0
-        //: => new_cap >= len
-        let new_cap = match self.len().checked_add(additional) {
-            None => capacity_overflow(),
-            Some(new_cap) => new_cap,
-        };
-
-        if self.cap() < new_cap {
-            // We at least double our capacity. Otherwise repeated `push`es are
-            // O(n²).
-            //
-            // This multiplication can't overflow, because we know the capacity
-            // is `<= isize::MAX`.
-            //
-            //:    new_cap = max(new_cap_before, 2 * cap)
-            //:        ∧ cap >= len
-            //:        ∧ new_cap_before >= len
-            //: => new_cap >= len
-            let new_cap = cmp::max(new_cap, 2 * self.cap());
-
-            if new_cap > isize::max_value() as usize {
-                capacity_overflow();
-            }
-
-            //: new_cap >= len  ∧ new_cap <= isize::MAX
-            //
-            // These both properties are exaclty the preconditions of
-            // `realloc`, so we can safely call that method.
-            unsafe {
-                self.realloc(new_cap);
-            }
-        }
-    }
 
     /// Checks if there exists an element with index `idx`.
     ///

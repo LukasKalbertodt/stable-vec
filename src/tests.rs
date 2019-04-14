@@ -472,7 +472,7 @@ macro_rules! gen_tests_for {
 
             for i in 0..LIMIT {
                 assert!(sv.has_element_at(i));
-                assert_eq!(sv.get(i).copied(), Some(LIMIT as u32 - 1 - i as u32));
+                assert_eq!(sv.get(i).cloned(), Some(LIMIT as u32 - 1 - i as u32));
             }
             assert_eq!(sv.num_elements(), LIMIT + 1);
             assert_eq!(sv.indices().count(), LIMIT + 1);
@@ -487,7 +487,7 @@ macro_rules! gen_tests_for {
                 for i in 0..LIMIT {
                     if i != hole {
                         assert!(clone.has_element_at(i));
-                        assert_eq!(clone.get(i).copied(), Some(LIMIT as u32 - 1 - i as u32));
+                        assert_eq!(clone.get(i).cloned(), Some(LIMIT as u32 - 1 - i as u32));
                     } else {
                         assert!(!clone.has_element_at(i));
                         assert_eq!(clone.get(i), None);

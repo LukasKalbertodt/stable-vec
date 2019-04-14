@@ -454,3 +454,77 @@ fn num_usizes_for(cap: usize) -> usize {
     // bits. We do rounding up by first adding the (BITS_PER_USIZE - 1).
     (cap + (BITS_PER_USIZE - 1)) / BITS_PER_USIZE
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn next_index_from() {
+        unsafe {
+            let mut c = BitVecCore::new();
+            c.realloc(10);
+            assert_eq!(c.next_index_from(0), None);
+
+            c.insert_at(0, 10u32);
+            c.set_len(1);
+            assert_eq!(c.next_index_from(0), Some(0));
+            assert_eq!(c.next_index_from(1), None);
+
+            c.insert_at(1, 11u32);
+            c.set_len(2);
+            assert_eq!(c.next_index_from(0), Some(0));
+            assert_eq!(c.next_index_from(1), Some(1));
+            assert_eq!(c.next_index_from(2), None);
+
+            c.insert_at(3, 13u32);
+            c.set_len(4);
+            assert_eq!(c.next_index_from(0), Some(0));
+            assert_eq!(c.next_index_from(1), Some(1));
+            assert_eq!(c.next_index_from(2), Some(3));
+            assert_eq!(c.next_index_from(3), Some(3));
+            assert_eq!(c.next_index_from(4), None);
+        }
+    }
+
+    #[test]
+    fn next_index_from_large() {
+        unsafe {
+            let mut c = BitVecCore::new();
+            c.realloc(2000);
+
+            for i in (250..600).chain(620..650).chain(652..700).chain(900..1200) {
+                c.insert_at(i, 27u32);
+            }
+            c.set_len(1200);
+
+            for i in 0..250 {
+                assert_eq!(c.next_index_from(i), Some(250));
+            }
+            for i in 250..600 {
+                assert_eq!(c.next_index_from(i), Some(i));
+            }
+            for i in 600..620 {
+                assert_eq!(c.next_index_from(i), Some(620));
+            }
+            for i in 620..650 {
+                assert_eq!(c.next_index_from(i), Some(i));
+            }
+            for i in 650..652 {
+                assert_eq!(c.next_index_from(i), Some(652));
+            }
+            for i in 652..700 {
+                assert_eq!(c.next_index_from(i), Some(i));
+            }
+            for i in 700..900 {
+                assert_eq!(c.next_index_from(i), Some(900));
+            }
+            for i in 900..1200 {
+                assert_eq!(c.next_index_from(i), Some(i));
+            }
+            for i in 1200..2000 {
+                assert_eq!(c.next_index_from(i), None);
+            }
+        }
+    }
+}

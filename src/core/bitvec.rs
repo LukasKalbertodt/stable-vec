@@ -297,49 +297,8 @@ impl<T> Core<T> for BitVecCore<T> {
     unsafe fn next_index_from(&self, idx: usize) -> Option<usize> {
         debug_assert!(idx <= self.len());
 
-        if idx >= self.len() {
-            return None;
-        }
-
-        // Check current block
-        let block_index = idx / BITS_PER_USIZE;
-        let block = *self.bit_ptr.as_ptr().add(block_index);
-
-        // Check for most common case: the index itself exists
-        let bit_index = idx % BITS_PER_USIZE;
-        let mask = 1 << bit_index;
-        if (block & mask) != 0 {
-            return Some(idx);
-        }
-
-        // Check the remaining current block for indices. We need to mask it to
-        // avoid finding indices < idx. Example for bit_index 5:
-        //
-        //   mask:           0001 0000
-        //   mask - 1:       0000 1111
-        //   !(mask - 1):    1111 0000
-        //   example block:  1010 0110
-        //   and-result:     1010 0000   (trailing zeros: 5)
-        let zeros = (block & !(mask - 1)).trailing_zeros() as usize;
-        if zeros != size_of::<usize>() * 8 {
-            return Some(block_index * BITS_PER_USIZE + zeros);
-        }
-
-        // Check for all other blocks
-        let mut block_index = block_index + 1;
-        while block_index < num_usizes_for(self.cap) {
-            let block = *self.bit_ptr.as_ptr().add(block_index);
-
-            // This makes seeking fast: we can very quickly check if there are
-            // any bits set in this block.
-            if block != 0 {
-                return Some(block_index * BITS_PER_USIZE + block.trailing_zeros() as usize);
-            }
-
-            block_index += 1;
-        }
-
-        None
+        (idx..self.len)
+            .find(|&idx| self.has_element_at(idx))
     }
 
     unsafe fn prev_index_from(&self, idx: usize) -> Option<usize> {

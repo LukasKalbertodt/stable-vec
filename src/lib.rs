@@ -768,6 +768,30 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
         }
     }
 
+    /// Returns a reference to the element at the given index without checking
+    /// the index.
+    ///
+    /// # Security
+    ///
+    /// When calling this method `self.has_element_at(index)` has to be `true`,
+    /// otherwise this method's behavior is undefined! This requirement implies
+    /// the requirements `idx < self.cap()` and `idx < self.len()`.
+    pub unsafe fn get_unchecked(&self, index: usize) -> &T {
+        self.core.get_unchecked(index)
+    }
+
+    /// Returns a mutable reference to the element at the given index without
+    /// checking the index.
+    ///
+    /// # Security
+    ///
+    /// When calling this method `self.has_element_at(index)` has to be `true`,
+    /// otherwise this method's behavior is undefined! This requirement implies
+    /// the requirements `idx < self.cap()` and `idx < self.len()`.
+    pub unsafe fn get_unchecked_mut(&mut self, index: usize) -> &mut T {
+        self.core.get_unchecked_mut(index)
+    }
+
     /// Returns `true` if there exists an element at the given index, `false`
     /// otherwise.
     ///

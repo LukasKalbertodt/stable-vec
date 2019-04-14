@@ -26,9 +26,11 @@
 
 
 use std::{
+    cmp,
     fmt,
     io,
     iter::FromIterator,
+    mem,
     ops::{Index, IndexMut},
 };
 
@@ -51,6 +53,7 @@ pub type StableVec<T> = StableVecFacade<T, DefaultCore<T>>;
 pub type InlineStableVec<T> = StableVecFacade<T, OptionCore<T>>;
 pub type ExternStableVec<T> = StableVecFacade<T, BitVecCore<T>>;
 
+
 /// A `Vec<T>`-like collection which guarantees stable indices and features
 /// O(1) deletion of elements.
 ///
@@ -69,13 +72,13 @@ pub type ExternStableVec<T> = StableVecFacade<T, BitVecCore<T>>;
 /// element `a` before, now refers to another element `b`. On the contrary, a
 /// *stable* index means, that the index always refers to the same element.
 ///
-/// Stable indices are needed in quite a few situations. One example are
-/// graph data structures (or complex data structures in general). Instead of
-/// allocating heap memory for every node and edge, all nodes are stored in a
-/// vector and all edges are stored in a vector. But how does the programmer
-/// unambiguously refer to one specific node? A pointer is not possible due to
-/// the reallocation strategy of most dynamically growing arrays (the pointer
-/// itself is not *stable*). Thus, often the index is used.
+/// Stable indices are needed in quite a few situations. One example are graph
+/// data structures (or complex data structures in general). Instead of
+/// allocating heap memory for every node and edge, all nodes and all edges are
+/// stored in a vector (each). But how does the programmer unambiguously refer
+/// to one specific node? A pointer is not possible due to the reallocation
+/// strategy of most dynamically growing arrays (the pointer itself is not
+/// *stable*). Thus, often the index is used.
 ///
 /// But in order to use the index, it has to be stable. This is one example,
 /// where this data structure comes into play.
@@ -83,13 +86,14 @@ pub type ExternStableVec<T> = StableVecFacade<T, BitVecCore<T>>;
 ///
 /// # How?
 ///
-/// Actually, the implementation of this stable vector is very simple. We can
+/// Actually, the implementation of this stable vector is rather simple. We can
 /// trade O(1) deletions and stable indices for a higher memory consumption.
 ///
 /// When `StableVec::remove()` is called, the element is just marked as
-/// "deleted", but no element is actually touched. This has the very obvious
-/// disadvantage that deleted objects just stay in memory and waste space. This
-/// is also the most important thing to understand:
+/// "deleted" (and the actual element is dropped), but other than that, nothing
+/// happens. This has the very obvious disadvantage that deleted objects (so
+/// called empty slots) just waste space. This is also the most important thing
+/// to understand:
 ///
 /// The memory requirement of this data structure is `O(|inserted elements|)`;
 /// instead of `O(|inserted elements| - |removed elements|)`. The latter is the
@@ -100,7 +104,7 @@ pub type ExternStableVec<T> = StableVecFacade<T, BitVecCore<T>>;
 ///
 /// # Why not?
 ///
-/// As mentioned above, this data structure is very simple and has many
+/// As mentioned above, this data structure is rather simple and has many
 /// disadvantages on its own. Here are some reason not to use it:
 ///
 /// - You don't need stable indices or O(1) removal
@@ -116,14 +120,28 @@ pub type ExternStableVec<T> = StableVecFacade<T, BitVecCore<T>>;
 /// your problem before using a linked list.
 ///
 ///
-/// # Note
+/// # Terminology and overview of a stable vector
 ///
-/// This type's interface is very similar to the `Vec<T>` interface
-/// from the Rust standard library. When in doubt about what a method is doing,
-/// please consult [the official `Vec<T>` documentation][vec-doc] first.
+/// A stable vector has slots. Each slot can either be filled or empty. There
+/// are three numbers describing a stable vector (each of those functions runs
+/// in O(1)):
 ///
-/// [vec-doc]: https://doc.rust-lang.org/stable/std/vec/struct.Vec.html
+/// - [`capacity()`][StableVecFacade::capacity]: the total number of slots
+///   (filled and empty).
+/// - [`num_elements()`][StableVecFacade::num_elements]: the number of filled
+///   slots.
+/// - [`next_index()`][StableVecFacade::next_index]: an index of the first slot
+///   (i.e. with the smallest index) that was never filled. This is the index
+///   that is returned by [`push`][StableVecFacade::push]. This implies that
+///   all filled slots have indices smaller than `next_index()`.
 ///
+/// Unlike `Vec<T>`, `StableVecFacade` allows access to all slots with indices
+/// between 0 and `capacity()`. In particular, it is allowed to call
+/// [`insert`][StableVecFacade::insert] with all indices smaller than
+/// `capacity()`.
+///
+///
+/// ---
 ///
 /// # Method overview
 ///
@@ -185,19 +203,22 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
         }
     }
 
-    /// Constructs a new, empty `StableVecFacade<T>` with the specified capacity.
+    /// Constructs a new, empty `StableVecFacade<T>` with the specified
+    /// capacity.
     ///
     /// The stable-vector will be able to hold exactly `capacity` elements
     /// without reallocating. If `capacity` is 0, the stable-vector will not
-    /// allocate any memory.
+    /// allocate any memory. See [`reserve`][StableVecFacade::reserve] for more
+    /// information.
     pub fn with_capacity(capacity: usize) -> Self {
         let mut out = Self::new();
-        out.reserve(capacity);
+        out.reserve_exact(capacity);
         out
     }
 
-    /// Creates a `StableVecFacade<T>` from the given `Vec<T>`. The elements are not
-    /// cloned (just moved) and the indices of the vector are preserved.
+    /// Creates a `StableVecFacade<T>` from the given `Vec<T>`. The elements
+    /// are not cloned (just moved) and the indices of the vector are
+    /// preserved.
     ///
     /// Note that this function will still allocate memory.
     ///
@@ -237,8 +258,44 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
         }
     }
 
-    /// Reserves capacity for at least `additional` more elements to be
-    /// inserted.
+    /// Reserves memory for at least `additional` more elements to be inserted
+    /// at indices `>= self.next_index()`.
+    ///
+    /// This method might allocate more than `additional` to avoid frequent
+    /// reallocations. Does nothing if the current capacity is already
+    /// sufficient. After calling this method, `self.capacity()` is ≥
+    /// `self.next_index() + additional`.
+    ///
+    /// Unlike `Vec::reserve`, the additional reserved memory is not completely
+    /// unaccessible. Instead, additional empty slots are added to this stable
+    /// vector. These can be used just like any other empty slot; in
+    /// particular, you can insert into it.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::new();
+    /// let star_idx = sv.push('★');
+    ///
+    /// // After we inserted one element, the next element would sit at index
+    /// // 1, as expected.
+    /// assert_eq!(sv.next_index(), 1);
+    ///
+    /// sv.reserve(2); // insert two empty slots
+    ///
+    /// // `reserve` doesn't change any of this
+    /// assert_eq!(sv.num_elements(), 1);
+    /// assert_eq!(sv.next_index(), 1);
+    ///
+    /// // We can now insert an element at index 2.
+    /// sv.insert(2, 'x');
+    /// assert_eq!(sv[2], 'x');
+    ///
+    /// // These values get adjusted accordingly.
+    /// assert_eq!(sv.num_elements(), 2);
+    /// assert_eq!(sv.next_index(), 3);
+    /// ```
     pub fn reserve(&mut self, additional: usize) {
         #[inline(never)]
         #[cold]
@@ -281,10 +338,47 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
         }
     }
 
-    /// Appends a new element to the back of the collection and returns the
-    /// index of the inserted element.
+    /// Like [`reserve`][StableVecFacade::reserve], but guarantees that memory
+    /// for exactly `additional` more elements is allocated.
+    ///
+    /// This means that after calling this method, `self.capacity()` is exactly
+    /// `self.next_index() + additional`.
+    pub fn reserve_exact(&mut self, additional: usize) {
+        #[inline(never)]
+        #[cold]
+        fn capacity_overflow() -> ! {
+            panic!("capacity overflow in `stable_vec::StableVecFacade::reserve_exact` (attempt \
+                to allocate more than `isize::MAX` elements");
+        }
+
+        //:    new_cap = len + additional  ∧  additional >= 0
+        //: => new_cap >= len
+        let new_cap = match self.core.len().checked_add(additional) {
+            None => capacity_overflow(),
+            Some(new_cap) => new_cap,
+        };
+
+        if self.core.cap() < new_cap {
+            if new_cap > isize::max_value() as usize {
+                capacity_overflow();
+            }
+
+            //: new_cap >= len  ∧  new_cap <= isize::MAX
+            //
+            // These both properties are exactly the preconditions of
+            // `realloc`, so we can safely call that method.
+            unsafe {
+                self.core.realloc(new_cap);
+            }
+        }
+    }
+
+    /// Inserts the new element `elem` at index `self.next_index` and returns
+    /// said index.
     ///
     /// The inserted element will always be accessible via the returned index.
+    ///
+    /// This method has a runtime complexity of O(1).
     ///
     /// # Example
     ///
@@ -318,11 +412,92 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
         index
     }
 
-    /// Removes and returns the first element from this collection, or `None` if
-    /// it's empty.
+    /// Inserts the given value at the given index.
+    ///
+    /// If the slot at `index` is empty`, the `elem` is inserted at that
+    /// position and `None` is returned. If there is an existing element `x` at
+    /// that position, that element is replaced by `elem` and `Some(x)` is
+    /// returned. The `next_index` is adjusted accordingly if `index >=
+    /// next_index()`.
+    ///
+    /// This method has a runtime complexity of O(1).
+    ///
+    /// # Panics
+    ///
+    /// Panics if the index is `>= self.capacity()`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::new();
+    /// let star_idx = sv.push('★');
+    /// let heart_idx = sv.push('♥');
+    ///
+    /// // Inserting into an empty slot (element was deleted).
+    /// sv.remove(star_idx);
+    /// assert_eq!(sv.num_elements(), 1);
+    /// assert_eq!(sv.insert(star_idx, 'x'), None);
+    /// assert_eq!(sv.num_elements(), 2);
+    /// assert_eq!(sv[star_idx], 'x');
+    ///
+    /// // We can also reserve memory (create new empty slots) and insert into
+    /// // such a new slot. Note that that `next_index` gets adjusted.
+    /// sv.reserve(1);
+    /// assert_eq!(sv.insert(2, 'y'), None);
+    /// assert_eq!(sv.num_elements(), 3);
+    /// assert_eq!(sv.next_index(), 3);
+    /// assert_eq!(sv[2], 'y');
+    ///
+    /// // Inserting into a filled slot replaces the value and returns the old
+    /// // value.
+    /// assert_eq!(sv.insert(heart_idx, 'z'), Some('♥'));
+    /// assert_eq!(sv[heart_idx], 'z');
+    /// ```
+    pub fn insert(&mut self, index: usize, mut elem: T) -> Option<T> {
+        // If the index is out of bounds, we cannot insert the new element.
+        if index >= self.core.cap() {
+            panic!(
+                "`index ({}) >= capacity ({})` in `StableVecFacade::insert`",
+                index,
+                self.core.cap(),
+            );
+        }
+
+        if self.has_element_at(index) {
+            unsafe {
+                // We just checked there is an element at that position, so
+                // this is fine.
+                mem::swap(self.core.get_unchecked_mut(index), &mut elem);
+            }
+            Some(elem)
+        } else {
+            if index >= self.core.len() {
+                // Due to the bounds check above, we know that `index + 1` is ≤
+                // `capacity`.
+                unsafe {
+                    self.core.set_len(index + 1);
+                }
+            }
+
+            unsafe {
+                // `insert_at` requires that `index < cap` and
+                // `!has_element_at(index)`. Both of these conditions are met
+                // by the two explicit checks above.
+                self.core.insert_at(index, elem);
+            }
+
+            self.num_elements += 1;
+
+            None
+        }
+    }
+
+    /// Removes and returns the first element from this collection, or `None`
+    /// if it's empty.
     ///
     /// This method uses exactly the same deletion strategy as
-    /// [`remove()`](#method.remove).
+    /// [`remove()`][StableVecFacade::remove].
     ///
     /// # Example
     ///
@@ -337,7 +512,7 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     ///
     /// This method needs to find index of the first valid element. Finding it
     /// has a worst case time complexity of O(n). If you already know the
-    /// index, use [`remove()`](#method.remove) instead.
+    /// index, use [`remove()`][StableVecFacade::remove] instead.
     pub fn remove_first(&mut self) -> Option<T> {
         self.find_first_index().and_then(|index| self.remove(index))
     }
@@ -346,7 +521,7 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     /// it's empty.
     ///
     /// This method uses exactly the same deletion strategy as
-    /// [`remove()`](#method.remove).
+    /// [`remove()`][StableVecFacade::remove].
     ///
     /// # Example
     ///
@@ -361,7 +536,7 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     ///
     /// This method needs to find index of the last valid element. Finding it
     /// has a worst case time complexity of O(n). If you already know the
-    /// index, use [`remove()`](#method.remove) instead.
+    /// index, use [`remove()`][StableVecFacade::remove] instead.
     pub fn remove_last(&mut self) -> Option<T> {
         self.find_last_index().and_then(|index| self.remove(index))
     }
@@ -383,8 +558,8 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
         self.find_first_index().map(|index| unsafe { self.core.get_unchecked(index) })
     }
 
-    /// Finds the first element and returns a mutable reference to it, or `None` if
-    /// the stable vector is empty.
+    /// Finds the first element and returns a mutable reference to it, or
+    /// `None` if the stable vector is empty.
     ///
     /// This method has a worst case time complexity of O(n).
     ///
@@ -422,8 +597,8 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
         self.find_last_index().map(|index| unsafe { self.core.get_unchecked(index) })
     }
 
-    /// Finds the last element and returns a mutable reference to it, or `None` if
-    /// the stable vector is empty.
+    /// Finds the last element and returns a mutable reference to it, or `None`
+    /// if the stable vector is empty.
     ///
     /// This method has a worst case time complexity of O(n).
     ///
@@ -444,8 +619,8 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
         self.find_last_index().map(move |index| unsafe { self.core.get_unchecked_mut(index) })
     }
 
-    /// Finds the first element and returns its index, or `None` if
-    /// the stable vector is empty.
+    /// Finds the first element and returns its index, or `None` if the stable
+    /// vector is empty.
     ///
     /// This method has a worst case time complexity of O(n).
     ///
@@ -463,8 +638,8 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
         }
     }
 
-    /// Finds the last element and returns its index, or `None` if
-    /// the stable vector is empty.
+    /// Finds the last element and returns its index, or `None` if the stable
+    /// vector is empty.
     ///
     /// This method has a worst case time complexity of O(n).
     ///
@@ -487,106 +662,18 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
         }
     }
 
-    /// Inserts the given value at the given index if there is a hole there.
-    ///
-    /// If there is an element marked as "deleted" at `index`, the `elem` is
-    /// inserted at that position and `Ok(())` is returned. If `index` is out of
-    /// bounds or there is an existing element at that position, the vector is
-    /// not changed and `elem` is returned as `Err(elem)`.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::new();
-    /// let star_idx = sv.push('★');
-    /// let heart_idx = sv.push('♥');
-    ///
-    /// // Inserting fails: there isn't a hole yet.
-    /// assert_eq!(sv.insert_into_hole(star_idx, 'x'), Err('x'));
-    /// assert_eq!(sv.num_elements(), 2);
-    ///
-    /// // After removing the star...
-    /// sv.remove(star_idx);
-    /// assert_eq!(sv.num_elements(), 1);
-    ///
-    /// // ...we can insert a new element at its place.
-    /// assert_eq!(sv.insert_into_hole(star_idx, 'x'), Ok(()));
-    /// assert_eq!(sv[star_idx], 'x');
-    /// assert_eq!(sv.num_elements(), 2);
-    /// ```
-    pub fn insert_into_hole(&mut self, index: usize, elem: T) -> Result<(), T> {
-        // If the index is out of bounds, we cannot insert the new element.
-        if index >= self.core.len() {
-            return Err(elem);
-        }
-
-        // We did the bounds check above, so this is fine.
-        if unsafe { self.core.has_element_at(index) } {
-            return Err(elem);
-        }
-
-        self.num_elements += 1;
-        if self.core.len() <= index {
-            // Due to the bounds check above, we know that `index + 1` is ≤
-            // `capacity`.
-            unsafe {
-                self.core.set_len(index + 1);
-            }
-        }
-
-        // We made sure of the two requirements above.
-        unsafe {
-            self.core.insert_at(index, elem);
-        }
-
-        Ok(())
-    }
-
-    /// Grows the size of the stable vector by inserting deleted elements.
-    ///
-    /// This method does not add existing elements, but merely "deleted" ones.
-    /// Using this only makes sense when you are intending to use the holes
-    /// with [`insert_into_hole()`](#method.insert_into_hole) later. Otherwise,
-    /// this method will just waste memory.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::new();
-    /// let star_idx = sv.push('★');
-    ///
-    /// // After we inserted one element, the next element sits at index 1, as
-    /// // expected.
-    /// assert_eq!(sv.next_index(), 1);
-    ///
-    /// sv.grow(2); // insert two deleted elements
-    ///
-    /// assert_eq!(sv.num_elements(), 1); // Still only one existing element
-    /// assert_eq!(sv.next_index(), 3); // Due to grow(2), we skip two indices
-    ///
-    /// // Now we can insert an element at index 2.
-    /// sv.insert_into_hole(2, 'x').unwrap();
-    /// assert_eq!(sv.num_elements(), 2);
-    /// ```
-    pub fn grow(&mut self, additional: usize) {
-        let new_len = self.core.len() + additional;
-        self.core.reserve(additional);
-
-        unsafe {
-            self.core.set_len(new_len);
-        }
-    }
-
     /// Removes and returns the element at position `index` if there exists an
     /// element at that index (as defined by
-    /// [`has_element_at()`](#method.has_element_at)).
+    /// [`has_element_at()`][StableVecFacade::has_element_at]).
     ///
-    /// Removing an element only marks it as "deleted" without touching the
-    /// actual data. In particular, the elements after the given index are
+    /// Removing an element, drops the element in place and marks it as
+    /// "deleted". In particular, the elements after the given index are
     /// **not** shifted to the left. Thus, the time complexity of this method
     /// is O(1).
+    ///
+    /// # Panic
+    ///
+    /// Panics if `index >= self.capacity()`.
     ///
     /// # Example
     ///
@@ -605,6 +692,15 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     /// assert_eq!(sv.remove(heart_idx), None); // the heart was already removed
     /// ```
     pub fn remove(&mut self, index: usize) -> Option<T> {
+        // If the index is out of bounds, we cannot insert the new element.
+        if index >= self.core.cap() {
+            panic!(
+                "`index ({}) >= capacity ({})` in `StableVecFacade::remove`",
+                index,
+                self.core.cap(),
+            );
+        }
+
         if self.has_element_at(index) {
             // We checked with `Self::has_element_at` that the conditions for
             // `remove_at` are met.
@@ -659,7 +755,9 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     /// otherwise.
     ///
     /// An element is said to exist if the index is not out of bounds and the
-    /// element at the given index was not removed yet.
+    /// slot at the given index was not empty. In particular, this method can
+    /// also be called with indices larger than the current capacity (although,
+    /// `false` is always returned in those cases).
     ///
     /// # Example
     ///
@@ -675,7 +773,7 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     /// assert!(!sv.has_element_at(heart_idx)); // no: was removed
     /// ```
     pub fn has_element_at(&self, index: usize) -> bool {
-        if self.core.cap() <= index {
+        if index >= self.core.cap() {
             return false;
         } else {
             unsafe {
@@ -686,38 +784,48 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
         }
     }
 
-    /// Calls `shrink_to_fit()` on the underlying `Vec<T>`.
+    /// Reallocates to have a capacity of exactly `self.next_index`.
     ///
     /// Note that this does not move existing elements around and thus does not
     /// invalidate indices. This method also doesn't change what `next_index`
-    /// returns. Instead, only capacity is changed; specifically, it is equal
-    /// to `next_index` after calling this method.
+    /// returns. Instead, only the capacity is changed.
     ///
     /// If you want to compact this stable vector by removing deleted elements,
     /// use the method [`make_compact`] or [`reordering_make_compact`] instead.
     pub fn shrink_to_fit(&mut self) {
-        let new_cap = self.core.len();
+        // `realloc` has the following preconditions:
+        // - (a) `new_cap ≥ self.len()`
+        // - (b) `new_cap ≤ isize::MAX`
+        //
+        // It's trivial to see that (a) is not violated here. (b) is also never
+        // violated, because the `Core` trait says that `len < cap` and `cap <
+        // isize::MAX`.
         unsafe {
+            let new_cap = self.core.len();
             self.core.realloc(new_cap);
         }
     }
 
     /// Rearranges elements to reclaim memory. **Invalidates indices!**
     ///
-    /// After calling this method, all existing elements stored contiguously
-    /// in memory. You might want to call [`shrink_to_fit()`](#method.shrink_to_fit)
-    /// afterwards to actually free memory previously used by removed elements.
-    /// This method itself does not deallocate any memory.
+    /// After calling this method, all existing elements stored contiguously in
+    /// memory. You might want to call
+    /// [`shrink_to_fit()`][StableVecFacade::shrink_to_fit] afterwards to
+    /// actually free memory previously used by removed elements. This method
+    /// itself does not deallocate any memory.
+    ///
+    /// The `next_index` value is also changed by this method (if the stable
+    /// vector wasn't compact before).
     ///
     /// In comparison to
-    /// [`reordering_make_compact()`](#method.reordering_make_compact), this
-    /// method does not change the order of elements. Due to this, this method
-    /// is a bit slower.
+    /// [`reordering_make_compact()`][StableVecFacade::reordering_make_compact],
+    /// this method does not change the order of elements. Due to this, this
+    /// method is a bit slower.
     ///
     /// # Warning
     ///
     /// This method invalidates the indices of all elements that are stored
-    /// after the first hole in the stable vector!
+    /// after the first empty slot in the stable vector!
     pub fn make_compact(&mut self) {
         if self.is_compact() {
             return;
@@ -764,14 +872,17 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     /// changes the order of the elements!**
     ///
     /// After calling this method, all existing elements stored contiguously
-    /// in memory. You might want to call [`shrink_to_fit()`](#method.shrink_to_fit)
+    /// in memory. You might want to call [`shrink_to_fit()`][StableVecFacade::shrink_to_fit]
     /// afterwards to actually free memory previously used by removed elements.
     /// This method itself does not deallocate any memory.
     ///
+    /// The `next_index` value is also changed by this method (if the stable
+    /// vector wasn't compact before).
+    ///
     /// If you do need to preserve the order of elements, use
-    /// [`make_compact()`](#method.make_compact) instead. However, if you don't
-    /// care about element order, you should prefer using this method, because
-    /// it is faster.
+    /// [`make_compact()`][StableVecFacade::make_compact] instead. However, if
+    /// you don't care about element order, you should prefer using this
+    /// method, because it is faster.
     ///
     /// # Warning
     ///
@@ -820,10 +931,8 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     }
 
     /// Returns `true` if all existing elements are stored contiguously from
-    /// the beginning.
-    ///
-    /// This method returning `true` means that no memory is wasted for removed
-    /// elements.
+    /// the beginning (in other words: there are no empty slots with indices
+    /// below `self.next_index()`).
     ///
     /// # Example
     ///
@@ -841,9 +950,10 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
 
     /// Returns the number of existing elements in this collection.
     ///
-    /// As long as `remove()` is never called, `num_elements()` equals
-    /// `next_index()`. Once it is called, `num_elements()` will always be less
-    /// than `next_index()` (assuming `make_compact()` is not called).
+    /// As long as no element is ever removed, `num_elements()` equals
+    /// `next_index()`. Once an element has been removed, `num_elements()` will
+    /// always be less than `next_index()` (assuming
+    /// `[reordering_]make_compact()` is not called).
     ///
     /// # Example
     ///
@@ -889,7 +999,7 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     ///
     /// After calling this, `num_elements()` will return 0. All indices are
     /// invalidated. However, no memory is deallocated, so the capacity stays
-    /// as it was before.
+    /// as it was before. `self.next_index` is 0 after calling this method.
     ///
     /// # Example
     ///
@@ -906,14 +1016,14 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
         self.num_elements = 0;
     }
 
-    /// Returns the number of elements the stable-vector can hold without
-    /// reallocating.
+    /// Returns the number of slots in this stable vector.
     pub fn capacity(&self) -> usize {
         self.core.cap()
     }
 
     /// Returns the index that would be returned by calling
-    /// [`push()`](#method.push).
+    /// [`push()`][StableVecFacade::push]. All filled slots have indices below
+    /// `next_index()`.
     ///
     /// # Example
     ///
@@ -931,7 +1041,8 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     }
 
     /// Returns an iterator over immutable references to the existing elements
-    /// of this stable vector.
+    /// of this stable vector. Elements are yielded in order of their
+    /// increasing indices.
     ///
     /// Note that you can also use the `IntoIterator` implementation of
     /// `&StableVecFacade` to obtain the same iterator.
@@ -965,7 +1076,8 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     }
 
     /// Returns an iterator over mutable references to the existing elements
-    /// of this stable vector.
+    /// of this stable vector. Elements are yielded in order of their
+    /// increasing indices.
     ///
     /// Note that you can also use the `IntoIterator` implementation of
     /// `&mut StableVecFacade` to obtain the same iterator.
@@ -993,7 +1105,8 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
         }
     }
 
-    /// Returns an iterator over all valid indices of this stable vector.
+    /// Returns an iterator over all indices of filled slots of this stable
+    /// vector. Indices are yielded in increasing order.
     ///
     /// # Example
     ///
@@ -1052,9 +1165,9 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
 
     /// Returns the stable vector as a standard `Vec<T>`.
     ///
-    /// Returns a vector which contains all existing elements from this stable
-    /// vector. **All indices might be invalidated!** This method is equivalent
-    /// to `self.into_iter().colect()`.
+    /// Returns a vector which contains all elements from this stable vector.
+    /// **All indices might be invalidated!** This method is equivalent to
+    /// `self.into_iter().colect()`.
     ///
     ///
     /// # Example
@@ -1092,26 +1205,26 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     {
         let mut pos = 0;
 
-        while let Some(idx) = unsafe { self.core.next_index_from(pos) } {
-            // These unsafe calls are fine: indices returned by
-            // `next_index_from` are always valid and point to an existing
-            // element.
-            let elem = unsafe { self.core.get_unchecked(idx) };
-            if !should_be_kept(elem) {
-                unsafe {
+        // These unsafe calls are fine: indices returned by `next_index_from`
+        // are always valid and point to an existing element.
+        unsafe {
+            while let Some(idx) = self.core.next_index_from(pos) {
+                let elem = self.core.get_unchecked(idx);
+                if !should_be_kept(elem) {
                     self.core.remove_at(idx);
+                    self.num_elements -= 1;
                 }
-                self.num_elements -= 1;
-            }
 
-            pos = idx + 1;
+                pos = idx + 1;
+            }
         }
     }
 
-    /// Retains only the elements with indices specified by the given predicate.
+    /// Retains only the elements with indices specified by the given
+    /// predicate.
     ///
-    /// Each element with index `i` for which `should_be_kept(i)` returns `false` is
-    /// removed from the stable vector.
+    /// Each element with index `i` for which `should_be_kept(i)` returns
+    /// `false` is removed from the stable vector.
     ///
     /// # Example
     ///
@@ -1131,30 +1244,31 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     {
         let mut pos = 0;
 
-        while let Some(idx) = unsafe { self.core.next_index_from(pos) } {
-            if !should_be_kept(idx) {
-                // These unsafe call is fine: indices returned by
-                // `next_index_from` are always valid and point to an existing
-                // element.
-                unsafe {
+        // These unsafe call is fine: indices returned by
+        // `next_index_from` are always valid and point to an existing
+        // element.
+        unsafe {
+            while let Some(idx) = self.core.next_index_from(pos) {
+                if !should_be_kept(idx) {
                     self.core.remove_at(idx);
+                    self.num_elements -= 1;
                 }
-                self.num_elements -= 1;
-            }
 
-            pos = idx + 1;
+                pos = idx + 1;
+            }
         }
     }
 
     /// Appends all elements in `new_elements` to this stable vector. This is
-    /// equivalent to calling [`push()`][StableVecFacade::push] for each element.
+    /// equivalent to calling [`push()`][StableVecFacade::push] for each
+    /// element.
     pub fn extend_from_slice(&mut self, new_elements: &[T])
     where
         T: Clone,
     {
         let len = new_elements.len();
 
-        self.core.reserve(len);
+        self.reserve(len);
         self.num_elements += len;
 
         // It's important that a panic in `clone()` does not lead to memory
@@ -1247,8 +1361,8 @@ impl<T, C: Core<T>> Extend<T> for StableVecFacade<T, C> {
     }
 }
 
-/// Write into `StableVecFacade<u8>` by appending `u8` elements. This is equivalent
-/// to calling `push` for each byte.
+/// Write into `StableVecFacade<u8>` by appending `u8` elements. This is
+/// equivalent to calling `push` for each byte.
 impl<C: Core<u8>> io::Write for StableVecFacade<u8, C> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.extend_from_slice(buf);
@@ -1293,9 +1407,8 @@ impl<T, C: Core<T>> IntoIterator for StableVecFacade<T, C> {
 
 /// Iterator over immutable references to the elements of a `StableVecFacade`.
 ///
-/// Use the method [`StableVecFacade::iter()`](struct.StableVecFacade.html#method.iter) or
-/// the `IntoIterator` implementation of `&StableVecFacade` to obtain an iterator
-/// of this kind.
+/// Use the method [`StableVecFacade::iter`] or the `IntoIterator`
+/// implementation of `&StableVecFacade` to obtain an iterator of this kind.
 pub struct Iter<'a, T, C: Core<T>> {
     core: &'a OwningCore<T, C>,
     pos: usize,
@@ -1333,9 +1446,9 @@ impl<T, C: Core<T>> fmt::Debug for Iter<'_, T, C> {
 
 /// Iterator over mutable references to the elements of a `StableVecFacade`.
 ///
-/// Use the method [`StableVecFacade::iter_mut()`](struct.StableVecFacade.html#method.iter_mut)
-/// or the `IntoIterator` implementation of `&mut StableVecFacade` to obtain an
-/// iterator of this kind.
+/// Use the method [`StableVecFacade::iter_mut`] or the `IntoIterator`
+/// implementation of `&mut StableVecFacade` to obtain an iterator of this
+/// kind.
 pub struct IterMut<'a, T, C: Core<T>> {
     sv: &'a mut StableVecFacade<T, C>,
     pos: usize,
@@ -1382,7 +1495,8 @@ impl<T, C: Core<T>> fmt::Debug for IterMut<'_, T, C> {
 
 /// Iterator over owned elements of a `StableVecFacade`.
 ///
-/// Use the method [`StableVecFacade::into_iter`] to obtain an iterator of this kind.
+/// Use the method [`StableVecFacade::into_iter`] to obtain an iterator of this
+/// kind.
 #[derive(Debug)]
 pub struct IntoIter<T, C: Core<T>> {
     sv: StableVecFacade<T, C>,
@@ -1418,7 +1532,8 @@ impl<T, C: Core<T>> ExactSizeIterator for IntoIter<T, C> {}
 
 /// Iterator over all valid indices of a `StableVecFacade`.
 ///
-/// Use the method [`StableVecFacade::indices`] to obtain an iterator of this kind.
+/// Use the method [`StableVecFacade::indices`] to obtain an iterator of this
+/// kind.
 pub struct Indices<'a, T, C: Core<T>> {
     core: &'a OwningCore<T, C>,
     pos: usize,

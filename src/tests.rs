@@ -6,9 +6,9 @@ use crate::{Core, StableVecFacade};
 
 macro_rules! assert_panic {
     ($($body:tt)*) => {{
-        let res = std::panic::catch_unwind(|| {
+        let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             $($body)*
-        });
+        }));
         if let Ok(x) = res {
             panic!(
                 "expected panic for '{}', but got '{:?}' ",
@@ -430,17 +430,6 @@ macro_rules! gen_tests_for {
         }
 
         #[test]
-        fn grow() {
-            let mut sv = $ty::from_vec(vec!['a', 'b']);
-
-            sv.grow(1);
-            assert_sv_eq!(sv, [0 => 'a', 1 => 'b'; 2]);
-
-            sv.grow(9);
-            assert_sv_eq!(sv, [0 => 'a', 1 => 'b'; 11]);
-        }
-
-        #[test]
         fn shrink_to_fit() {
             let mut sv = $ty::from_vec(vec!['a', 'b', 'c', 'd', 'e', 'f']);
             sv.reserve(100);
@@ -459,17 +448,11 @@ macro_rules! gen_tests_for {
             assert_eq!(sv.remove(1), Some('b'));
             assert_sv_eq!(sv, [0 => 'a', 2 => 'c']);
 
-            assert_eq!(sv.remove(3), None);
-            assert_sv_eq!(sv, [0 => 'a', 2 => 'c']);
-
             sv.extend_from_slice(&['d', 'e']);
             assert_eq!(sv.remove(4), Some('e'));
             assert_sv_eq!(sv, [0 => 'a', 2 => 'c', 3 => 'd'; 4]);
 
             assert_eq!(sv.remove(4), None);
-            assert_sv_eq!(sv, [0 => 'a', 2 => 'c', 3 => 'd'; 4]);
-
-            assert_eq!(sv.remove(5), None);
             assert_sv_eq!(sv, [0 => 'a', 2 => 'c', 3 => 'd'; 4]);
 
             assert_eq!(sv.remove(1), None);
@@ -515,16 +498,9 @@ macro_rules! gen_tests_for {
 
         #[test]
         fn zero_sized_type() {
-            println!("hi");
-            println!("hi");
-            println!("hi");
-            println!("hi");
             let mut sv = $ty::<()>::from(&[(), (), ()]);
 
             assert_eq!(sv.remove(1), Some(()));
-            assert_sv_eq!(sv, [0 => (), 2 => ()]);
-
-            assert_eq!(sv.remove(3), None);
             assert_sv_eq!(sv, [0 => (), 2 => ()]);
 
             sv.extend_from_slice(&[(), ()]);
@@ -532,9 +508,6 @@ macro_rules! gen_tests_for {
             assert_sv_eq!(sv, [0 => (), 2 => (), 3 => (); 4]);
 
             assert_eq!(sv.remove(4), None);
-            assert_sv_eq!(sv, [0 => (), 2 => (), 3 => (); 4]);
-
-            assert_eq!(sv.remove(5), None);
             assert_sv_eq!(sv, [0 => (), 2 => (), 3 => (); 4]);
 
             assert_eq!(sv.remove(1), None);
@@ -545,37 +518,25 @@ macro_rules! gen_tests_for {
         }
 
         #[test]
-        fn insert_into_hole() {
+        fn insert() {
             let mut sv = $ty::from_vec(vec!['a', 'b', 'c']);
 
-            assert_eq!(sv.insert_into_hole(1, 'x'), Err('x'));
-            assert_sv_eq!(sv, [0 => 'a', 1 => 'b', 2 => 'c']);
+            assert_eq!(sv.insert(1, 'x'), Some('b'));
+            assert_sv_eq!(sv, [0 => 'a', 1 => 'x', 2 => 'c']);
 
-            assert_eq!(sv.insert_into_hole(3, 'x'), Err('x'));
-            assert_sv_eq!(sv, [0 => 'a', 1 => 'b', 2 => 'c']);
+            assert_panic!(sv.insert(3, 'x'));
+            assert_sv_eq!(sv, [0 => 'a', 1 => 'x', 2 => 'c']);
 
-            assert_eq!(sv.remove(1), Some('b'));
-            assert_eq!(sv.insert_into_hole(1, 'd'), Ok(()));
-            assert_sv_eq!(sv, [0 => 'a', 1 => 'd', 2 => 'c']);
+            assert_eq!(sv.remove(0), Some('a'));
+            assert_eq!(sv.insert(0, 'd'), None);
+            assert_sv_eq!(sv, [0 => 'd', 1 => 'x', 2 => 'c']);
 
-            assert_eq!(sv.insert_into_hole(1, 'x'), Err('x'));
-            assert_sv_eq!(sv, [0 => 'a', 1 => 'd', 2 => 'c']);
+            sv.reserve(2);
+            assert_eq!(sv.insert(4, 'f'), None);
+            assert_sv_eq!(sv, [0 => 'd', 1 => 'x', 2 => 'c', 4 => 'f']);
 
-            assert_eq!(sv.remove(1), Some('d'));
-            assert_sv_eq!(sv, [0 => 'a', 2 => 'c']);
-
-            assert_eq!(sv.insert_into_hole(1, 'e'), Ok(()));
-            assert_sv_eq!(sv, [0 => 'a', 1 => 'e', 2 => 'c']);
-
-            sv.grow(2);
-            assert_eq!(sv.insert_into_hole(5, 'x'), Err('x'));
-            assert_sv_eq!(sv, [0 => 'a', 1 => 'e', 2 => 'c'; 4]);
-
-            assert_eq!(sv.insert_into_hole(4, 'f'), Ok(()));
-            assert_sv_eq!(sv, [0 => 'a', 1 => 'e', 2 => 'c', 4 => 'f']);
-
-            assert_eq!(sv.insert_into_hole(3, 'g'), Ok(()));
-            assert_sv_eq!(sv, [0 => 'a', 1 => 'e', 2 => 'c', 3 => 'g', 4 => 'f']);
+            assert_eq!(sv.insert(3, 'g'), None);
+            assert_sv_eq!(sv, [0 => 'd', 1 => 'x', 2 => 'c', 3 => 'g', 4 => 'f']);
         }
 
         #[test]
@@ -748,38 +709,6 @@ macro_rules! gen_tests_for {
             sv.make_compact();
             assert_sv_eq!(sv, [0 => 1.0, 1 => 3.0]);
             assert_eq!(sv.into_vec(), &[1.0, 3.0]);
-        }
-
-        #[test]
-        fn insert_into_hole_and_grow() {
-            let mut sv = $ty::from(&['a', 'b']);
-            sv.reserve(10);
-
-            assert_eq!(sv.num_elements(), 2);
-            assert_eq!(sv.insert_into_hole(0, 'c'), Err('c'));
-            assert_eq!(sv.insert_into_hole(1, 'c'), Err('c'));
-            assert_eq!(sv.insert_into_hole(2, 'c'), Err('c'));
-
-            sv.remove(1);
-
-            assert_eq!(sv.num_elements(), 1);
-            assert_eq!(sv.insert_into_hole(0, 'c'), Err('c'));
-
-            assert_eq!(sv.insert_into_hole(1, 'c'), Ok(()));
-            assert_eq!(sv.insert_into_hole(1, 'd'), Err('d'));
-            assert_eq!(sv.insert_into_hole(2, 'c'), Err('c'));
-            assert_eq!(sv.num_elements(), 2);
-            assert_eq!(sv.clone().into_vec(), &['a', 'c']);
-
-            sv.grow(3);
-            assert_eq!(sv.num_elements(), 2);
-            assert_eq!(sv.clone().into_vec(), &['a', 'c']);
-
-            assert_eq!(sv.insert_into_hole(4, 'd'), Ok(()));
-            assert_eq!(sv.insert_into_hole(4, 'e'), Err('e'));
-
-            assert_eq!(sv.num_elements(), 3);
-            assert_eq!(sv.clone().into_vec(), &['a', 'c', 'd']);
         }
 
         #[test]

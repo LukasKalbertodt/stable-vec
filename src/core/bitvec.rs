@@ -455,7 +455,7 @@ mod tests {
             for i in (250..600).chain(620..650).chain(652..700).chain(900..1200) {
                 c.insert_at(i, 27u32);
             }
-            c.set_len(1200);
+            c.set_len(1800);
 
             for i in 0..250 {
                 assert_eq!(c.next_index_from(i), Some(250));
@@ -481,7 +481,7 @@ mod tests {
             for i in 900..1200 {
                 assert_eq!(c.next_index_from(i), Some(i));
             }
-            for i in 1200..2000 {
+            for i in 1200..1800 {
                 assert_eq!(c.next_index_from(i), None);
             }
         }

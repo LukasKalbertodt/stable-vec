@@ -1,29 +1,13 @@
 //! A `Vec<T>`-like collection which guarantees stable indices and features
 //! O(1) deletion of elements.
 //!
-//! This crate provides a simple stable vector implementation. You can find
-//! nearly all the relevant documentation on
-//! [the type `StableVec`](struct.StableVec.html).
+//! You can find nearly all the relevant documentation on the type
+//! [`StableVecFacade`]. This is the main type which is configurable over the
+//! core implementation. To use a pre-configured stable vector, use
+//! [`StableVec`].
 //!
-//! ---
-//!
-//! In order to use this crate, you have to include it into your `Cargo.toml`:
-//!
-//! ```toml
-//! [dependencies]
-//! stable_vec = "0.2"
-//! ```
-//!
-//! ... as well as declare it at your crate root:
-//!
-//! ```ignore
-//! extern crate stable_vec;
-//!
-//! use stable_vec::StableVec;
-//! ```
 
 #![deny(missing_debug_implementations)]
-
 
 use std::{
     cmp,
@@ -46,11 +30,21 @@ pub use self::core::{
 };
 
 
-/// The default core implementation of the stable vector.
+/// The default core implementation of the stable vector. Fine in most
+/// situations.
 pub type DefaultCore<T> = BitVecCore<T>;
 
+/// A stable vector with the default core implementation.
 pub type StableVec<T> = StableVecFacade<T, DefaultCore<T>>;
+
+/// A stable vector which stores the "deleted information" inline. This is very close to `Vec<Option<T>>`.
+///
+/// This is particularly useful if `T` benefits from "null optimization", i.e.
+/// if `size_of::<T>() == size_of::<Option<T>>()`.
 pub type InlineStableVec<T> = StableVecFacade<T, OptionCore<T>>;
+
+/// A stable vector which stores the "deleted information" externally in a bit
+/// vector.
 pub type ExternStableVec<T> = StableVecFacade<T, BitVecCore<T>>;
 
 
@@ -130,10 +124,10 @@ pub type ExternStableVec<T> = StableVecFacade<T, BitVecCore<T>>;
 ///   (filled and empty).
 /// - [`num_elements()`][StableVecFacade::num_elements]: the number of filled
 ///   slots.
-/// - [`next_index()`][StableVecFacade::next_index]: an index of the first slot
-///   (i.e. with the smallest index) that was never filled. This is the index
-///   that is returned by [`push`][StableVecFacade::push]. This implies that
-///   all filled slots have indices smaller than `next_index()`.
+/// - [`next_index()`][StableVecFacade::next_index]: the index of the first
+///   slot (i.e. with the smallest index) that was never filled. This is the
+///   index that is returned by [`push`][StableVecFacade::push]. This implies
+///   that all filled slots have indices smaller than `next_index()`.
 ///
 /// Unlike `Vec<T>`, `StableVecFacade` allows access to all slots with indices
 /// between 0 and `capacity()`. In particular, it is allowed to call
@@ -141,49 +135,67 @@ pub type ExternStableVec<T> = StableVecFacade<T, BitVecCore<T>>;
 /// `capacity()`.
 ///
 ///
-/// ---
+/// # The Core implementation `C`
+///
+/// You might have noticed the type parameter `C`. There are actually multiple
+/// ways how to implement the abstact data structure described above. One might
+/// basically use a `Vec<Option<T>>`. But there are other ways to.
+///
+/// Most of the time, you can simply use the alias [`StableVec`] which uses the
+/// [`DefaultCore`]. This is fine for almost all cases. That's why all
+/// documentation examples use that type instead of the generic
+/// `StableVecFacade`.
+///
+/// <br>
+/// <br>
+/// <br>
+/// <br>
 ///
 /// # Method overview
 ///
 /// (*there are more methods than mentioned in this overview*)
 ///
-/// **Associated functions**
+/// **Creating a stable vector**
 ///
-/// - [`new()`](#method.new)
-/// - [`with_capacity()`](#method.with_capacity())
+/// - [`new`][StableVecFacade::new]
+/// - [`with_capacity`][StableVecFacade::with_capacity()]
+/// - [`from_vec`][StableVecFacade::from_vec()]
 ///
 /// **Adding and removing elements**
 ///
-/// - [`push()`](#method.push)
-/// - [`pop()`](#method.pop)
-/// - [`remove()`](#method.remove)
+/// - [`push`][StableVecFacade::push]
+/// - [`insert`][StableVecFacade::insert]
+/// - [`remove`][StableVecFacade::remove]
+/// - [`remove_last`][StableVecFacade::remove_last]
+/// - [`remove_first`][StableVecFacade::remove_first]
 ///
 /// **Accessing elements**
 ///
-/// - [`get()`](#method.get) (returns `Option<&T>`)
+/// - [`get`][StableVecFacade::get] (returns `Option<&T>`)
 /// - [the `[]` index operator](#impl-Index<usize>) (returns `&T`)
-/// - [`get_mut()`](#method.get_mut) (returns `Option<&mut T>`)
+/// - [`get_mut`][StableVecFacade::get_mut] (returns `Option<&mut T>`)
 /// - [the mutable `[]` index operator](#impl-IndexMut<usize>) (returns `&mut T`)
-/// - [`remove()`](#method.remove) (returns `Option<T>`)
+/// - [`remove`][StableVecFacade::remove] (returns `Option<T>`)
 ///
 /// **Stable vector specific**
 ///
-/// - [`has_element_at()`](#method.has_element_at)
-/// - [`next_index()`](#method.next_index)
-/// - [`is_compact()`](#method.is_compact)
-/// - [`make_compact()`](#method.make_compact)
-/// - [`reordering_make_compact()`](#method.reordering_make_compact)
+/// - [`has_element_at`][StableVecFacade::has_element_at]
+/// - [`next_index`][StableVecFacade::next_index]
+/// - [`is_compact`][StableVecFacade::is_compact]
+/// - [`make_compact`][StableVecFacade::make_compact]
+/// - [`reordering_make_compact`][StableVecFacade::reordering_make_compact]
 ///
 /// **Number of elements**
 ///
-/// - [`is_empty()`](#method.is_empty)
-/// - [`num_elements()`](#method.num_elements)
+/// - [`is_empty`][StableVecFacade::is_empty]
+/// - [`num_elements`][StableVecFacade::num_elements]
 ///
 /// **Capacity management**
 ///
-/// - [`capacity()`](#method.capacity)
-/// - [`shrink_to_fit()`](#method.shrink_to_fit)
-/// - [`reserve()`](#method.reserve)
+/// - [`capacity`][StableVecFacade::capacity]
+/// - [`shrink_to_fit`][StableVecFacade::shrink_to_fit]
+/// - [`reserve`][StableVecFacade::reserve]
+/// - [`reserve_exact`][StableVecFacade::reserve_exact]
 ///
 // #[derive(PartialEq, Eq)]
 #[derive(Clone)]
@@ -193,7 +205,7 @@ pub struct StableVecFacade<T, C: Core<T>> {
 }
 
 impl<T, C: Core<T>> StableVecFacade<T, C> {
-    /// Constructs a new, empty `StableVecFacade<T>`.
+    /// Constructs a new, empty stable vector.
     ///
     /// The stable-vector will not allocate until elements are pushed onto it.
     pub fn new() -> Self {
@@ -203,8 +215,7 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
         }
     }
 
-    /// Constructs a new, empty `StableVecFacade<T>` with the specified
-    /// capacity.
+    /// Constructs a new, empty stable vector with the specified capacity.
     ///
     /// The stable-vector will be able to hold exactly `capacity` elements
     /// without reallocating. If `capacity` is 0, the stable-vector will not
@@ -216,9 +227,8 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
         out
     }
 
-    /// Creates a `StableVecFacade<T>` from the given `Vec<T>`. The elements
-    /// are not cloned (just moved) and the indices of the vector are
-    /// preserved.
+    /// Creates a stable vector from the given `Vec<T>`. The elements are not
+    /// cloned (just moved) and the indices of the vector are preserved.
     ///
     /// Note that this function will still allocate memory.
     ///
@@ -791,7 +801,9 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     /// returns. Instead, only the capacity is changed.
     ///
     /// If you want to compact this stable vector by removing deleted elements,
-    /// use the method [`make_compact`] or [`reordering_make_compact`] instead.
+    /// use the method [`make_compact`][StableVecFacade::make_compact] or
+    /// [`reordering_make_compact`][StableVecFacade::reordering_make_compact]
+    /// instead.
     pub fn shrink_to_fit(&mut self) {
         // `realloc` has the following preconditions:
         // - (a) `new_cap ≥ self.len()`
@@ -1495,7 +1507,7 @@ impl<T, C: Core<T>> fmt::Debug for IterMut<'_, T, C> {
 
 /// Iterator over owned elements of a `StableVecFacade`.
 ///
-/// Use the method [`StableVecFacade::into_iter`] to obtain an iterator of this
+/// Use the method `StableVecFacade::into_iter` to obtain an iterator of this
 /// kind.
 #[derive(Debug)]
 pub struct IntoIter<T, C: Core<T>> {

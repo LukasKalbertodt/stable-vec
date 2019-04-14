@@ -7,7 +7,13 @@ pub(crate) mod option;
 pub(crate) mod bitvec;
 
 
-/// The core of a stable vector: conceptually a `Vec<Option<T>>`.
+/// The core of a stable vector.
+///
+/// *Note*: If you are a user of this crate, you probably don't care about
+/// this! See the documentation on [`StableVecFacade`][crate::StableVecFacade]
+/// and the different core implementations for more useful information. This
+/// trait is only important for you if you want to implement your own core
+/// implementation.
 ///
 /// Implementors of the trait take the core role in the stable vector: storing
 /// elements of type `T` where each element might be deleted. The elements can

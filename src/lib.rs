@@ -37,7 +37,8 @@ pub type DefaultCore<T> = BitVecCore<T>;
 /// A stable vector with the default core implementation.
 pub type StableVec<T> = StableVecFacade<T, DefaultCore<T>>;
 
-/// A stable vector which stores the "deleted information" inline. This is very close to `Vec<Option<T>>`.
+/// A stable vector which stores the "deleted information" inline. This is very
+/// close to `Vec<Option<T>>`.
 ///
 /// This is particularly useful if `T` benefits from "null optimization", i.e.
 /// if `size_of::<T>() == size_of::<Option<T>>()`.
@@ -1588,9 +1589,11 @@ impl<T: fmt::Debug, C: Core<T>> fmt::Debug for StableVecFacade<T, C> {
     }
 }
 
-impl<Ta, Tb, Ca: Core<Ta>, Cb: Core<Tb>> PartialEq<StableVecFacade<Tb, Cb>> for StableVecFacade<Ta, Ca>
+impl<Ta, Tb, Ca, Cb> PartialEq<StableVecFacade<Tb, Cb>> for StableVecFacade<Ta, Ca>
 where
     Ta: PartialEq<Tb>,
+    Ca: Core<Ta>,
+    Cb: Core<Tb>,
 {
     fn eq(&self, other: &StableVecFacade<Tb, Cb>) -> bool {
         self.iter().eq(other)

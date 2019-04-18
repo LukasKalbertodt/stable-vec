@@ -66,8 +66,8 @@ pub trait Core<T> {
     /// - `out.cap() == 0`
     fn new() -> Self;
 
-    /// Returns the length of this core (the `len`). See [the crate docs][Core]
-    /// for more information.
+    /// Returns the length of this core (the `len`). See the trait docs for
+    /// more information.
     fn len(&self) -> usize;
 
     /// Sets the `len` to a new value.
@@ -85,8 +85,8 @@ pub trait Core<T> {
     /// - `self.len() == new_len`
     unsafe fn set_len(&mut self, new_len: usize);
 
-    /// Returns the capacity of this core (the `cap`). See [the crate
-    /// docs][Core] for more information.
+    /// Returns the capacity of this core (the `cap`). See the trait docs for
+    /// more information.
     fn cap(&self) -> usize;
 
     /// Reallocates the memory to have a `cap` of exactly `new_cap`.

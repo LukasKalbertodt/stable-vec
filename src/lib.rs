@@ -775,7 +775,7 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     ///
     /// When calling this method `self.has_element_at(index)` has to be `true`,
     /// otherwise this method's behavior is undefined! This requirement implies
-    /// the requirements `idx < self.cap()` and `idx < self.len()`.
+    /// the requirement `index < self.next_index()`.
     pub unsafe fn get_unchecked(&self, index: usize) -> &T {
         self.core.get_unchecked(index)
     }
@@ -787,7 +787,7 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     ///
     /// When calling this method `self.has_element_at(index)` has to be `true`,
     /// otherwise this method's behavior is undefined! This requirement implies
-    /// the requirements `idx < self.cap()` and `idx < self.len()`.
+    /// the requirement `index < self.next_index()`.
     pub unsafe fn get_unchecked_mut(&mut self, index: usize) -> &mut T {
         self.core.get_unchecked_mut(index)
     }

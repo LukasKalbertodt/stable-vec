@@ -349,10 +349,14 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
         }
     }
 
-    /// Reserve enough memory so that there is a slot at `index`. This is
-    /// equivalent to `self.reserve(1 + index - self.next_index())`.
+    /// Reserve enough memory so that there is a slot at `index`.
+    ///
+    /// TODO: add doc example and test that catches reserving if enough memory
+    /// is already available.
     pub fn reserve_for(&mut self, index: usize) {
-        self.reserve(1 + index - self.next_index());
+        if index >= self.next_index() {
+            self.reserve(1 + index - self.next_index());
+        }
     }
 
     /// Like [`reserve`][StableVecFacade::reserve], but guarantees that memory

@@ -1490,6 +1490,16 @@ impl<T, C: Core<T>> fmt::Debug for Iter<'_, T, C> {
     }
 }
 
+impl<T, C: Core<T>> Clone for Iter<'_, T, C> {
+    fn clone(&self) -> Self {
+        Self {
+            core: self.core,
+            pos: self.pos,
+            count: self.count,
+        }
+    }
+}
+
 
 /// Iterator over mutable references to the elements of a `StableVecFacade`.
 ///
@@ -1612,6 +1622,16 @@ impl<T, C: Core<T>> fmt::Debug for Indices<'_, T, C> {
             .field("pos", &self.pos)
             .field("count", &self.count)
             .finish()
+    }
+}
+
+impl<T, C: Core<T>> Clone for Indices<'_, T, C> {
+    fn clone(&self) -> Self {
+        Self {
+            core: self.core,
+            pos: self.pos,
+            count: self.count,
+        }
     }
 }
 

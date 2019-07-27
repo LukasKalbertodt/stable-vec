@@ -413,4 +413,41 @@ fn num_usizes_for(cap: usize) -> usize {
 mod tests {
     use super::*;
 
+    #[test]
+    fn num_usizes() {
+        assert_eq!(num_usizes_for(0), 0);
+        assert_eq!(num_usizes_for(1), 1);
+        assert_eq!(num_usizes_for(2), 1);
+        assert_eq!(num_usizes_for(3), 1);
+
+        #[cfg(target_pointer_width = "64")]
+        {
+            assert_eq!(num_usizes_for(63), 1);
+            assert_eq!(num_usizes_for(64), 1);
+            assert_eq!(num_usizes_for(65), 2);
+            assert_eq!(num_usizes_for(66), 2);
+            assert_eq!(num_usizes_for(66), 2);
+
+            assert_eq!(num_usizes_for(255), 4);
+            assert_eq!(num_usizes_for(256), 4);
+            assert_eq!(num_usizes_for(257), 5);
+            assert_eq!(num_usizes_for(258), 5);
+            assert_eq!(num_usizes_for(259), 5);
+        }
+
+        #[cfg(target_pointer_width = "32")]
+        {
+            assert_eq!(num_usizes_for(31), 1);
+            assert_eq!(num_usizes_for(32), 1);
+            assert_eq!(num_usizes_for(33), 2);
+            assert_eq!(num_usizes_for(34), 2);
+            assert_eq!(num_usizes_for(35), 2);
+
+            assert_eq!(num_usizes_for(127), 4);
+            assert_eq!(num_usizes_for(128), 4);
+            assert_eq!(num_usizes_for(129), 5);
+            assert_eq!(num_usizes_for(130), 5);
+            assert_eq!(num_usizes_for(131), 5);
+        }
+    }
 }

@@ -1,11 +1,25 @@
+//! `Core` trait definition and implementations.
+//!
+//! There are multiple ways to implement the "stable vector" interface, each
+//! with different performance characteristics. The `Core` is this
+//! implementation, making the stable vector work. See [`Core`][core::Core] for
+//! more information.
+
 use std::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
 
-pub(crate) mod option;
-pub(crate) mod bitvec;
+pub use self::option::OptionCore;
+pub use self::bitvec::BitVecCore;
 
+mod option;
+mod bitvec;
+
+
+/// The default core implementation of the stable vector. Fine in most
+/// situations.
+pub type DefaultCore<T> = BitVecCore<T>;
 
 /// The core of a stable vector.
 ///

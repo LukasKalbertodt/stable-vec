@@ -1096,6 +1096,74 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
         self.core.len()
     }
 
+    /// Returns the index of the next filled slot with index `idx` or higher.
+    ///
+    /// Specifically, if an element at index `idx` exists, `Some(idx)` is
+    /// returned. If all slots with indices `idx` and higher are empty (or
+    /// don't exist), `None` is returned. This method can be used to iterate
+    /// over all existing elements without an iterator object.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::from(&[0, 1, 2, 3, 4]);
+    /// sv.remove(1);
+    /// sv.remove(2);
+    /// sv.remove(4);
+    ///
+    /// assert_eq!(sv.next_index_from(0), Some(0));
+    /// assert_eq!(sv.next_index_from(1), Some(3));
+    /// assert_eq!(sv.next_index_from(2), Some(3));
+    /// assert_eq!(sv.next_index_from(3), Some(3));
+    /// assert_eq!(sv.next_index_from(4), None);
+    /// assert_eq!(sv.next_index_from(5), None);
+    /// ```
+    pub fn next_index_from(&self, start: usize) -> Option<usize> {
+        if start >= self.next_push_index() {
+            None
+        } else {
+            // The precondition `start <= self.core.len()` is satisfied.
+            unsafe { self.core.next_index_from(start) }
+        }
+    }
+
+    /// Returns the index of the previous filled slot with index `idx` or
+    /// lower. This is like `next_index_from` but searching backwards.
+    ///
+    /// Specifically, if an element at index `idx` exists, `Some(idx)` is
+    /// returned. If all slots with indices `idx` and lower are empty, `None`
+    /// is returned. This method can be used to iterate over all existing
+    /// elements without an iterator object.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::from(&[0, 1, 2, 3, 4]);
+    /// sv.remove(0);
+    /// sv.remove(2);
+    /// sv.remove(3);
+    ///
+    /// assert_eq!(sv.prev_index_from(0), None);
+    /// assert_eq!(sv.prev_index_from(1), Some(1));
+    /// assert_eq!(sv.prev_index_from(2), Some(1));
+    /// assert_eq!(sv.prev_index_from(3), Some(1));
+    /// assert_eq!(sv.prev_index_from(4), Some(4));
+    /// assert_eq!(sv.prev_index_from(5), Some(4));
+    /// ```
+    pub fn prev_index_from(&self, start: usize) -> Option<usize> {
+        // The precondition `start < self.core.len()` is satisfied de to this
+        // `min` expression.
+        let len = self.next_push_index();
+        if len == 0 {
+            return None;
+        }
+
+        let start = std::cmp::min(start, len - 1);
+        unsafe { self.core.prev_index_from(start) }
+    }
+
     /// Returns an iterator over immutable references to the existing elements
     /// of this stable vector. Elements are yielded in order of their
     /// increasing indices.

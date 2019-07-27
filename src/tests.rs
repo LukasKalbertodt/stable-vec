@@ -416,6 +416,164 @@ macro_rules! gen_tests_for {
         }
 
         #[test]
+        fn next_index_from() {
+            let mut sv = $ty::new();
+            sv.reserve(10);
+            assert_eq!(sv.next_index_from(0), None);
+            assert_eq!(sv.next_index_from(1), None);
+            assert_eq!(sv.next_index_from(12), None);
+
+            sv.insert(0, 10u32);
+            assert_eq!(sv.next_index_from(0), Some(0));
+            assert_eq!(sv.next_index_from(1), None);
+            assert_eq!(sv.next_index_from(2), None);
+            assert_eq!(sv.next_index_from(12), None);
+
+            sv.insert(1, 11u32);
+            assert_eq!(sv.next_index_from(0), Some(0));
+            assert_eq!(sv.next_index_from(1), Some(1));
+            assert_eq!(sv.next_index_from(2), None);
+            assert_eq!(sv.next_index_from(3), None);
+            assert_eq!(sv.next_index_from(12), None);
+
+            sv.insert(3, 13u32);
+            assert_eq!(sv.next_index_from(0), Some(0));
+            assert_eq!(sv.next_index_from(1), Some(1));
+            assert_eq!(sv.next_index_from(2), Some(3));
+            assert_eq!(sv.next_index_from(3), Some(3));
+            assert_eq!(sv.next_index_from(4), None);
+            assert_eq!(sv.next_index_from(5), None);
+            assert_eq!(sv.next_index_from(12), None);
+
+            let mut sv = $ty::new();
+            sv.reserve(10);
+            sv.insert(2, 10u32);
+            assert_eq!(sv.next_index_from(0), Some(2));
+            assert_eq!(sv.next_index_from(1), Some(2));
+            assert_eq!(sv.next_index_from(2), Some(2));
+            assert_eq!(sv.next_index_from(3), None);
+            assert_eq!(sv.next_index_from(4), None);
+            assert_eq!(sv.next_index_from(12), None);
+        }
+
+        #[test]
+        fn next_index_from_medium() {
+            let mut sv = $ty::new();
+            sv.reserve(200);
+
+            for i in (25..60).chain(62..65).chain(65..70).chain(90..120) {
+                sv.insert(i, 27u32);
+            }
+
+            for i in 0..25 {
+                assert_eq!(sv.next_index_from(i), Some(25));
+            }
+            for i in 25..60 {
+                assert_eq!(sv.next_index_from(i), Some(i));
+            }
+            for i in 60..62 {
+                assert_eq!(sv.next_index_from(i), Some(62));
+            }
+            for i in 62..65 {
+                assert_eq!(sv.next_index_from(i), Some(i));
+            }
+            for i in 65..65 {
+                assert_eq!(sv.next_index_from(i), Some(65));
+            }
+            for i in 65..70 {
+                assert_eq!(sv.next_index_from(i), Some(i));
+            }
+            for i in 70..90 {
+                assert_eq!(sv.next_index_from(i), Some(90));
+            }
+            for i in 90..120 {
+                assert_eq!(sv.next_index_from(i), Some(i));
+            }
+            for i in 120..220 {
+                assert_eq!(sv.next_index_from(i), None);
+            }
+        }
+
+        // This largest test takes a fairly long time with Miri, so it is disabled
+        // by default.
+        #[cfg(not(miri))]
+        #[test]
+        fn next_index_from_large() {
+            let mut sv = $ty::new();
+            sv.reserve(2000);
+
+            for i in (250..600).chain(620..650).chain(652..700).chain(900..1200) {
+                sv.insert(i, 27u32);
+            }
+
+            for i in 0..250 {
+                assert_eq!(sv.next_index_from(i), Some(250));
+            }
+            for i in 250..600 {
+                assert_eq!(sv.next_index_from(i), Some(i));
+            }
+            for i in 600..620 {
+                assert_eq!(sv.next_index_from(i), Some(620));
+            }
+            for i in 620..650 {
+                assert_eq!(sv.next_index_from(i), Some(i));
+            }
+            for i in 650..652 {
+                assert_eq!(sv.next_index_from(i), Some(652));
+            }
+            for i in 652..700 {
+                assert_eq!(sv.next_index_from(i), Some(i));
+            }
+            for i in 700..900 {
+                assert_eq!(sv.next_index_from(i), Some(900));
+            }
+            for i in 900..1200 {
+                assert_eq!(sv.next_index_from(i), Some(i));
+            }
+            for i in 1200..2100 {
+                assert_eq!(sv.next_index_from(i), None);
+            }
+        }
+
+        #[test]
+        fn prev_index_from_medium() {
+            let mut sv = $ty::new();
+            sv.reserve(200);
+
+            for i in (25..60).chain(62..65).chain(65..70).chain(90..120) {
+                sv.insert(i, 27u32);
+            }
+
+            for i in 0..25 {
+                assert_eq!(sv.prev_index_from(i), None);
+            }
+            for i in 25..60 {
+                assert_eq!(sv.prev_index_from(i), Some(i));
+            }
+            for i in 60..62 {
+                assert_eq!(sv.prev_index_from(i), Some(59));
+            }
+            for i in 62..65 {
+                assert_eq!(sv.prev_index_from(i), Some(i));
+            }
+            for i in 65..65 {
+                assert_eq!(sv.prev_index_from(i), Some(64));
+            }
+            for i in 65..70 {
+                assert_eq!(sv.prev_index_from(i), Some(i));
+            }
+            for i in 70..90 {
+                assert_eq!(sv.prev_index_from(i), Some(69));
+            }
+            for i in 90..120 {
+                assert_eq!(sv.prev_index_from(i), Some(i));
+            }
+            for i in 120..220 {
+                assert_eq!(sv.prev_index_from(i), Some(119));
+            }
+        }
+
+        #[test]
         fn retain_indices() {
             let mut sv = $ty::from_vec(vec!['a', 'b', 'c', 'd', 'e']);
 

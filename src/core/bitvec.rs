@@ -447,6 +447,50 @@ mod tests {
     }
 
     #[test]
+    fn next_index_from_medium() {
+        unsafe {
+            let mut c = BitVecCore::new();
+            c.realloc(200);
+
+            for i in (25..60).chain(62..65).chain(65..70).chain(90..120) {
+                c.insert_at(i, 27u32);
+            }
+            c.set_len(180);
+
+            for i in 0..25 {
+                assert_eq!(c.next_index_from(i), Some(25));
+            }
+            for i in 25..60 {
+                assert_eq!(c.next_index_from(i), Some(i));
+            }
+            for i in 60..62 {
+                assert_eq!(c.next_index_from(i), Some(62));
+            }
+            for i in 62..65 {
+                assert_eq!(c.next_index_from(i), Some(i));
+            }
+            for i in 65..65 {
+                assert_eq!(c.next_index_from(i), Some(65));
+            }
+            for i in 65..70 {
+                assert_eq!(c.next_index_from(i), Some(i));
+            }
+            for i in 70..90 {
+                assert_eq!(c.next_index_from(i), Some(90));
+            }
+            for i in 90..120 {
+                assert_eq!(c.next_index_from(i), Some(i));
+            }
+            for i in 120..180 {
+                assert_eq!(c.next_index_from(i), None);
+            }
+        }
+    }
+
+    // This largest test takes a fairly long time with Miri, so it is disabled
+    // by default.
+    #[cfg(not(miri))]
+    #[test]
     fn next_index_from_large() {
         unsafe {
             let mut c = BitVecCore::new();

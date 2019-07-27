@@ -4,6 +4,9 @@ use std::{
 };
 use crate::{Core, StableVecFacade};
 
+// Miri does not support unwinding, so we only do this check when Miri is not
+// used.
+#[cfg(not(miri))]
 macro_rules! assert_panic {
     ($($body:tt)*) => {{
         let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -17,6 +20,11 @@ macro_rules! assert_panic {
             );
         }
     }}
+}
+
+#[cfg(miri)]
+macro_rules! assert_panic {
+    ($($body:tt)*) => {};
 }
 
 fn assert_sv_eq_fn<T, C>(
@@ -462,6 +470,9 @@ macro_rules! gen_tests_for {
             assert_sv_eq!(sv, [2 => 'c', 3 => 'd'; 4]);
         }
 
+        // This is a fairly time-consuming test which takes a long time on
+        // Miri, we we do not execute it by default with Miri.
+        #[cfg(not(miri))]
         #[test]
         fn large() {
             let mut sv = $ty::new();
@@ -761,6 +772,10 @@ macro_rules! gen_tests_for {
             check_iter!(sv.indices());
         }
 
+        // Quickcheck uses rand which causes a Miri error. Seems like there is
+        // indeed a bug in `rand`. So for now we exclude these tests when
+        // running with Miri.
+        #[cfg(not(miri))]
         quickcheck! {
             fn reordering_compact(insertions: u16, to_delete: Vec<u16>) -> bool {
                 let insertions = insertions + 1;
@@ -833,6 +848,7 @@ macro_rules! gen_tests_for {
 }
 
 mod option {
+    #[cfg(not(miri))]
     use quickcheck::quickcheck;
     use crate::InlineStableVec;
     use super::assert_sv_eq_fn;
@@ -841,6 +857,7 @@ mod option {
 }
 
 mod bitvec {
+    #[cfg(not(miri))]
     use quickcheck::quickcheck;
     use crate::ExternStableVec;
     use super::assert_sv_eq_fn;

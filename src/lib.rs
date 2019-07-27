@@ -6,7 +6,69 @@
 //! core implementation. To use a pre-configured stable vector, use
 //! [`StableVec`].
 //!
-
+//!
+//! # Why?
+//!
+//! The standard `Vec<T>` always stores all elements contiguously. While this
+//! has many advantages (most notable: cache friendliness), it has the
+//! disadvantage that you can't simply remove an element from the middle; at
+//! least not without shifting all elements after it to the left. And this has
+//! two major drawbacks:
+//!
+//! 1. It has a linear O(n) time complexity
+//! 2. It invalidates all indices of the shifted elements
+//!
+//! Invalidating an index means that a given index `i` who referred to an
+//! element `a` before, now refers to another element `b`. On the contrary, a
+//! *stable* index means, that the index always refers to the same element.
+//!
+//! Stable indices are needed in quite a few situations. One example are graph
+//! data structures (or complex data structures in general). Instead of
+//! allocating heap memory for every node and edge, all nodes and all edges are
+//! stored in a vector (each). But how does the programmer unambiguously refer
+//! to one specific node? A pointer is not possible due to the reallocation
+//! strategy of most dynamically growing arrays (the pointer itself is not
+//! *stable*). Thus, often the index is used.
+//!
+//! But in order to use the index, it has to be stable. This is one example,
+//! where this data structure comes into play.
+//!
+//!
+//! # How?
+//!
+//! Actually, the implementation of this stable vector is rather simple. We can
+//! trade O(1) deletions and stable indices for a higher memory consumption.
+//!
+//! When `StableVec::remove()` is called, the element is just marked as
+//! "deleted" (and the actual element is dropped), but other than that, nothing
+//! happens. This has the very obvious disadvantage that deleted objects (so
+//! called empty slots) just waste space. This is also the most important thing
+//! to understand:
+//!
+//! The memory requirement of this data structure is `O(|inserted elements|)`;
+//! instead of `O(|inserted elements| - |removed elements|)`. The latter is the
+//! memory requirement of normal `Vec<T>`. Thus, if deletions are far more
+//! numerous than insertions in your situation, then this data structure is
+//! probably not fitting your needs.
+//!
+//!
+//! # Why not?
+//!
+//! As mentioned above, this data structure is rather simple and has many
+//! disadvantages on its own. Here are some reason not to use it:
+//!
+//! - You don't need stable indices or O(1) removal
+//! - Your deletions significantly outnumber your insertions
+//! - You want to choose your keys/indices
+//! - Lookup times do not matter so much to you
+//!
+//! Especially in the last two cases, you could consider using a `HashMap` with
+//! integer keys, best paired with a fast hash function for small keys.
+//!
+//! If you not only want stable indices, but stable pointers, you might want
+//! to use something similar to a linked list. Although: think carefully about
+//! your problem before using a linked list.
+//!
 #![deny(missing_debug_implementations)]
 
 use std::{
@@ -47,68 +109,6 @@ pub type ExternStableVec<T> = StableVecFacade<T, BitVecCore<T>>;
 /// A `Vec<T>`-like collection which guarantees stable indices and features
 /// O(1) deletion of elements.
 ///
-/// # Why?
-///
-/// The standard `Vec<T>` always stores all elements contiguous. While this has
-/// many advantages (most notable: cache friendliness), it has the disadvantage
-/// that you can't simply remove an element from the middle; at least not
-/// without shifting all elements after it to the left. And this has two major
-/// drawbacks:
-///
-/// 1. It has a linear O(n) time complexity
-/// 2. It invalidates all indices of the shifted elements
-///
-/// Invalidating an index means that a given index `i` who referred to an
-/// element `a` before, now refers to another element `b`. On the contrary, a
-/// *stable* index means, that the index always refers to the same element.
-///
-/// Stable indices are needed in quite a few situations. One example are graph
-/// data structures (or complex data structures in general). Instead of
-/// allocating heap memory for every node and edge, all nodes and all edges are
-/// stored in a vector (each). But how does the programmer unambiguously refer
-/// to one specific node? A pointer is not possible due to the reallocation
-/// strategy of most dynamically growing arrays (the pointer itself is not
-/// *stable*). Thus, often the index is used.
-///
-/// But in order to use the index, it has to be stable. This is one example,
-/// where this data structure comes into play.
-///
-///
-/// # How?
-///
-/// Actually, the implementation of this stable vector is rather simple. We can
-/// trade O(1) deletions and stable indices for a higher memory consumption.
-///
-/// When `StableVec::remove()` is called, the element is just marked as
-/// "deleted" (and the actual element is dropped), but other than that, nothing
-/// happens. This has the very obvious disadvantage that deleted objects (so
-/// called empty slots) just waste space. This is also the most important thing
-/// to understand:
-///
-/// The memory requirement of this data structure is `O(|inserted elements|)`;
-/// instead of `O(|inserted elements| - |removed elements|)`. The latter is the
-/// memory requirement of normal `Vec<T>`. Thus, if deletions are far more
-/// numerous than insertions in your situation, then this data structure is
-/// probably not fitting your needs.
-///
-///
-/// # Why not?
-///
-/// As mentioned above, this data structure is rather simple and has many
-/// disadvantages on its own. Here are some reason not to use it:
-///
-/// - You don't need stable indices or O(1) removal
-/// - Your deletions significantly outnumber your insertions
-/// - You want to choose your keys/indices
-/// - Lookup times do not matter so much to you
-///
-/// Especially in the last two cases, you could consider using a `HashMap` with
-/// integer keys, best paired with a fast hash function for small keys.
-///
-/// If you not only want stable indices, but stable pointers, you might want
-/// to use something similar to a linked list. Although: think carefully about
-/// your problem before using a linked list.
-///
 ///
 /// # Terminology and overview of a stable vector
 ///
@@ -125,6 +125,17 @@ pub type ExternStableVec<T> = StableVecFacade<T, BitVecCore<T>>;
 ///   the index that is returned by [`push`][StableVecFacade::push]. This
 ///   implies that all filled slots have indices smaller than
 ///   `next_push_index()`.
+///
+/// Here is an example visualization (with `num_elements = 4`).
+///
+/// ```text
+///      0   1   2   3   4   5   6   7   8   9   10
+///    ┌───┬───┬───┬───┬───┬───┬───┬───┬───┬───┐
+///    │ a │ - │ b │ c │ - │ - │ d │ - │ - │ - │
+///    └───┴───┴───┴───┴───┴───┴───┴───┴───┴───┘
+///                                      ↑       ↑
+///                        next_push_index       capacity
+/// ```
 ///
 /// Unlike `Vec<T>`, `StableVecFacade` allows access to all slots with indices
 /// between 0 and `capacity()`. In particular, it is allowed to call
@@ -192,6 +203,7 @@ pub type ExternStableVec<T> = StableVecFacade<T, BitVecCore<T>>;
 /// - [`capacity`][StableVecFacade::capacity]
 /// - [`shrink_to_fit`][StableVecFacade::shrink_to_fit]
 /// - [`reserve`][StableVecFacade::reserve]
+/// - [`reserve_for`][StableVecFacade::reserve_for]
 /// - [`reserve_exact`][StableVecFacade::reserve_exact]
 ///
 // #[derive(PartialEq, Eq)]

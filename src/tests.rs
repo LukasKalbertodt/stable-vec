@@ -42,7 +42,7 @@ where
     assert_eq!(sv.num_elements(), num_elements, "num_elements check failed");
     assert_eq!(sv.is_empty(), num_elements == 0, "is_empty check failed");
     assert_eq!(sv.is_compact(), last_index + 1 == num_elements, "is_compact check failed");
-    assert_eq!(sv.next_index(), last_index + 1, "next_index check failed");
+    assert_eq!(sv.next_push_index(), last_index + 1, "next_push_index check failed");
     assert!(sv.capacity() >= last_index + 1, "capacity check failed");
 
     assert_eq!(sv.iter().cloned().collect::<Vec<_>>(), values);
@@ -95,7 +95,7 @@ macro_rules! assert_sv_eq {
         assert_eq!(sv.num_elements(), 0, "num_elements check failed");
         assert!(sv.is_empty(), "is_empty() check failed");
         assert_eq!(sv.is_compact(), next_index == 0, "is_compact check failed");
-        assert_eq!(sv.next_index(), next_index, "next_index check failed");
+        assert_eq!(sv.next_push_index(), next_index, "next_push_index check failed");
         assert!(sv.capacity() >= next_index, "capacity check failed");
 
         assert_eq!(sv.iter().count(), 0);

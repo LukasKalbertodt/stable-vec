@@ -17,7 +17,7 @@ fn main() {
 
 
     println!("--- before compact():");
-    for i in 0..sv.next_index() {
+    for i in 0..sv.next_push_index() {
         println!("{} -> {:?}", i, sv.get(i));
     }
 
@@ -25,7 +25,7 @@ fn main() {
 
     sv.make_compact();
     println!("--- after compact():");
-    for i in 0..sv.next_index() {
+    for i in 0..sv.next_push_index() {
         println!("{} -> {:?}", i, sv.get(i));
     }
 

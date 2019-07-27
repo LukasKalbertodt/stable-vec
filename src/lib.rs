@@ -120,10 +120,11 @@ pub type ExternStableVec<T> = StableVecFacade<T, BitVecCore<T>>;
 ///   (filled and empty).
 /// - [`num_elements()`][StableVecFacade::num_elements]: the number of filled
 ///   slots.
-/// - [`next_index()`][StableVecFacade::next_index]: the index of the first
-///   slot (i.e. with the smallest index) that was never filled. This is the
-///   index that is returned by [`push`][StableVecFacade::push]. This implies
-///   that all filled slots have indices smaller than `next_index()`.
+/// - [`next_push_index()`][StableVecFacade::next_push_index]: the index of the
+///   first slot (i.e. with the smallest index) that was never filled. This is
+///   the index that is returned by [`push`][StableVecFacade::push]. This
+///   implies that all filled slots have indices smaller than
+///   `next_push_index()`.
 ///
 /// Unlike `Vec<T>`, `StableVecFacade` allows access to all slots with indices
 /// between 0 and `capacity()`. In particular, it is allowed to call
@@ -176,7 +177,7 @@ pub type ExternStableVec<T> = StableVecFacade<T, BitVecCore<T>>;
 /// **Stable vector specific**
 ///
 /// - [`has_element_at`][StableVecFacade::has_element_at]
-/// - [`next_index`][StableVecFacade::next_index]
+/// - [`next_push_index`][StableVecFacade::next_push_index]
 /// - [`is_compact`][StableVecFacade::is_compact]
 /// - [`make_compact`][StableVecFacade::make_compact]
 /// - [`reordering_make_compact`][StableVecFacade::reordering_make_compact]
@@ -265,12 +266,12 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     }
 
     /// Reserves memory for at least `additional` more elements to be inserted
-    /// at indices `>= self.next_index()`.
+    /// at indices `>= self.next_push_index()`.
     ///
     /// This method might allocate more than `additional` to avoid frequent
     /// reallocations. Does nothing if the current capacity is already
     /// sufficient. After calling this method, `self.capacity()` is ≥
-    /// `self.next_index() + additional`.
+    /// `self.next_push_index() + additional`.
     ///
     /// Unlike `Vec::reserve`, the additional reserved memory is not completely
     /// unaccessible. Instead, additional empty slots are added to this stable
@@ -286,13 +287,13 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     ///
     /// // After we inserted one element, the next element would sit at index
     /// // 1, as expected.
-    /// assert_eq!(sv.next_index(), 1);
+    /// assert_eq!(sv.next_push_index(), 1);
     ///
     /// sv.reserve(2); // insert two empty slots
     ///
     /// // `reserve` doesn't change any of this
     /// assert_eq!(sv.num_elements(), 1);
-    /// assert_eq!(sv.next_index(), 1);
+    /// assert_eq!(sv.next_push_index(), 1);
     ///
     /// // We can now insert an element at index 2.
     /// sv.insert(2, 'x');
@@ -300,8 +301,9 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     ///
     /// // These values get adjusted accordingly.
     /// assert_eq!(sv.num_elements(), 2);
-    /// assert_eq!(sv.next_index(), 3);
+    /// assert_eq!(sv.next_push_index(), 3);
     /// ```
+    // TODO: maybe make this method inline(never) and cold?
     pub fn reserve(&mut self, additional: usize) {
         #[inline(never)]
         #[cold]
@@ -349,8 +351,8 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     /// TODO: add doc example and test that catches reserving if enough memory
     /// is already available.
     pub fn reserve_for(&mut self, index: usize) {
-        if index >= self.next_index() {
-            self.reserve(1 + index - self.next_index());
+        if index >= self.next_push_index() {
+            self.reserve(1 + index - self.next_push_index());
         }
     }
 
@@ -358,7 +360,7 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     /// for exactly `additional` more elements is allocated.
     ///
     /// This means that after calling this method, `self.capacity()` is exactly
-    /// `self.next_index() + additional`.
+    /// `self.next_push_index() + additional`.
     pub fn reserve_exact(&mut self, additional: usize) {
         #[inline(never)]
         #[cold]
@@ -433,8 +435,8 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     /// If the slot at `index` is empty`, the `elem` is inserted at that
     /// position and `None` is returned. If there is an existing element `x` at
     /// that position, that element is replaced by `elem` and `Some(x)` is
-    /// returned. The `next_index` is adjusted accordingly if `index >=
-    /// next_index()`.
+    /// returned. The `next_push_index` is adjusted accordingly if `index >=
+    /// next_push_index()`.
     ///
     /// This method has a runtime complexity of O(1).
     ///
@@ -458,11 +460,11 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     /// assert_eq!(sv[star_idx], 'x');
     ///
     /// // We can also reserve memory (create new empty slots) and insert into
-    /// // such a new slot. Note that that `next_index` gets adjusted.
+    /// // such a new slot. Note that that `next_push_index` gets adjusted.
     /// sv.reserve(1);
     /// assert_eq!(sv.insert(2, 'y'), None);
     /// assert_eq!(sv.num_elements(), 3);
-    /// assert_eq!(sv.next_index(), 3);
+    /// assert_eq!(sv.next_push_index(), 3);
     /// assert_eq!(sv[2], 'y');
     ///
     /// // Inserting into a filled slot replaces the value and returns the old
@@ -1073,12 +1075,12 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     /// # use stable_vec::StableVec;
     /// let mut sv = StableVec::from(&['a', 'b', 'c']);
     ///
-    /// let next_index = sv.next_index();
+    /// let next_index = sv.next_push_index();
     /// let index_of_d = sv.push('d');
     ///
     /// assert_eq!(next_index, index_of_d);
     /// ```
-    pub fn next_index(&self) -> usize {
+    pub fn next_push_index(&self) -> usize {
         self.core.len()
     }
 

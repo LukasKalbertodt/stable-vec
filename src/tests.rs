@@ -776,80 +776,83 @@ macro_rules! gen_tests_for {
         // indeed a bug in `rand`. So for now we exclude these tests when
         // running with Miri.
         #[cfg(not(miri))]
-        quickcheck! {
-            fn reordering_compact(insertions: u16, to_delete: Vec<u16>) -> bool {
-                let insertions = insertions + 1;
-                // Create stable vector containing `insertions` zeros. Afterwards, we
-                // remove at most half of those elements
-                let mut sv = $ty::from(vec![0; insertions as usize]);
-                for i in to_delete {
-                    let i = (i % insertions) as usize;
-                    if sv.has_element_at(i) {
-                        sv.remove(i);
-                    }
+        #[quickcheck]
+        fn reordering_compact(insertions: u16, to_delete: Vec<u16>) -> bool {
+            let insertions = insertions + 1;
+            // Create stable vector containing `insertions` zeros. Afterwards, we
+            // remove at most half of those elements
+            let mut sv = $ty::from(vec![0; insertions as usize]);
+            for i in to_delete {
+                let i = (i % insertions) as usize;
+                if sv.has_element_at(i) {
+                    sv.remove(i);
                 }
-
-                // Remember the number of elements before and call compact.
-                let sv_before = sv.clone();
-                let n_before_compact = sv.num_elements();
-                sv.reordering_make_compact();
-
-                n_before_compact == sv.num_elements()
-                    && sv.is_compact()
-                    && (0..n_before_compact).all(|i| sv.get(i).is_some())
-                    && sv_before.iter().all(|e| sv.contains(e))
             }
 
-            fn compact(insertions: u16, to_delete: Vec<u16>) -> bool {
-                let insertions = insertions + 1;
-                // Create stable vector containing `insertions` zeros. Afterwards, we
-                // remove at most half of those elements
-                let mut sv = $ty::from(vec![0; insertions as usize]);
-                for i in to_delete {
-                    let i = (i % insertions) as usize;
-                    if sv.has_element_at(i) {
-                        sv.remove(i);
-                    }
+            // Remember the number of elements before and call compact.
+            let sv_before = sv.clone();
+            let n_before_compact = sv.num_elements();
+            sv.reordering_make_compact();
+
+            n_before_compact == sv.num_elements()
+                && sv.is_compact()
+                && (0..n_before_compact).all(|i| sv.get(i).is_some())
+                && sv_before.iter().all(|e| sv.contains(e))
+        }
+
+        #[cfg(not(miri))]
+        #[quickcheck]
+        fn compact(insertions: u16, to_delete: Vec<u16>) -> bool {
+            let insertions = insertions + 1;
+            // Create stable vector containing `insertions` zeros. Afterwards, we
+            // remove at most half of those elements
+            let mut sv = $ty::from(vec![0; insertions as usize]);
+            for i in to_delete {
+                let i = (i % insertions) as usize;
+                if sv.has_element_at(i) {
+                    sv.remove(i);
                 }
-
-                // Remember the number of elements before and call compact.
-                let sv_before = sv.clone();
-                let items_before: Vec<_> = sv_before.iter().cloned().collect();
-                let n_before_compact = sv.num_elements();
-                sv.make_compact();
-
-
-                n_before_compact == sv.num_elements()
-                    && sv.is_compact()
-                    && (0..n_before_compact).all(|i| sv.get(i).is_some())
-                    && sv == items_before
             }
 
-            fn from_and_extend_and_from_iter(items: Vec<u8>) -> bool {
-                use std::iter::FromIterator;
+            // Remember the number of elements before and call compact.
+            let sv_before = sv.clone();
+            let items_before: Vec<_> = sv_before.iter().cloned().collect();
+            let n_before_compact = sv.num_elements();
+            sv.make_compact();
 
-                let iter_a = items.iter().cloned();
-                let iter_b = items.iter().cloned();
 
-                let sv_a = $ty::from_iter(iter_a);
-                let sv_b = {
-                    let mut sv = $ty::new();
-                    sv.extend(iter_b);
-                    sv
-                };
-                let sv_c = $ty::from(&items);
+            n_before_compact == sv.num_elements()
+                && sv.is_compact()
+                && (0..n_before_compact).all(|i| sv.get(i).is_some())
+                && sv == items_before
+        }
 
-                sv_a.num_elements() == items.len()
-                    && sv_a == sv_b
-                    && sv_a == sv_c
-            }
+        #[cfg(not(miri))]
+        #[quickcheck]
+        fn from_and_extend_and_from_iter(items: Vec<u8>) -> bool {
+            use std::iter::FromIterator;
+
+            let iter_a = items.iter().cloned();
+            let iter_b = items.iter().cloned();
+
+            let sv_a = $ty::from_iter(iter_a);
+            let sv_b = {
+                let mut sv = $ty::new();
+                sv.extend(iter_b);
+                sv
+            };
+            let sv_c = $ty::from(&items);
+
+            sv_a.num_elements() == items.len()
+                && sv_a == sv_b
+                && sv_a == sv_c
         }
     }
 }
 
 mod option {
     #[cfg(not(miri))]
-    use quickcheck::quickcheck;
+    use quickcheck_macros::quickcheck;
     use crate::InlineStableVec;
     use super::assert_sv_eq_fn;
 
@@ -858,7 +861,7 @@ mod option {
 
 mod bitvec {
     #[cfg(not(miri))]
-    use quickcheck::quickcheck;
+    use quickcheck_macros::quickcheck;
     use crate::ExternStableVec;
     use super::assert_sv_eq_fn;
 

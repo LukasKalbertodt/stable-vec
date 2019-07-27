@@ -30,7 +30,8 @@ nightly-bench = ["criterion/real_blackbox"]
 [dependencies]
 
 [dev-dependencies]
-quickcheck = "0.7"
+quickcheck = "0.8"
+quickcheck_macros = "0.8"
 criterion = { version = "0.2" }
 
 [[bench]]

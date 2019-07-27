@@ -89,9 +89,18 @@ impl<T> Core<T> for BitVecCore<T> {
     unsafe fn set_len(&mut self, new_len: usize) {
         debug_assert!(new_len <= self.cap());
         // Other precondition is too expensive to test, even in debug:
-        // ∀ i in `new_len..vec.cap()` ⇒ `self.has_element_at(i) == false`
+        // ∀ i in `new_len..self.cap()` ⇒ `self.has_element_at(i) == false`
 
         self.len = new_len;
+
+        // The formal requirements of this method hold:
+        //
+        // **Invariants**:
+        // - *slot data* -> trivially holds, we do not touch that
+        // - `len ≤ cap` -> that's a precondition
+        //
+        // **Postconditons**:
+        // - `self.len() == new_len`: trivially holds
     }
 
     fn cap(&self) -> usize {
@@ -126,24 +135,17 @@ impl<T> Core<T> for BitVecCore<T> {
         // We only have to allocate if our size are not zero-sized. Else, we
         // just don't do anything.
         if size_of::<T>() != 0 {
-            // Build layout for allocation
-            let new_elem_layout = {
-                let len = match new_cap.checked_mul(size_of::<T>()) {
-                    None => capacity_overflow(),
-                    Some(len) => len,
-                };
+            // Get the new number of bytes for the allocation and create the
+            // memory layout.
+            let size = new_cap.checked_mul(size_of::<T>())
+                .unwrap_or_else(|| capacity_overflow());
+            let new_elem_layout = Layout::from_size_align_unchecked(size, align_of::<T>());
 
-                Layout::from_size_align_unchecked(len, align_of::<T>())
-            };
-
+            // (Re)allocate memory.
             let ptr = if self.cap == 0 {
                 alloc(new_elem_layout)
             } else {
-                realloc(
-                    self.elem_ptr.as_ptr() as *mut _,
-                    self.old_elem_layout(),
-                    new_elem_layout.size(),
-                )
+                realloc(self.elem_ptr.as_ptr() as *mut _, self.old_elem_layout(), size)
             };
 
             // If the element allocation failed, we quit the program with an
@@ -160,33 +162,29 @@ impl<T> Core<T> for BitVecCore<T> {
 
         // ----- (Re)allocate bitvec memory ----------------------------------
         {
-            // TODO: remove
-            let sum_before = (0..num_usizes_for(self.cap))
-                .map(|i| *self.bit_ptr.as_ptr().add(i))
-                .fold(0, |acc, i| acc ^ i);
+            // Get the new number of required bytes for the allocation and
+            // create the memory layout.
+            let size = size_of::<usize>() * num_usizes_for(new_cap);
+            let new_bit_layout = Layout::from_size_align_unchecked(size, align_of::<usize>());
 
-            let new_bit_layout = Layout::from_size_align_unchecked(
-                size_of::<usize>() * num_usizes_for(new_cap),
-                align_of::<usize>(),
-            );
-
+            // (Re)allocate memory.
             let ptr = if self.cap == 0 {
                 alloc_zeroed(new_bit_layout)
             } else {
-                realloc(
-                    self.bit_ptr.as_ptr() as *mut _,
-                    self.old_bit_layout(),
-                    new_bit_layout.size(),
-                )
+                realloc(self.bit_ptr.as_ptr() as *mut _, self.old_bit_layout(), size)
             };
             let ptr = ptr as *mut usize;
 
+            // If the element allocation failed, we quit the program with an
+            // OOM error.
             if ptr.is_null() {
                  handle_alloc_error(new_bit_layout);
             }
 
+            // If we reallocated, the new memory is not necessarily zeroed, so
+            // we need to do it. TODO: if `alloc` offers a `realloc_zeroed`
+            // in the future, we should use that.
             if self.cap != 0 {
-                // Zero out new bit blocks
                 let initialized_usizes = num_usizes_for(self.cap);
                 let new_usizes = num_usizes_for(new_cap);
                 if new_usizes > initialized_usizes {
@@ -198,29 +196,26 @@ impl<T> Core<T> for BitVecCore<T> {
                 }
             }
 
-            // TODO: remove
-            let sum_after = (0..num_usizes_for(new_cap))
-                .map(|i| *(ptr as *mut usize).add(i))
-                .fold(0, |acc, i| acc ^ i);
-
-            if sum_before != sum_after {
-                panic!(
-                    "incorrect bit realloc! before: {}, after: {}",
-                    sum_before,
-                    sum_after,
-                );
-            }
-
             self.bit_ptr = NonNull::new_unchecked(ptr as *mut _);
         }
 
         self.cap = new_cap;
+
+        // All formal requirements are met now:
+        //
+        // **Invariants**:
+        // - *slot data*: by using `realloc` if `self.cap != 0`, the slot data
+        //   (including deleted-flag) was correctly copied.
+        // - `self.len()`: indeed didn't change
+        //
+        // **Postconditons**:
+        // - `self.cap() == new_cap`: trivially holds due to last line.
     }
 
     unsafe fn has_element_at(&self, idx: usize) -> bool {
         debug_assert!(idx < self.cap());
 
-        // The divisions will be turned into shift and and instructions
+        // The divisions will be turned into shift and 'and'-instructions.
         let usize_pos = idx / BITS_PER_USIZE;
         let bit_pos = idx % BITS_PER_USIZE;
 

@@ -70,6 +70,8 @@
 //! your problem before using a linked list.
 //!
 #![deny(missing_debug_implementations)]
+#![deny(intra_doc_link_resolution_failure)]
+
 
 use std::{
     cmp,
@@ -166,8 +168,8 @@ pub type ExternStableVec<T> = StableVecFacade<T, BitVecCore<T>>;
 /// **Creating a stable vector**
 ///
 /// - [`new`][StableVecFacade::new]
-/// - [`with_capacity`][StableVecFacade::with_capacity()]
-/// - [`from_vec`][StableVecFacade::from_vec()]
+/// - [`with_capacity`][StableVecFacade::with_capacity]
+/// - [`FromIterator::from_iter`](#impl-FromIterator<T>)
 ///
 /// **Adding and removing elements**
 ///
@@ -234,47 +236,6 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
         let mut out = Self::new();
         out.reserve_exact(capacity);
         out
-    }
-
-    /// Creates a stable vector from the given `Vec<T>`. The elements are not
-    /// cloned (just moved) and the indices of the vector are preserved.
-    ///
-    /// Note that this function will still allocate memory.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::from_vec(vec!['★', '♥']);
-    ///
-    /// assert_eq!(sv.get(0), Some(&'★'));
-    /// assert_eq!(sv.get(1), Some(&'♥'));
-    /// assert_eq!(sv.num_elements(), 2);
-    /// assert!(sv.is_compact());
-    ///
-    /// sv.remove(0);
-    /// assert_eq!(sv.get(1), Some(&'♥'));
-    /// ```
-    pub fn from_vec(vec: Vec<T>) -> Self {
-        let mut core = C::new();
-        let len = vec.len();
-
-        unsafe {
-            core.realloc(len);
-            core.set_len(len);
-
-            for (i, elem) in vec.into_iter().enumerate() {
-                // Due to the `grow` above we know that `i` is always greater
-                // than `core.capacity()`. And because we started with an empty
-                // instance, all elements start out as deleted.
-                core.insert_at(i, elem);
-            }
-        }
-
-        Self {
-            num_elements: len,
-            core: OwningCore::new(core),
-        }
     }
 
     /// Reserves memory for at least `additional` more elements to be inserted

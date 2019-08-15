@@ -127,6 +127,10 @@ macro_rules! assert_sv_eq {
 
 macro_rules! gen_tests_for {
     ($ty:ident) => {
+        use std::iter::FromIterator;
+        use quickcheck_macros::quickcheck;
+        use super::assert_sv_eq_fn;
+
         #[test]
         fn new() {
             let mut sv = $ty::<String>::new();
@@ -185,23 +189,6 @@ macro_rules! gen_tests_for {
             assert_eq!(sv.capacity(), cap_before);
         }
 
-        #[test]
-        fn from_vec() {
-            assert_sv_eq!(
-                $ty::<String>::from_vec(vec![]),
-                []: String,
-            );
-
-            assert_sv_eq!(
-                $ty::from_vec(vec![1]),
-                [0 => 1],
-            );
-
-            assert_sv_eq!(
-                $ty::from_vec(vec![2, 9, 5]),
-                [0 => 2, 1 => 9, 2 => 5],
-            );
-        }
 
         #[test]
         fn from() {
@@ -237,7 +224,7 @@ macro_rules! gen_tests_for {
 
         #[test]
         fn remove_first() {
-            let mut sv = $ty::from_vec(vec!['a', 'b', 'c']);
+            let mut sv = $ty::from_iter(vec!['a', 'b', 'c']);
 
             assert_eq!(sv.remove_first(), Some('a'));
             assert_sv_eq!(sv, [1 => 'b', 2 => 'c'; 2]);
@@ -263,7 +250,7 @@ macro_rules! gen_tests_for {
 
         #[test]
         fn remove_last() {
-            let mut sv = $ty::from_vec(vec!['a', 'b', 'c']);
+            let mut sv = $ty::from_iter(vec!['a', 'b', 'c']);
 
             assert_eq!(sv.remove_last(), Some('c'));
             assert_sv_eq!(sv, [0 => 'a', 1 => 'b'; 2]);
@@ -289,7 +276,7 @@ macro_rules! gen_tests_for {
 
         #[test]
         fn find_first() {
-            let mut sv = $ty::from_vec(vec!['a', 'b']);
+            let mut sv = $ty::from_iter(vec!['a', 'b']);
 
             assert_eq!(sv.find_first(), Some(&'a'));
             assert_sv_eq!(sv, [0 => 'a', 1 => 'b'; 1]);
@@ -313,7 +300,7 @@ macro_rules! gen_tests_for {
 
         #[test]
         fn find_first_mut() {
-            let mut sv = $ty::from_vec(vec!['a', 'b']);
+            let mut sv = $ty::from_iter(vec!['a', 'b']);
 
             *sv.find_first_mut().unwrap() = 'c';
             assert_sv_eq!(sv, [0 => 'c', 1 => 'b'; 1]);
@@ -329,7 +316,7 @@ macro_rules! gen_tests_for {
 
         #[test]
         fn find_last() {
-            let mut sv = $ty::from_vec(vec!['a', 'b']);
+            let mut sv = $ty::from_iter(vec!['a', 'b']);
 
             assert_eq!(sv.find_last(), Some(&'b'));
             assert_sv_eq!(sv, [0 => 'a', 1 => 'b'; 1]);
@@ -353,7 +340,7 @@ macro_rules! gen_tests_for {
 
         #[test]
         fn find_last_mut() {
-            let mut sv = $ty::from_vec(vec!['a', 'b']);
+            let mut sv = $ty::from_iter(vec!['a', 'b']);
 
             *sv.find_last_mut().unwrap() = 'c';
             assert_sv_eq!(sv, [0 => 'a', 1 => 'c'; 1]);
@@ -369,7 +356,7 @@ macro_rules! gen_tests_for {
 
         #[test]
         fn find_first_index() {
-            let mut sv = $ty::from_vec(vec!['a', 'b']);
+            let mut sv = $ty::from_iter(vec!['a', 'b']);
 
             assert_eq!(sv.find_first_index(), Some(0));
             assert_sv_eq!(sv, [0 => 'a', 1 => 'b'; 1]);
@@ -393,7 +380,7 @@ macro_rules! gen_tests_for {
 
         #[test]
         fn find_last_index() {
-            let mut sv = $ty::from_vec(vec!['a', 'b']);
+            let mut sv = $ty::from_iter(vec!['a', 'b']);
 
             assert_eq!(sv.find_last_index(), Some(1));
             assert_sv_eq!(sv, [0 => 'a', 1 => 'b'; 1]);
@@ -575,7 +562,7 @@ macro_rules! gen_tests_for {
 
         #[test]
         fn retain_indices() {
-            let mut sv = $ty::from_vec(vec!['a', 'b', 'c', 'd', 'e']);
+            let mut sv = $ty::from_iter(vec!['a', 'b', 'c', 'd', 'e']);
 
             assert_sv_eq!(sv, [0 => 'a', 1 => 'b', 2 => 'c', 3 => 'd', 4 => 'e'; 4]);
 
@@ -597,7 +584,7 @@ macro_rules! gen_tests_for {
 
         #[test]
         fn shrink_to_fit() {
-            let mut sv = $ty::from_vec(vec!['a', 'b', 'c', 'd', 'e', 'f']);
+            let mut sv = $ty::from_iter(vec!['a', 'b', 'c', 'd', 'e', 'f']);
             sv.reserve(100);
             sv.retain_indices(|index| index != 1 && index != 3 && index != 5);
             assert_sv_eq!(sv, [0 => 'a', 2 => 'c', 4 => 'e'; 5]);
@@ -609,7 +596,7 @@ macro_rules! gen_tests_for {
 
         #[test]
         fn remove() {
-            let mut sv = $ty::from_vec(vec!['a', 'b', 'c']);
+            let mut sv = $ty::from_iter(vec!['a', 'b', 'c']);
 
             assert_eq!(sv.remove(1), Some('b'));
             assert_sv_eq!(sv, [0 => 'a', 2 => 'c']);
@@ -688,7 +675,7 @@ macro_rules! gen_tests_for {
 
         #[test]
         fn insert() {
-            let mut sv = $ty::from_vec(vec!['a', 'b', 'c']);
+            let mut sv = $ty::from_iter(vec!['a', 'b', 'c']);
 
             assert_eq!(sv.insert(1, 'x'), Some('b'));
             assert_sv_eq!(sv, [0 => 'a', 1 => 'x', 2 => 'c']);
@@ -714,7 +701,7 @@ macro_rules! gen_tests_for {
             sv.clear();
             assert_sv_eq!(sv, []: String);
 
-            let mut sv = $ty::from_vec(vec![1, 3, 5]);
+            let mut sv = $ty::from_iter(vec![1, 3, 5]);
             sv.clear();
             assert_sv_eq!(sv, []: u32);
         }
@@ -1007,17 +994,13 @@ macro_rules! gen_tests_for {
 }
 
 mod option {
-    use quickcheck_macros::quickcheck;
     use crate::InlineStableVec;
-    use super::assert_sv_eq_fn;
 
     gen_tests_for!(InlineStableVec);
 }
 
 mod bitvec {
-    use quickcheck_macros::quickcheck;
     use crate::ExternStableVec;
-    use super::assert_sv_eq_fn;
 
     gen_tests_for!(ExternStableVec);
 }

@@ -102,13 +102,13 @@ fn clear(c: &mut Criterion) {
     );
 }
 
-fn from_vec(c: &mut Criterion) {
+fn from_iter(c: &mut Criterion) {
     c.bench_function_over_inputs(
-        "from_vec",
+        "from_iter",
         |b, size| {
             b.iter_batched(
-                || Vec::from_iter(0..*size),
-                |v| StableVec::<_>::from_vec(v),
+                || 0..*size,
+                |v| StableVec::<_>::from_iter(v),
                 BatchSize::SmallInput,
             );
         },
@@ -323,7 +323,7 @@ fn sum(c: &mut Criterion) {
 criterion_group!(
     benches,
     clear,
-    from_vec,
+    from_iter,
     push,
     delete_some_elements,
     get,

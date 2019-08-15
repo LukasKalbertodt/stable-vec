@@ -103,7 +103,8 @@ pub trait Core<T> {
     /// more information.
     fn cap(&self) -> usize;
 
-    /// Reallocates the memory to have a `cap` of exactly `new_cap`.
+    /// Reallocates the memory to have a `cap` of at least `new_cap`. This
+    /// method should try its best to allocate exactly `new_cap`.
     ///
     /// This means that after calling this method, inserting elements at
     /// indices in the range `0..new_cap` is valid. This method shall not check
@@ -115,7 +116,8 @@ pub trait Core<T> {
     /// # Formal
     ///
     /// **Preconditions**:
-    /// - `new_cap ≥ self.len()`
+    /// - `new_cap ≥ self.len()` (as a consequence, this method does not (need
+    ///   to) drop elements; all slots >= `new_cap` are empty)
     /// - `new_cap ≤ isize::MAX`
     ///
     /// **Invariants**:
@@ -123,7 +125,7 @@ pub trait Core<T> {
     /// - `self.len()`
     ///
     /// **Postconditons**:
-    /// - `self.cap() == new_cap`
+    /// - `self.cap() >= new_cap`
     unsafe fn realloc(&mut self, new_cap: usize);
 
     /// Checks if there exists an element with index `idx`.

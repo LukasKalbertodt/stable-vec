@@ -402,6 +402,14 @@ impl<T> fmt::Debug for BitVecCore<T> {
     }
 }
 
+// Implement `Send` and `Sync`. These are not automatically implemented as we
+// use raw pointers. But they are safe to implement (given that `T` implements
+// them). We do not have interior mutability, thus we can implement `Sync`. We
+// also do not share any data with other instance of this type, meaning that
+// `Send` can be implemented.
+unsafe impl<T: Send> Send for BitVecCore<T> {}
+unsafe impl<T: Sync> Sync for BitVecCore<T> {}
+
 #[inline(always)]
 fn num_usizes_for(cap: usize) -> usize {
     // We need ⌈new_cap / BITS_PER_USIZE⌉ many usizes to store all required

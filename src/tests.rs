@@ -189,6 +189,81 @@ macro_rules! gen_tests_for {
             assert_eq!(sv.capacity(), cap_before);
         }
 
+        #[test]
+        fn reserve_exact() {
+            let mut sv = $ty::<String>::new();
+
+            // Reserve for 5
+            sv.reserve_exact(5);
+            assert!(sv.capacity() >= 5);
+            assert_sv_eq!(sv, []: String);
+
+            // Reserve for 2 more
+            sv.reserve_exact(7);
+            assert!(sv.capacity() >= 7);
+            assert_sv_eq!(sv, []: String);
+
+            // Reserving for 6 should do nothing because we already have memory for 7
+            // or more!
+            let cap_before = sv.capacity();
+            sv.reserve_exact(6);
+            assert_eq!(sv.capacity(), cap_before);
+            assert_sv_eq!(sv, []: String);
+
+            // After pushing 23 elements, we should have at least memory for 23 items.
+            for _ in 0..23 {
+                sv.push("x".into());
+            }
+            assert!(sv.capacity() >= 23);
+
+            // Reserving for 13 more elements
+            sv.reserve_exact(13);
+            assert!(sv.capacity() >= 36);
+
+            // Reserving for 2 more shouldn't do anything because we already reserved
+            // for 13 additional ones.
+            let cap_before = sv.capacity();
+            sv.reserve_exact(2);
+            assert_eq!(sv.capacity(), cap_before);
+        }
+
+        #[test]
+        fn reserve_for() {
+            let mut sv = $ty::<String>::new();
+
+            // Reserve for index 5
+            sv.reserve_for(5);
+            assert!(sv.capacity() >= 6);
+            assert_sv_eq!(sv, []: String);
+
+            // Reserve for index 7
+            sv.reserve_for(7);
+            assert!(sv.capacity() >= 8);
+            assert_sv_eq!(sv, []: String);
+
+            // Reserving for index 6 should do nothing because we already have
+            // memory for that index!
+            let cap_before = sv.capacity();
+            sv.reserve_for(6);
+            assert_eq!(sv.capacity(), cap_before);
+            assert_sv_eq!(sv, []: String);
+
+            // After pushing 23 elements, we should have at least memory for 23 items.
+            for _ in 0..23 {
+                sv.push("x".into());
+            }
+            assert!(sv.capacity() >= 23);
+
+            // Reserving for index 22 shouldn't do anything because we already
+            // have memory for that index.
+            let cap_before = sv.capacity();
+            sv.reserve_for(22);
+            assert_eq!(sv.capacity(), cap_before);
+
+            // Reserving for new index
+            sv.reserve_for(27);
+            assert!(sv.capacity() >= 28);
+        }
 
         #[test]
         fn from() {

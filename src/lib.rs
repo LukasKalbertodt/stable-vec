@@ -276,7 +276,6 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     /// assert_eq!(sv.num_elements(), 2);
     /// assert_eq!(sv.next_push_index(), 3);
     /// ```
-    // TODO: maybe make this method inline(never) and cold?
     pub fn reserve(&mut self, additional: usize) {
         #[inline(never)]
         #[cold]
@@ -319,21 +318,46 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
         }
     }
 
-    /// Reserve enough memory so that there is a slot at `index`.
+    /// Reserve enough memory so that there is a slot at `index`. Does nothing
+    /// if `index < self.capacity()`.
     ///
-    /// TODO: add doc example and test that catches reserving if enough memory
-    /// is already available.
+    /// This method might allocate more memory than requested to avoid frequent
+    /// allocations. After calling this method, `self.capacity() >= index + 1`.
+    ///
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::new();
+    /// let star_idx = sv.push('★');
+    ///
+    /// // Allocate enough memory so that we have a slot at index 5.
+    /// sv.reserve_for(5);
+    /// assert!(sv.capacity() >= 6);
+    ///
+    /// // We can now insert an element at index 5.
+    /// sv.insert(5, 'x');
+    /// assert_eq!(sv[5], 'x');
+    ///
+    /// // This won't do anything as the slot with index 3 already exists.
+    /// let capacity_before = sv.capacity();
+    /// sv.reserve_for(3);
+    /// assert_eq!(sv.capacity(), capacity_before);
+    /// ```
     pub fn reserve_for(&mut self, index: usize) {
-        if index >= self.next_push_index() {
+        if index >= self.capacity() {
+            // Won't underflow as `index >= capacity >= next_push_index`.
             self.reserve(1 + index - self.next_push_index());
         }
     }
 
-    /// Like [`reserve`][StableVecFacade::reserve], but guarantees that memory
-    /// for exactly `additional` more elements is allocated.
+    /// Like [`reserve`][StableVecFacade::reserve], but tries to allocate
+    /// memory for exactly `additional` more elements.
     ///
-    /// This means that after calling this method, `self.capacity()` is exactly
-    /// `self.next_push_index() + additional`.
+    /// The underlying allocator might allocate more memory than requested,
+    /// meaning that you cannot rely on the capacity of this stable vector
+    /// having an exact value after calling this method.
     pub fn reserve_exact(&mut self, additional: usize) {
         #[inline(never)]
         #[cold]

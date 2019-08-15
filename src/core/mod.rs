@@ -69,6 +69,10 @@ pub type DefaultCore<T> = BitVecCore<T>;
 ///   core.
 ///
 /// These invariants must not (at any time) be violated by users of this API.
+///
+/// Cloning a core must clone everything, including all empty slots. This means
+/// that the capacity of the clone must be at least the capacity of the
+/// original value.
 pub trait Core<T> {
     /// Creates an empty instance without any elements. Must not allocate
     /// memory.

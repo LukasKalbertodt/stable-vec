@@ -9,7 +9,6 @@ use super::Core;
 /// A `Core` implementation that is essentially a `Vec<Option<T>>`.
 ///
 /// TODO: explain advantages and disadvantages.
-#[derive(Clone)]
 pub struct OptionCore<T> {
     /// The data and deleted information in one.
     ///
@@ -203,6 +202,30 @@ impl<T> Core<T> for OptionCore<T> {
         let pa: *mut _ = self.data.get_unchecked_mut(a);
         let pb: *mut _ = self.data.get_unchecked_mut(b);
         ptr::swap(pa, pb);
+    }
+}
+
+impl<T: Clone> Clone for OptionCore<T> {
+    fn clone(&self) -> Self {
+        // Cloning the vector is safe: the `Vec` implementation won't access
+        // uninitialized memory. However, simply cloning it would be wrong for
+        // two reasons:
+        //
+        // - `Vec` might not retain the same capacity when cloning it. But this
+        //   is important for us.
+        // - The memory after its length is probably uninitialized.
+        //
+        // To fix both issues, we get a slice to the complete memory of the
+        // original `Vec` and create a `Vec` from it. Then we reset the length
+        // to the old value. Both is safe as all the elements that are included
+        // and excluded by the "fake length" are `None`.
+        let data = unsafe {
+            let mut data_clone = self.data.get_unchecked(0..self.data.capacity()).to_vec();
+            data_clone.set_len(self.data.len());
+            data_clone
+        };
+
+        Self { data }
     }
 }
 

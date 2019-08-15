@@ -140,7 +140,7 @@ fn delete_some_elements(c: &mut Criterion) {
             b.iter_batched_ref(
                 || full_sv(len),
                 |sv| {
-                    for i in 0..sv.next_index() {
+                    for i in 0..sv.next_push_index() {
                         if should_delete(i) {
                             sv.remove(i);
                         }
@@ -158,7 +158,7 @@ fn delete_some_elements(c: &mut Criterion) {
             b.iter_batched_ref(
                 || sv_with_prime_holes(len),
                 |sv| {
-                    for i in 0..sv.next_index() {
+                    for i in 0..sv.next_push_index() {
                         if should_delete(i) {
                             sv.remove(i);
                         }

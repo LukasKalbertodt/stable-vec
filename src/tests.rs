@@ -930,10 +930,8 @@ macro_rules! gen_tests_for {
             check_iter!(sv.indices());
         }
 
-        // Quickcheck uses rand which causes a Miri error. Seems like there is
-        // indeed a bug in `rand`. So for now we exclude these tests when
-        // running with Miri.
-        #[cfg(not(miri))]
+        // Quickcheck tests run far
+        #[cfg_attr(miri, ignore)]
         #[quickcheck]
         fn reordering_compact(insertions: u16, to_delete: Vec<u16>) -> bool {
             let insertions = insertions + 1;
@@ -958,7 +956,7 @@ macro_rules! gen_tests_for {
                 && sv_before.iter().all(|e| sv.contains(e))
         }
 
-        #[cfg(not(miri))]
+        #[cfg_attr(miri, ignore)]
         #[quickcheck]
         fn compact(insertions: u16, to_delete: Vec<u16>) -> bool {
             let insertions = insertions + 1;
@@ -985,7 +983,7 @@ macro_rules! gen_tests_for {
                 && sv == items_before
         }
 
-        #[cfg(not(miri))]
+        #[cfg_attr(miri, ignore)]
         #[quickcheck]
         fn from_and_extend_and_from_iter(items: Vec<u8>) -> bool {
             use std::iter::FromIterator;
@@ -1009,7 +1007,6 @@ macro_rules! gen_tests_for {
 }
 
 mod option {
-    #[cfg(not(miri))]
     use quickcheck_macros::quickcheck;
     use crate::InlineStableVec;
     use super::assert_sv_eq_fn;
@@ -1018,7 +1015,6 @@ mod option {
 }
 
 mod bitvec {
-    #[cfg(not(miri))]
     use quickcheck_macros::quickcheck;
     use crate::ExternStableVec;
     use super::assert_sv_eq_fn;

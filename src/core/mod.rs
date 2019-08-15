@@ -215,7 +215,11 @@ pub trait Core<T> {
     /// - if `out == Some(j)`:
     ///     - ∀ i in `idx..j` ⇒ `self.has_element_at(i) == false`
     ///     - `self.has_element_at(j) == true`
-    unsafe fn next_index_from(&self, idx: usize) -> Option<usize>;
+    unsafe fn next_index_from(&self, idx: usize) -> Option<usize> {
+        debug_assert!(idx <= self.len());
+
+        (idx..self.len()).find(|&idx| self.has_element_at(idx))
+    }
 
     /// Returns the index of the previous filled slot with index `idx` or
     /// lower. Specifically, if an element at index `idx` exists, `Some(idx)`
@@ -233,7 +237,11 @@ pub trait Core<T> {
     /// - if `out == Some(j)`:
     ///     - ∀ i in `j + 1..=idx` ⇒ `self.has_element_at(i) == false`
     ///     - `self.has_element_at(j) == true`
-    unsafe fn prev_index_from(&self, idx: usize) -> Option<usize>;
+    unsafe fn prev_index_from(&self, idx: usize) -> Option<usize> {
+        debug_assert!(idx < self.len());
+
+        (0..=idx).rev().find(|&idx| self.has_element_at(idx))
+    }
 
     /// Returns the index of the next empty slot with index i where `idx ≤ i <
     /// self.len()`.
@@ -253,7 +261,11 @@ pub trait Core<T> {
     /// - if `out == Some(j)`:
     ///     - ∀ i in `idx..j` ⇒ `self.has_element_at(i) == true`
     ///     - `self.has_element_at(j) == false`
-    unsafe fn next_hole_from(&self, idx: usize) -> Option<usize>;
+    unsafe fn next_hole_from(&self, idx: usize) -> Option<usize> {
+        debug_assert!(idx <= self.len());
+
+        (idx..self.len()).find(|&idx| !self.has_element_at(idx))
+    }
 
     /// Swaps the two slots with indices `a` and `b`. That is: the element
     /// *and* the "filled/empty" status are swapped. The slots at indices `a`

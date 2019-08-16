@@ -83,7 +83,7 @@ use std::{
 };
 use crate::{
     core::{Core, DefaultCore, OwningCore, OptionCore, BitVecCore},
-    iter::{Indices, Iter, IterMut, IntoIter},
+    iter::{Indices, Values, ValuesMut, IntoIter},
 };
 
 #[cfg(test)]
@@ -617,9 +617,6 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     /// of this stable vector. Elements are yielded in order of their
     /// increasing indices.
     ///
-    /// Note that you can also use the `IntoIterator` implementation of
-    /// `&StableVecFacade` to obtain the same iterator.
-    ///
     /// # Example
     ///
     /// ```
@@ -627,21 +624,14 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     /// let mut sv = StableVec::from(&[0, 1, 2, 3, 4]);
     /// sv.remove(1);
     ///
-    /// // Using the `iter()` method to apply a `filter()`.
-    /// let mut it = sv.iter().filter(|&&n| n <= 3);
+    /// let mut it = sv.values().filter(|&&n| n <= 3);
     /// assert_eq!(it.next(), Some(&0));
     /// assert_eq!(it.next(), Some(&2));
     /// assert_eq!(it.next(), Some(&3));
     /// assert_eq!(it.next(), None);
-    ///
-    /// // Simple iterate using the implicit `IntoIterator` conversion of the
-    /// // for-loop:
-    /// for e in &sv {
-    ///     println!("{:?}", e);
-    /// }
     /// ```
-    pub fn iter(&self) -> Iter<'_, T, C> {
-        Iter {
+    pub fn values(&self) -> Values<'_, T, C> {
+        Values {
             core: &self.core,
             pos: 0,
             count: self.num_elements,
@@ -652,9 +642,6 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     /// of this stable vector. Elements are yielded in order of their
     /// increasing indices.
     ///
-    /// Note that you can also use the `IntoIterator` implementation of
-    /// `&mut StableVecFacade` to obtain the same iterator.
-    ///
     /// Through this iterator, the elements within the stable vector can be
     /// mutated.
     ///
@@ -664,14 +651,14 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     /// # use stable_vec::StableVec;
     /// let mut sv = StableVec::from(&[1.0, 2.0, 3.0]);
     ///
-    /// for e in &mut sv {
+    /// for e in sv.values_mut() {
     ///     *e *= 2.0;
     /// }
     ///
     /// assert_eq!(sv, &[2.0, 4.0, 6.0] as &[_]);
     /// ```
-    pub fn iter_mut(&mut self) -> IterMut<T, C> {
-        IterMut {
+    pub fn values_mut(&mut self) -> ValuesMut<T, C> {
+        ValuesMut {
             count: self.num_elements,
             sv: self,
             pos: 0,
@@ -1361,7 +1348,7 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     where
         U: PartialEq<T>,
     {
-        self.iter().any(|e| item == e)
+        self.values().any(|e| item == e)
     }
 
     /// Retains only the elements specified by the given predicate.
@@ -1557,21 +1544,6 @@ impl<C: Core<u8>> io::Write for StableVecFacade<u8, C> {
     fn flush(&mut self) -> io::Result<()> { Ok(()) }
 }
 
-impl<'a, T, C: Core<T>> IntoIterator for &'a StableVecFacade<T, C> {
-    type Item = &'a T;
-    type IntoIter = Iter<'a, T, C>;
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
-    }
-}
-
-impl<'a, T, C: Core<T>> IntoIterator for &'a mut StableVecFacade<T, C> {
-    type Item = &'a mut T;
-    type IntoIter = IterMut<'a, T, C>;
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter_mut()
-    }
-}
 
 impl<T, C: Core<T>> IntoIterator for StableVecFacade<T, C> {
     type Item = T;
@@ -1587,7 +1559,7 @@ impl<T, C: Core<T>> IntoIterator for StableVecFacade<T, C> {
 impl<T: fmt::Debug, C: Core<T>> fmt::Debug for StableVecFacade<T, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "StableVec ")?;
-        f.debug_list().entries(self).finish()
+        f.debug_list().entries(self.values()).finish()
     }
 }
 
@@ -1598,7 +1570,8 @@ where
     Cb: Core<Tb>,
 {
     fn eq(&self, other: &StableVecFacade<Tb, Cb>) -> bool {
-        self.iter().eq(other)
+        // TODO
+        self.values().eq(other.values())
     }
 }
 
@@ -1607,7 +1580,7 @@ where
     A: PartialEq<B>,
 {
     fn eq(&self, other: &[B]) -> bool {
-        self.iter().eq(other)
+        self.values().eq(other)
     }
 }
 

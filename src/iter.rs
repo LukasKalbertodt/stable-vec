@@ -12,15 +12,15 @@ use crate::{
 
 /// Iterator over immutable references to the elements of a `StableVecFacade`.
 ///
-/// Use the method [`StableVecFacade::iter`] or the `IntoIterator`
-/// implementation of `&StableVecFacade` to obtain an iterator of this kind.
-pub struct Iter<'a, T, C: Core<T>> {
+/// Use the method [`StableVecFacade::values`] to obtain an iterator of this
+/// kind.
+pub struct Values<'a, T, C: Core<T>> {
     pub(crate) core: &'a OwningCore<T, C>,
     pub(crate) pos: usize,
     pub(crate) count: usize,
 }
 
-impl<'a, T, C: Core<T>> Iterator for Iter<'a, T, C> {
+impl<'a, T, C: Core<T>> Iterator for Values<'a, T, C> {
     type Item = &'a T;
     fn next(&mut self) -> Option<Self::Item> {
         let idx = unsafe { self.core.first_filled_slot_from(self.pos) };
@@ -37,18 +37,18 @@ impl<'a, T, C: Core<T>> Iterator for Iter<'a, T, C> {
     }
 }
 
-impl<T, C: Core<T>> ExactSizeIterator for Iter<'_, T, C> {}
+impl<T, C: Core<T>> ExactSizeIterator for Values<'_, T, C> {}
 
-impl<T, C: Core<T>> fmt::Debug for Iter<'_, T, C> {
+impl<T, C: Core<T>> fmt::Debug for Values<'_, T, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Iter")
+        f.debug_struct("Values")
             .field("pos", &self.pos)
             .field("count", &self.count)
             .finish()
     }
 }
 
-impl<T, C: Core<T>> Clone for Iter<'_, T, C> {
+impl<T, C: Core<T>> Clone for Values<'_, T, C> {
     fn clone(&self) -> Self {
         Self {
             core: self.core,
@@ -61,16 +61,15 @@ impl<T, C: Core<T>> Clone for Iter<'_, T, C> {
 
 /// Iterator over mutable references to the elements of a `StableVecFacade`.
 ///
-/// Use the method [`StableVecFacade::iter_mut`] or the `IntoIterator`
-/// implementation of `&mut StableVecFacade` to obtain an iterator of this
-/// kind.
-pub struct IterMut<'a, T, C: Core<T>> {
+/// Use the method [`StableVecFacade::values_mut`] to obtain an iterator of
+/// this kind.
+pub struct ValuesMut<'a, T, C: Core<T>> {
     pub(crate) sv: &'a mut StableVecFacade<T, C>,
     pub(crate) pos: usize,
     pub(crate) count: usize,
 }
 
-impl<'a, T, C: Core<T>> Iterator for IterMut<'a, T, C> {
+impl<'a, T, C: Core<T>> Iterator for ValuesMut<'a, T, C> {
     type Item = &'a mut T;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -84,8 +83,8 @@ impl<'a, T, C: Core<T>> Iterator for IterMut<'a, T, C> {
         // returned by `get_unchecked_mut`. We can do that because we know that
         // we will never return the same reference twice. So the user can't
         // have mutable aliases. Furthermore, all access to the original stable
-        // vector is blocked because we (`IterMut`) have a mutable reference to
-        // it. So it is fine to extend the lifetime to `'a`.
+        // vector is blocked because we (`ValuesMut`) have a mutable reference
+        // to it. So it is fine to extend the lifetime to `'a`.
         idx.map(|idx| {
             unsafe { &mut *(self.sv.core.get_unchecked_mut(idx) as *mut T) }
         })
@@ -96,11 +95,11 @@ impl<'a, T, C: Core<T>> Iterator for IterMut<'a, T, C> {
     }
 }
 
-impl<T, C: Core<T>> ExactSizeIterator for IterMut<'_, T, C> {}
+impl<T, C: Core<T>> ExactSizeIterator for ValuesMut<'_, T, C> {}
 
-impl<T, C: Core<T>> fmt::Debug for IterMut<'_, T, C> {
+impl<T, C: Core<T>> fmt::Debug for ValuesMut<'_, T, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("IterMut")
+        f.debug_struct("ValuesMut")
             .field("pos", &self.pos)
             .field("count", &self.count)
             .finish()

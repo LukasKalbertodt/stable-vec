@@ -1075,6 +1075,87 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
         }
     }
 
+    /// Performs a forwards search starting at index `start`, returning the
+    /// index of the first empty slot that is found.
+    ///
+    /// Specifically, if the slot at index `start` is empty, `Some(start)` is
+    /// returned. If all slots with indices `start` and higher are filled,
+    /// `None` is returned.
+    ///
+    ///
+    /// # Panics
+    ///
+    /// Panics if `start > self.capacity()`. Note: `start == self.capacity()`
+    /// is allowed for convenience, but always returns `None`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::from(&[0, 1, 2, 3, 4, 5]);
+    /// sv.remove(1);
+    /// sv.remove(2);
+    /// sv.remove(4);
+    ///
+    /// assert_eq!(sv.first_empty_slot_from(0), Some(1));
+    /// assert_eq!(sv.first_empty_slot_from(1), Some(1));
+    /// assert_eq!(sv.first_empty_slot_from(2), Some(2));
+    /// assert_eq!(sv.first_empty_slot_from(3), Some(4));
+    /// assert_eq!(sv.first_empty_slot_from(4), Some(4));
+    ///
+    /// // Make sure we have at least one empty slot at the end
+    /// sv.reserve_for(6);
+    /// assert_eq!(sv.first_empty_slot_from(5), Some(6));
+    /// assert_eq!(sv.first_empty_slot_from(6), Some(6));
+    /// ```
+    pub fn first_empty_slot_from(&self, start: usize) -> Option<usize> {
+        if start > self.core.cap() {
+            panic!(
+                "`start` is {}, but capacity is {} in `first_empty_slot_from`",
+                start,
+                self.capacity(),
+            );
+        } else {
+            unsafe { self.core.first_empty_slot_from(start) }
+        }
+    }
+
+    /// Performs a backwards search starting at index `start - 1`, returning
+    /// the index of the first empty slot that is found. For `start == 0`,
+    /// `None` is returned.
+    ///
+    /// If all slots with indices below `start` are filled, `None` is returned.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::from(&[0, 1, 2, 3, 4, 5]);
+    /// sv.remove(1);
+    /// sv.remove(2);
+    /// sv.remove(4);
+    ///
+    /// assert_eq!(sv.first_empty_slot_below(0), None);
+    /// assert_eq!(sv.first_empty_slot_below(1), None);
+    /// assert_eq!(sv.first_empty_slot_below(2), Some(1));
+    /// assert_eq!(sv.first_empty_slot_below(3), Some(2));
+    /// assert_eq!(sv.first_empty_slot_below(4), Some(2));
+    /// assert_eq!(sv.first_empty_slot_below(5), Some(4));
+    /// assert_eq!(sv.first_empty_slot_below(6), Some(4));
+    /// ```
+    pub fn first_empty_slot_below(&self, start: usize) -> Option<usize> {
+        if start > self.core.cap() {
+            panic!(
+                "`start` is {}, but capacity is {} in `first_empty_slot_below`",
+                start,
+                self.capacity(),
+            );
+        } else {
+            unsafe { self.core.first_empty_slot_below(start) }
+        }
+    }
+
+
     /// Finds the first element and returns its index, or `None` if the stable
     /// vector is empty.
     ///
@@ -1171,7 +1252,7 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
             unsafe {
                 // We have to find the position of the first hole. We know that
                 // there is at least one hole, so we can unwrap.
-                let first_hole_index = self.core.next_hole_from(0).unwrap();
+                let first_hole_index = self.core.first_empty_slot_from(0).unwrap();
 
                 // This variable will store the first possible index of an element
                 // which can be inserted in the hole.
@@ -1238,10 +1319,10 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
                 // - `element_index` starts from the back and searches for an
                 //   element.
                 let len = self.core.len();
-                let mut element_index = len - 1;
+                let mut element_index = len;
                 let mut hole_index = 0;
                 loop {
-                    element_index = self.core.prev_index_from(element_index).unwrap_or(0);
+                    element_index = self.core.first_filled_slot_below(element_index).unwrap_or(0);
                     hole_index = self.core.first_empty_slot_from(hole_index).unwrap_or(len);
 
                     // If both indices passed each other, we can stop. There are no

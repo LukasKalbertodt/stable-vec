@@ -75,11 +75,17 @@ where
             assert_eq!(sv.get(i), Some(&values[index_index]));
             assert_eq!(sv.get_mut(i), Some(&mut values[index_index]));
             assert_eq!(sv[i], values[index_index]);
+
+            assert_eq!(sv.first_filled_slot_from(i), Some(i));
+            assert_eq!(sv.first_filled_slot_below(i + 1), Some(i));
         } else {
             assert!(!sv.has_element_at(i));
             assert_eq!(sv.get(i), None);
             assert_eq!(sv.get_mut(i), None);
             assert_panic!(sv[i]);
+
+            assert_eq!(sv.first_empty_slot_from(i), Some(i));
+            assert_eq!(sv.first_empty_slot_below(i + 1), Some(i));
         }
     }
 }
@@ -630,6 +636,84 @@ macro_rules! gen_tests_for {
             }
             for i in 121..201 {
                 assert_eq!(sv.first_filled_slot_below(i), Some(119));
+            }
+        }
+
+        #[test]
+        fn first_empty_slot_from_medium() {
+            let mut sv = $ty::new();
+            sv.reserve(200);
+
+            for i in (25..60).chain(62..65).chain(66..70).chain(90..120) {
+                sv.insert(i, 27u32);
+            }
+
+            for i in 0..25 {
+                assert_eq!(sv.first_empty_slot_from(i), Some(i));
+            }
+            for i in 25..60 {
+                assert_eq!(sv.first_empty_slot_from(i), Some(60));
+            }
+            for i in 60..62 {
+                assert_eq!(sv.first_empty_slot_from(i), Some(i));
+            }
+            for i in 62..65 {
+                assert_eq!(sv.first_empty_slot_from(i), Some(65));
+            }
+            for i in 65..66 {
+                assert_eq!(sv.first_empty_slot_from(i), Some(i));
+            }
+            for i in 66..70 {
+                assert_eq!(sv.first_empty_slot_from(i), Some(70));
+            }
+            for i in 70..90 {
+                assert_eq!(sv.first_empty_slot_from(i), Some(i));
+            }
+            for i in 90..120 {
+                assert_eq!(sv.first_empty_slot_from(i), Some(120));
+            }
+            for i in 120..200 {
+                assert_eq!(sv.first_empty_slot_from(i), Some(i));
+            }
+            assert_eq!(sv.first_empty_slot_from(200), None);
+        }
+
+        #[test]
+        fn first_empty_slot_below_medium() {
+            let mut sv = $ty::new();
+            sv.reserve(200);
+
+            for i in (25..60).chain(62..65).chain(66..70).chain(90..120) {
+                sv.insert(i, 27u32);
+            }
+
+            assert_eq!(sv.first_empty_slot_below(0), None);
+            for i in 1..26 {
+                assert_eq!(sv.first_empty_slot_below(i), Some(i - 1));
+            }
+            for i in 26..61 {
+                assert_eq!(sv.first_empty_slot_below(i), Some(24));
+            }
+            for i in 61..63 {
+                assert_eq!(sv.first_empty_slot_below(i), Some(i - 1));
+            }
+            for i in 63..66 {
+                assert_eq!(sv.first_empty_slot_below(i), Some(61));
+            }
+            for i in 66..67 {
+                assert_eq!(sv.first_empty_slot_below(i), Some(i - 1));
+            }
+            for i in 67..71 {
+                assert_eq!(sv.first_empty_slot_below(i), Some(65));
+            }
+            for i in 71..91 {
+                assert_eq!(sv.first_empty_slot_below(i), Some(i - 1));
+            }
+            for i in 91..121 {
+                assert_eq!(sv.first_empty_slot_below(i), Some(89));
+            }
+            for i in 121..201 {
+                assert_eq!(sv.first_empty_slot_below(i), Some(i - 1));
             }
         }
 

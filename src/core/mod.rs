@@ -252,8 +252,8 @@ pub trait Core<T> {
         (0..idx).rev().find(|&idx| self.has_element_at(idx))
     }
 
-    /// Returns the index of the next empty slot with index i where `idx ≤ i <
-    /// self.cap()`.
+    /// Performs a forwards search starting at index `idx`, returning the
+    /// index of the first empty slot that is found.
     ///
     /// # Formal
     ///
@@ -266,10 +266,33 @@ pub trait Core<T> {
     /// - if `out == Some(j)`:
     ///     - ∀ i in `idx..j` ⇒ `self.has_element_at(i) == true`
     ///     - `self.has_element_at(j) == false`
-    unsafe fn next_hole_from(&self, idx: usize) -> Option<usize> {
+    unsafe fn first_empty_slot_from(&self, idx: usize) -> Option<usize> {
         debug_assert!(idx <= self.cap());
 
         (idx..self.cap()).find(|&idx| !self.has_element_at(idx))
+    }
+
+    /// Performs a backwards search starting at index `idx - 1`, returning the
+    /// index of the first empty slot that is found.
+    ///
+    /// If `idx > self.len()`, `Some(idx)` is always returned (remember the
+    /// preconditions tho!).
+    ///
+    /// # Formal
+    ///
+    /// **Preconditions**:
+    /// - `idx <= self.cap()` (note: strictly smaller)
+    ///
+    /// **Postconditons** (for return value `out`):
+    /// - if `out == None`:
+    ///     - ∀ i in `0..=idx` ⇒ `self.has_element_at(i) == true`
+    /// - if `out == Some(j)`:
+    ///     - ∀ i in `j + 1..=idx` ⇒ `self.has_element_at(i) == true`
+    ///     - `self.has_element_at(j) == false`
+    unsafe fn first_empty_slot_below(&self, idx: usize) -> Option<usize> {
+        debug_assert!(idx <= self.cap());
+
+        (0..idx).rev().find(|&idx| !self.has_element_at(idx))
     }
 
     /// Swaps the two slots with indices `a` and `b`. That is: the element

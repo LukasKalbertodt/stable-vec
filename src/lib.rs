@@ -203,10 +203,10 @@ pub type ExternStableVec<T> = StableVecFacade<T, BitVecCore<T>>;
 /// **Capacity management**
 ///
 /// - [`capacity`][StableVecFacade::capacity]
-/// - [`shrink_to_fit`][StableVecFacade::shrink_to_fit]
 /// - [`reserve`][StableVecFacade::reserve]
 /// - [`reserve_for`][StableVecFacade::reserve_for]
 /// - [`reserve_exact`][StableVecFacade::reserve_exact]
+/// - [`shrink_to_fit`][StableVecFacade::shrink_to_fit]
 ///
 // #[derive(PartialEq, Eq)]
 #[derive(Clone)]
@@ -388,12 +388,13 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
         }
     }
 
-    /// Inserts the new element `elem` at index `self.next_index` and returns
-    /// said index.
+    /// Inserts the new element `elem` at index `self.next_push_index` and
+    /// returns said index.
     ///
     /// The inserted element will always be accessible via the returned index.
     ///
-    /// This method has a runtime complexity of O(1).
+    /// This method has an amortized runtime complexity of O(1), just like
+    /// `Vec::push`.
     ///
     /// # Example
     ///
@@ -429,13 +430,12 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
 
     /// Inserts the given value at the given index.
     ///
-    /// If the slot at `index` is empty`, the `elem` is inserted at that
+    /// If the slot at `index` is empty, the `elem` is inserted at that
     /// position and `None` is returned. If there is an existing element `x` at
     /// that position, that element is replaced by `elem` and `Some(x)` is
     /// returned. The `next_push_index` is adjusted accordingly if `index >=
     /// next_push_index()`.
     ///
-    /// This method has a runtime complexity of O(1).
     ///
     /// # Panics
     ///
@@ -458,11 +458,11 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     ///
     /// // We can also reserve memory (create new empty slots) and insert into
     /// // such a new slot. Note that that `next_push_index` gets adjusted.
-    /// sv.reserve(1);
-    /// assert_eq!(sv.insert(2, 'y'), None);
+    /// sv.reserve_for(5);
+    /// assert_eq!(sv.insert(5, 'y'), None);
     /// assert_eq!(sv.num_elements(), 3);
-    /// assert_eq!(sv.next_push_index(), 3);
-    /// assert_eq!(sv[2], 'y');
+    /// assert_eq!(sv.next_push_index(), 6);
+    /// assert_eq!(sv[5], 'y');
     ///
     /// // Inserting into a filled slot replaces the value and returns the old
     /// // value.
@@ -525,8 +525,8 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     ///
     /// # Note
     ///
-    /// This method needs to find index of the first valid element. Finding it
-    /// has a worst case time complexity of O(n). If you already know the
+    /// This method needs to find the index of the first valid element. Finding
+    /// it has a worst case time complexity of O(n). If you already know the
     /// index, use [`remove()`][StableVecFacade::remove] instead.
     pub fn remove_first(&mut self) -> Option<T> {
         self.find_first_index().and_then(|index| self.remove(index))
@@ -549,8 +549,8 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     ///
     /// # Note
     ///
-    /// This method needs to find index of the last valid element. Finding it
-    /// has a worst case time complexity of O(n). If you already know the
+    /// This method needs to find the index of the last valid element. Finding
+    /// it has a worst case time complexity of O(n). If you already know the
     /// index, use [`remove()`][StableVecFacade::remove] instead.
     pub fn remove_last(&mut self) -> Option<T> {
         self.find_last_index().and_then(|index| self.remove(index))
@@ -677,14 +677,12 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
         }
     }
 
-    /// Removes and returns the element at position `index` if there exists an
-    /// element at that index (as defined by
-    /// [`has_element_at()`][StableVecFacade::has_element_at]).
+    /// Removes and returns the element at position `index`. If the slot at
+    /// `index` is empty, nothing is changed and `None` is returned.
     ///
-    /// Removing an element, drops the element in place and marks it as
-    /// "deleted". In particular, the elements after the given index are
-    /// **not** shifted to the left. Thus, the time complexity of this method
-    /// is O(1).
+    /// This simply marks the slot at `index` as empty. The elements after the
+    /// given index are **not** shifted to the left. Thus, the time complexity
+    /// of this method is O(1).
     ///
     /// # Panic
     ///
@@ -773,7 +771,7 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     ///
     /// When calling this method `self.has_element_at(index)` has to be `true`,
     /// otherwise this method's behavior is undefined! This requirement implies
-    /// the requirement `index < self.next_index()`.
+    /// the requirement `index < self.next_push_index()`.
     pub unsafe fn get_unchecked(&self, index: usize) -> &T {
         self.core.get_unchecked(index)
     }
@@ -785,16 +783,16 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     ///
     /// When calling this method `self.has_element_at(index)` has to be `true`,
     /// otherwise this method's behavior is undefined! This requirement implies
-    /// the requirement `index < self.next_index()`.
+    /// the requirement `index < self.next_push_index()`.
     pub unsafe fn get_unchecked_mut(&mut self, index: usize) -> &mut T {
         self.core.get_unchecked_mut(index)
     }
 
-    /// Returns `true` if there exists an element at the given index, `false`
-    /// otherwise.
+    /// Returns `true` if there exists an element at the given index (i.e. the
+    /// slot at `index` is *not* empty), `false` otherwise.
     ///
     /// An element is said to exist if the index is not out of bounds and the
-    /// slot at the given index was not empty. In particular, this method can
+    /// slot at the given index is not empty. In particular, this method can
     /// also be called with indices larger than the current capacity (although,
     /// `false` is always returned in those cases).
     ///
@@ -813,7 +811,7 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     /// ```
     pub fn has_element_at(&self, index: usize) -> bool {
         if index >= self.core.cap() {
-            return false;
+            false
         } else {
             unsafe {
                 // The index is smaller than the capacity, as checked aboved,
@@ -823,11 +821,14 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
         }
     }
 
-    /// Reallocates to have a capacity of exactly `self.next_index`.
+    /// Reallocates to have a capacity as small as possible while still holding
+    /// `self.next_push_index()` slots.
     ///
     /// Note that this does not move existing elements around and thus does not
-    /// invalidate indices. This method also doesn't change what `next_index`
-    /// returns. Instead, only the capacity is changed.
+    /// invalidate indices. This method also doesn't change what
+    /// `next_push_index` returns. Instead, only the capacity is changed. Due
+    /// to the underlying allocator, it cannot be guaranteed that the capacity
+    /// is exactly `self.next_push_index()` after calling this method.
     ///
     /// If you want to compact this stable vector by removing deleted elements,
     /// use the method [`make_compact`][StableVecFacade::make_compact] or
@@ -850,13 +851,12 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     /// Rearranges elements to reclaim memory. **Invalidates indices!**
     ///
     /// After calling this method, all existing elements stored contiguously in
-    /// memory. You might want to call
-    /// [`shrink_to_fit()`][StableVecFacade::shrink_to_fit] afterwards to
-    /// actually free memory previously used by removed elements. This method
-    /// itself does not deallocate any memory.
+    /// memory. You might want to call [`shrink_to_fit()`][StableVecFacade::shrink_to_fit]
+    /// afterwards to actually free memory previously used by removed elements.
+    /// This method itself does not deallocate any memory.
     ///
-    /// The `next_index` value is also changed by this method (if the stable
-    /// vector wasn't compact before).
+    /// The `next_push_index` value is also changed by this method (if the
+    /// stable vector wasn't compact before).
     ///
     /// In comparison to
     /// [`reordering_make_compact()`][StableVecFacade::reordering_make_compact],
@@ -917,8 +917,8 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     /// afterwards to actually free memory previously used by removed elements.
     /// This method itself does not deallocate any memory.
     ///
-    /// The `next_index` value is also changed by this method (if the stable
-    /// vector wasn't compact before).
+    /// The `next_push_index` value is also changed by this method (if the
+    /// stable vector wasn't compact before).
     ///
     /// If you do need to preserve the order of elements, use
     /// [`make_compact()`][StableVecFacade::make_compact] instead. However, if
@@ -973,7 +973,7 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
 
     /// Returns `true` if all existing elements are stored contiguously from
     /// the beginning (in other words: there are no empty slots with indices
-    /// below `self.next_index()`).
+    /// below `self.next_push_index()`).
     ///
     /// # Example
     ///
@@ -992,8 +992,8 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     /// Returns the number of existing elements in this collection.
     ///
     /// As long as no element is ever removed, `num_elements()` equals
-    /// `next_index()`. Once an element has been removed, `num_elements()` will
-    /// always be less than `next_index()` (assuming
+    /// `next_push_index()`. Once an element has been removed, `num_elements()`
+    /// will always be less than `next_push_index()` (assuming
     /// `[reordering_]make_compact()` is not called).
     ///
     /// # Example
@@ -1040,7 +1040,7 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     ///
     /// After calling this, `num_elements()` will return 0. All indices are
     /// invalidated. However, no memory is deallocated, so the capacity stays
-    /// as it was before. `self.next_index` is 0 after calling this method.
+    /// as it was before. `self.next_push_index` is 0 after calling this method.
     ///
     /// # Example
     ///
@@ -1064,7 +1064,7 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
 
     /// Returns the index that would be returned by calling
     /// [`push()`][StableVecFacade::push]. All filled slots have indices below
-    /// `next_index()`.
+    /// `next_push_index()`.
     ///
     /// # Example
     ///
@@ -1072,10 +1072,10 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     /// # use stable_vec::StableVec;
     /// let mut sv = StableVec::from(&['a', 'b', 'c']);
     ///
-    /// let next_index = sv.next_push_index();
+    /// let next_push_index = sv.next_push_index();
     /// let index_of_d = sv.push('d');
     ///
-    /// assert_eq!(next_index, index_of_d);
+    /// assert_eq!(next_push_index, index_of_d);
     /// ```
     pub fn next_push_index(&self) -> usize {
         self.core.len()
@@ -1264,12 +1264,7 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     where
         U: PartialEq<T>,
     {
-        for e in self {
-            if item == e {
-                return true;
-            }
-        }
-        false
+        self.iter().any(|e| item == e)
     }
 
     /// Returns the stable vector as a standard `Vec<T>`.

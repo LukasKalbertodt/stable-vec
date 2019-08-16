@@ -6,18 +6,13 @@ fn main() {
     sv.remove(1);
     sv.remove(4);
 
-    for e in &sv {
-        println!("{:?}", e);
+    for (i, e) in &sv {
+        println!("{} -> {:?}", i, e);
     }
 
     println!("-------");
-    for e in &mut sv {
+    for e in sv.values_mut() {
         *e += 1;
-        println!("{:?}", e);
-    }
-
-    println!("-------");
-    for e in &sv {
         println!("{:?}", e);
     }
 

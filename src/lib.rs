@@ -83,7 +83,7 @@ use std::{
 };
 use crate::{
     core::{Core, DefaultCore, OwningCore, OptionCore, BitVecCore},
-    iter::{Indices, Values, ValuesMut, IntoIter},
+    iter::{Indices, Iter, IterMut, IntoIter, Values, ValuesMut},
 };
 
 #[cfg(test)]
@@ -612,6 +612,55 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
         self.num_elements == self.core.len()
     }
 
+    /// Returns an iterator over indices and immutable references to the stable
+    /// vector's elements. Elements are yielded in order of their increasing
+    /// indices.
+    ///
+    /// Note that you can also obtain this iterator via the `IntoIterator` impl
+    /// of `&StableVecFacade`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::from(&[10, 11, 12, 13, 14]);
+    /// sv.remove(1);
+    ///
+    /// let mut it = sv.iter().filter(|&(_, &n)| n <= 13);
+    /// assert_eq!(it.next(), Some((0, &10)));
+    /// assert_eq!(it.next(), Some((2, &12)));
+    /// assert_eq!(it.next(), Some((3, &13)));
+    /// assert_eq!(it.next(), None);
+    /// ```
+    pub fn iter(&self) -> Iter<'_, T, C> {
+        Iter::new(self)
+    }
+
+    /// Returns an iterator over indices and mutable references to the stable
+    /// vector's elements. Elements are yielded in order of their increasing
+    /// indices.
+    ///
+    /// Note that you can also obtain this iterator via the `IntoIterator` impl
+    /// of `&mut StableVecFacade`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::from(&[10, 11, 12, 13, 14]);
+    /// sv.remove(1);
+    ///
+    /// for (idx, elem) in &mut sv {
+    ///     if idx % 2 == 0 {
+    ///         *elem *= 2;
+    ///     }
+    /// }
+    ///
+    /// assert_eq!(sv, vec![20, 24, 13, 28]);
+    /// ```
+    pub fn iter_mut(&mut self) -> IterMut<'_, T, C> {
+        IterMut::new(self)
+    }
 
     /// Returns an iterator over immutable references to the existing elements
     /// of this stable vector. Elements are yielded in order of their
@@ -631,11 +680,7 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     /// assert_eq!(it.next(), None);
     /// ```
     pub fn values(&self) -> Values<'_, T, C> {
-        Values {
-            core: &self.core,
-            pos: 0,
-            count: self.num_elements,
-        }
+        Values::new(self)
     }
 
     /// Returns an iterator over mutable references to the existing elements
@@ -658,11 +703,7 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     /// assert_eq!(sv, &[2.0, 4.0, 6.0] as &[_]);
     /// ```
     pub fn values_mut(&mut self) -> ValuesMut<T, C> {
-        ValuesMut {
-            count: self.num_elements,
-            sv: self,
-            pos: 0,
-        }
+        ValuesMut::new(self)
     }
 
     /// Returns an iterator over all indices of filled slots of this stable
@@ -693,11 +734,7 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     /// }
     /// ```
     pub fn indices(&self) -> Indices<'_, T, C> {
-        Indices {
-            core: &self.core,
-            pos: 0,
-            count: self.num_elements,
-        }
+        Indices::new(self)
     }
 
     /// Reserves memory for at least `additional` more elements to be inserted
@@ -1544,6 +1581,21 @@ impl<C: Core<u8>> io::Write for StableVecFacade<u8, C> {
     fn flush(&mut self) -> io::Result<()> { Ok(()) }
 }
 
+impl<'a, T, C: Core<T>> IntoIterator for &'a StableVecFacade<T, C> {
+    type Item = (usize, &'a T);
+    type IntoIter = Iter<'a, T, C>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+impl<'a, T, C: Core<T>> IntoIterator for &'a mut StableVecFacade<T, C> {
+    type Item = (usize, &'a mut T);
+    type IntoIter = IterMut<'a, T, C>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter_mut()
+    }
+}
 
 impl<T, C: Core<T>> IntoIterator for StableVecFacade<T, C> {
     type Item = T;
@@ -1570,8 +1622,10 @@ where
     Cb: Core<Tb>,
 {
     fn eq(&self, other: &StableVecFacade<Tb, Cb>) -> bool {
-        // TODO
-        self.values().eq(other.values())
+        if self.num_elements != other.num_elements {
+            return false;
+        }
+        self.iter().zip(other).all(|((ai, ae), (bi, be))| ai == bi && ae == be)
     }
 }
 

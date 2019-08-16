@@ -6,6 +6,7 @@
 //! more information.
 
 use std::{
+    fmt,
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
@@ -342,6 +343,11 @@ impl<T, C: Core<T>> OwningCore<T, C> {
     }
 }
 
+impl<T, C: Core<T> + fmt::Debug> fmt::Debug for OwningCore<T, C> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.core.fmt(f)
+    }
+}
 
 impl<T, C: Core<T>> Deref for OwningCore<T, C> {
     type Target = C;

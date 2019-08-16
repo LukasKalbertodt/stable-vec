@@ -238,6 +238,481 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
         out
     }
 
+    /// Inserts the new element `elem` at index `self.next_push_index` and
+    /// returns said index.
+    ///
+    /// The inserted element will always be accessible via the returned index.
+    ///
+    /// This method has an amortized runtime complexity of O(1), just like
+    /// `Vec::push`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::new();
+    /// let star_idx = sv.push('★');
+    /// let heart_idx = sv.push('♥');
+    ///
+    /// assert_eq!(sv.get(heart_idx), Some(&'♥'));
+    ///
+    /// // After removing the star we can still use the heart's index to access
+    /// // the element!
+    /// sv.remove(star_idx);
+    /// assert_eq!(sv.get(heart_idx), Some(&'♥'));
+    /// ```
+    pub fn push(&mut self, elem: T) -> usize {
+        let index = self.core.len();
+        self.reserve(1);
+
+        unsafe {
+            // Due to `reserve`, the core holds at least one empty slot, so we
+            // know that `index` is smaller than the capacity. We also know
+            // that at `index` there is no element (the definition of `len`
+            // guarantees this).
+            self.core.set_len(index + 1);
+            self.core.insert_at(index, elem);
+        }
+
+        self.num_elements += 1;
+        index
+    }
+
+    /// Inserts the given value at the given index.
+    ///
+    /// If the slot at `index` is empty, the `elem` is inserted at that
+    /// position and `None` is returned. If there is an existing element `x` at
+    /// that position, that element is replaced by `elem` and `Some(x)` is
+    /// returned. The `next_push_index` is adjusted accordingly if `index >=
+    /// next_push_index()`.
+    ///
+    ///
+    /// # Panics
+    ///
+    /// Panics if the index is `>= self.capacity()`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::new();
+    /// let star_idx = sv.push('★');
+    /// let heart_idx = sv.push('♥');
+    ///
+    /// // Inserting into an empty slot (element was deleted).
+    /// sv.remove(star_idx);
+    /// assert_eq!(sv.num_elements(), 1);
+    /// assert_eq!(sv.insert(star_idx, 'x'), None);
+    /// assert_eq!(sv.num_elements(), 2);
+    /// assert_eq!(sv[star_idx], 'x');
+    ///
+    /// // We can also reserve memory (create new empty slots) and insert into
+    /// // such a new slot. Note that that `next_push_index` gets adjusted.
+    /// sv.reserve_for(5);
+    /// assert_eq!(sv.insert(5, 'y'), None);
+    /// assert_eq!(sv.num_elements(), 3);
+    /// assert_eq!(sv.next_push_index(), 6);
+    /// assert_eq!(sv[5], 'y');
+    ///
+    /// // Inserting into a filled slot replaces the value and returns the old
+    /// // value.
+    /// assert_eq!(sv.insert(heart_idx, 'z'), Some('♥'));
+    /// assert_eq!(sv[heart_idx], 'z');
+    /// ```
+    pub fn insert(&mut self, index: usize, mut elem: T) -> Option<T> {
+        // If the index is out of bounds, we cannot insert the new element.
+        if index >= self.core.cap() {
+            panic!(
+                "`index ({}) >= capacity ({})` in `StableVecFacade::insert`",
+                index,
+                self.core.cap(),
+            );
+        }
+
+        if self.has_element_at(index) {
+            unsafe {
+                // We just checked there is an element at that position, so
+                // this is fine.
+                mem::swap(self.core.get_unchecked_mut(index), &mut elem);
+            }
+            Some(elem)
+        } else {
+            if index >= self.core.len() {
+                // Due to the bounds check above, we know that `index + 1` is ≤
+                // `capacity`.
+                unsafe {
+                    self.core.set_len(index + 1);
+                }
+            }
+
+            unsafe {
+                // `insert_at` requires that `index < cap` and
+                // `!has_element_at(index)`. Both of these conditions are met
+                // by the two explicit checks above.
+                self.core.insert_at(index, elem);
+            }
+
+            self.num_elements += 1;
+
+            None
+        }
+    }
+
+    /// Removes and returns the element at position `index`. If the slot at
+    /// `index` is empty, nothing is changed and `None` is returned.
+    ///
+    /// This simply marks the slot at `index` as empty. The elements after the
+    /// given index are **not** shifted to the left. Thus, the time complexity
+    /// of this method is O(1).
+    ///
+    /// # Panic
+    ///
+    /// Panics if `index >= self.capacity()`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::new();
+    /// let star_idx = sv.push('★');
+    /// let heart_idx = sv.push('♥');
+    ///
+    /// assert_eq!(sv.remove(star_idx), Some('★'));
+    /// assert_eq!(sv.remove(star_idx), None); // the star was already removed
+    ///
+    /// // We can use the heart's index here. It has not been invalidated by
+    /// // the removal of the star.
+    /// assert_eq!(sv.remove(heart_idx), Some('♥'));
+    /// assert_eq!(sv.remove(heart_idx), None); // the heart was already removed
+    /// ```
+    pub fn remove(&mut self, index: usize) -> Option<T> {
+        // If the index is out of bounds, we cannot insert the new element.
+        if index >= self.core.cap() {
+            panic!(
+                "`index ({}) >= capacity ({})` in `StableVecFacade::remove`",
+                index,
+                self.core.cap(),
+            );
+        }
+
+        if self.has_element_at(index) {
+            // We checked with `Self::has_element_at` that the conditions for
+            // `remove_at` are met.
+            let elem = unsafe {
+                self.core.remove_at(index)
+            };
+
+            self.num_elements -= 1;
+            Some(elem)
+        } else {
+            None
+        }
+    }
+
+    /// Removes all elements from this collection.
+    ///
+    /// After calling this, `num_elements()` will return 0. All indices are
+    /// invalidated. However, no memory is deallocated, so the capacity stays
+    /// as it was before. `self.next_push_index` is 0 after calling this method.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::from(&['a', 'b']);
+    ///
+    /// sv.clear();
+    /// assert_eq!(sv.num_elements(), 0);
+    /// assert!(sv.capacity() >= 2);
+    /// ```
+    pub fn clear(&mut self) {
+        self.core.clear();
+        self.num_elements = 0;
+    }
+
+    /// Returns a reference to the element at the given index, or `None` if
+    /// there exists no element at that index.
+    ///
+    /// If you are calling `unwrap()` on the result of this method anyway,
+    /// rather use the index operator instead: `stable_vec[index]`.
+    pub fn get(&self, index: usize) -> Option<&T> {
+        if self.has_element_at(index) {
+            // We might call this, because we checked both conditions via
+            // `Self::has_element_at`.
+            let elem = unsafe {
+                self.core.get_unchecked(index)
+            };
+            Some(elem)
+        } else {
+            None
+        }
+    }
+
+    /// Returns a mutable reference to the element at the given index, or
+    /// `None` if there exists no element at that index.
+    ///
+    /// If you are calling `unwrap()` on the result of this method anyway,
+    /// rather use the index operator instead: `stable_vec[index]`.
+    pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
+        if self.has_element_at(index) {
+            // We might call this, because we checked both conditions via
+            // `Self::has_element_at`.
+            let elem = unsafe {
+                self.core.get_unchecked_mut(index)
+            };
+            Some(elem)
+        } else {
+            None
+        }
+    }
+
+    /// Returns a reference to the element at the given index without checking
+    /// the index.
+    ///
+    /// # Security
+    ///
+    /// When calling this method `self.has_element_at(index)` has to be `true`,
+    /// otherwise this method's behavior is undefined! This requirement implies
+    /// the requirement `index < self.next_push_index()`.
+    pub unsafe fn get_unchecked(&self, index: usize) -> &T {
+        self.core.get_unchecked(index)
+    }
+
+    /// Returns a mutable reference to the element at the given index without
+    /// checking the index.
+    ///
+    /// # Security
+    ///
+    /// When calling this method `self.has_element_at(index)` has to be `true`,
+    /// otherwise this method's behavior is undefined! This requirement implies
+    /// the requirement `index < self.next_push_index()`.
+    pub unsafe fn get_unchecked_mut(&mut self, index: usize) -> &mut T {
+        self.core.get_unchecked_mut(index)
+    }
+
+    /// Returns `true` if there exists an element at the given index (i.e. the
+    /// slot at `index` is *not* empty), `false` otherwise.
+    ///
+    /// An element is said to exist if the index is not out of bounds and the
+    /// slot at the given index is not empty. In particular, this method can
+    /// also be called with indices larger than the current capacity (although,
+    /// `false` is always returned in those cases).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::new();
+    /// assert!(!sv.has_element_at(3));         // no: index out of bounds
+    ///
+    /// let heart_idx = sv.push('♥');
+    /// assert!(sv.has_element_at(heart_idx));  // yes
+    ///
+    /// sv.remove(heart_idx);
+    /// assert!(!sv.has_element_at(heart_idx)); // no: was removed
+    /// ```
+    pub fn has_element_at(&self, index: usize) -> bool {
+        if index >= self.core.cap() {
+            false
+        } else {
+            unsafe {
+                // The index is smaller than the capacity, as checked aboved,
+                // so we can call this without a problem.
+                self.core.has_element_at(index)
+            }
+        }
+    }
+
+    /// Returns the number of existing elements in this collection.
+    ///
+    /// As long as no element is ever removed, `num_elements()` equals
+    /// `next_push_index()`. Once an element has been removed, `num_elements()`
+    /// will always be less than `next_push_index()` (assuming
+    /// `[reordering_]make_compact()` is not called).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::new();
+    /// assert_eq!(sv.num_elements(), 0);
+    ///
+    /// let heart_idx = sv.push('♥');
+    /// assert_eq!(sv.num_elements(), 1);
+    ///
+    /// sv.remove(heart_idx);
+    /// assert_eq!(sv.num_elements(), 0);
+    /// ```
+    pub fn num_elements(&self) -> usize {
+        self.num_elements
+    }
+
+    /// Returns the index that would be returned by calling
+    /// [`push()`][StableVecFacade::push]. All filled slots have indices below
+    /// `next_push_index()`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::from(&['a', 'b', 'c']);
+    ///
+    /// let next_push_index = sv.next_push_index();
+    /// let index_of_d = sv.push('d');
+    ///
+    /// assert_eq!(next_push_index, index_of_d);
+    /// ```
+    pub fn next_push_index(&self) -> usize {
+        self.core.len()
+    }
+
+    /// Returns the number of slots in this stable vector.
+    pub fn capacity(&self) -> usize {
+        self.core.cap()
+    }
+
+    /// Returns `true` if this collection doesn't contain any existing
+    /// elements.
+    ///
+    /// This means that `is_empty()` returns true iff no elements were inserted
+    /// *or* all inserted elements were removed again.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::new();
+    /// assert!(sv.is_empty());
+    ///
+    /// let heart_idx = sv.push('♥');
+    /// assert!(!sv.is_empty());
+    ///
+    /// sv.remove(heart_idx);
+    /// assert!(sv.is_empty());
+    /// ```
+    pub fn is_empty(&self) -> bool {
+        self.num_elements == 0
+    }
+
+    /// Returns `true` if all existing elements are stored contiguously from
+    /// the beginning (in other words: there are no empty slots with indices
+    /// below `self.next_push_index()`).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::from(&[0, 1, 2, 3, 4]);
+    /// assert!(sv.is_compact());
+    ///
+    /// sv.remove(1);
+    /// assert!(!sv.is_compact());
+    /// ```
+    pub fn is_compact(&self) -> bool {
+        self.num_elements == self.core.len()
+    }
+
+
+    /// Returns an iterator over immutable references to the existing elements
+    /// of this stable vector. Elements are yielded in order of their
+    /// increasing indices.
+    ///
+    /// Note that you can also use the `IntoIterator` implementation of
+    /// `&StableVecFacade` to obtain the same iterator.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::from(&[0, 1, 2, 3, 4]);
+    /// sv.remove(1);
+    ///
+    /// // Using the `iter()` method to apply a `filter()`.
+    /// let mut it = sv.iter().filter(|&&n| n <= 3);
+    /// assert_eq!(it.next(), Some(&0));
+    /// assert_eq!(it.next(), Some(&2));
+    /// assert_eq!(it.next(), Some(&3));
+    /// assert_eq!(it.next(), None);
+    ///
+    /// // Simple iterate using the implicit `IntoIterator` conversion of the
+    /// // for-loop:
+    /// for e in &sv {
+    ///     println!("{:?}", e);
+    /// }
+    /// ```
+    pub fn iter(&self) -> Iter<'_, T, C> {
+        Iter {
+            core: &self.core,
+            pos: 0,
+            count: self.num_elements,
+        }
+    }
+
+    /// Returns an iterator over mutable references to the existing elements
+    /// of this stable vector. Elements are yielded in order of their
+    /// increasing indices.
+    ///
+    /// Note that you can also use the `IntoIterator` implementation of
+    /// `&mut StableVecFacade` to obtain the same iterator.
+    ///
+    /// Through this iterator, the elements within the stable vector can be
+    /// mutated.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::from(&[1.0, 2.0, 3.0]);
+    ///
+    /// for e in &mut sv {
+    ///     *e *= 2.0;
+    /// }
+    ///
+    /// assert_eq!(sv, &[2.0, 4.0, 6.0] as &[_]);
+    /// ```
+    pub fn iter_mut(&mut self) -> IterMut<T, C> {
+        IterMut {
+            count: self.num_elements,
+            sv: self,
+            pos: 0,
+        }
+    }
+
+    /// Returns an iterator over all indices of filled slots of this stable
+    /// vector. Indices are yielded in increasing order.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::from(&['a', 'b', 'c', 'd']);
+    /// sv.remove(1);
+    ///
+    /// let mut it = sv.indices();
+    /// assert_eq!(it.next(), Some(0));
+    /// assert_eq!(it.next(), Some(2));
+    /// assert_eq!(it.next(), Some(3));
+    /// assert_eq!(it.next(), None);
+    /// ```
+    ///
+    /// Simply using the `for`-loop:
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::from(&['a', 'b', 'c', 'd']);
+    ///
+    /// for index in sv.indices() {
+    ///     println!("index: {}", index);
+    /// }
+    /// ```
+    pub fn indices(&self) -> Indices<'_, T, C> {
+        Indices {
+            core: &self.core,
+            pos: 0,
+            count: self.num_elements,
+        }
+    }
+
     /// Reserves memory for at least `additional` more elements to be inserted
     /// at indices `>= self.next_push_index()`.
     ///
@@ -388,126 +863,6 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
         }
     }
 
-    /// Inserts the new element `elem` at index `self.next_push_index` and
-    /// returns said index.
-    ///
-    /// The inserted element will always be accessible via the returned index.
-    ///
-    /// This method has an amortized runtime complexity of O(1), just like
-    /// `Vec::push`.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::new();
-    /// let star_idx = sv.push('★');
-    /// let heart_idx = sv.push('♥');
-    ///
-    /// assert_eq!(sv.get(heart_idx), Some(&'♥'));
-    ///
-    /// // After removing the star we can still use the heart's index to access
-    /// // the element!
-    /// sv.remove(star_idx);
-    /// assert_eq!(sv.get(heart_idx), Some(&'♥'));
-    /// ```
-    pub fn push(&mut self, elem: T) -> usize {
-        let index = self.core.len();
-        self.reserve(1);
-
-        unsafe {
-            // Due to `reserve`, the core holds at least one empty slot, so we
-            // know that `index` is smaller than the capacity. We also know
-            // that at `index` there is no element (the definition of `len`
-            // guarantees this).
-            self.core.set_len(index + 1);
-            self.core.insert_at(index, elem);
-        }
-
-        self.num_elements += 1;
-        index
-    }
-
-    /// Inserts the given value at the given index.
-    ///
-    /// If the slot at `index` is empty, the `elem` is inserted at that
-    /// position and `None` is returned. If there is an existing element `x` at
-    /// that position, that element is replaced by `elem` and `Some(x)` is
-    /// returned. The `next_push_index` is adjusted accordingly if `index >=
-    /// next_push_index()`.
-    ///
-    ///
-    /// # Panics
-    ///
-    /// Panics if the index is `>= self.capacity()`.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::new();
-    /// let star_idx = sv.push('★');
-    /// let heart_idx = sv.push('♥');
-    ///
-    /// // Inserting into an empty slot (element was deleted).
-    /// sv.remove(star_idx);
-    /// assert_eq!(sv.num_elements(), 1);
-    /// assert_eq!(sv.insert(star_idx, 'x'), None);
-    /// assert_eq!(sv.num_elements(), 2);
-    /// assert_eq!(sv[star_idx], 'x');
-    ///
-    /// // We can also reserve memory (create new empty slots) and insert into
-    /// // such a new slot. Note that that `next_push_index` gets adjusted.
-    /// sv.reserve_for(5);
-    /// assert_eq!(sv.insert(5, 'y'), None);
-    /// assert_eq!(sv.num_elements(), 3);
-    /// assert_eq!(sv.next_push_index(), 6);
-    /// assert_eq!(sv[5], 'y');
-    ///
-    /// // Inserting into a filled slot replaces the value and returns the old
-    /// // value.
-    /// assert_eq!(sv.insert(heart_idx, 'z'), Some('♥'));
-    /// assert_eq!(sv[heart_idx], 'z');
-    /// ```
-    pub fn insert(&mut self, index: usize, mut elem: T) -> Option<T> {
-        // If the index is out of bounds, we cannot insert the new element.
-        if index >= self.core.cap() {
-            panic!(
-                "`index ({}) >= capacity ({})` in `StableVecFacade::insert`",
-                index,
-                self.core.cap(),
-            );
-        }
-
-        if self.has_element_at(index) {
-            unsafe {
-                // We just checked there is an element at that position, so
-                // this is fine.
-                mem::swap(self.core.get_unchecked_mut(index), &mut elem);
-            }
-            Some(elem)
-        } else {
-            if index >= self.core.len() {
-                // Due to the bounds check above, we know that `index + 1` is ≤
-                // `capacity`.
-                unsafe {
-                    self.core.set_len(index + 1);
-                }
-            }
-
-            unsafe {
-                // `insert_at` requires that `index < cap` and
-                // `!has_element_at(index)`. Both of these conditions are met
-                // by the two explicit checks above.
-                self.core.insert_at(index, elem);
-            }
-
-            self.num_elements += 1;
-
-            None
-        }
-    }
-
     /// Removes and returns the first element from this collection, or `None`
     /// if it's empty.
     ///
@@ -634,6 +989,74 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
         self.find_last_index().map(move |index| unsafe { self.core.get_unchecked_mut(index) })
     }
 
+    /// Returns the index of the next filled slot with index `idx` or higher.
+    ///
+    /// Specifically, if an element at index `idx` exists, `Some(idx)` is
+    /// returned. If all slots with indices `idx` and higher are empty (or
+    /// don't exist), `None` is returned. This method can be used to iterate
+    /// over all existing elements without an iterator object.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::from(&[0, 1, 2, 3, 4]);
+    /// sv.remove(1);
+    /// sv.remove(2);
+    /// sv.remove(4);
+    ///
+    /// assert_eq!(sv.next_index_from(0), Some(0));
+    /// assert_eq!(sv.next_index_from(1), Some(3));
+    /// assert_eq!(sv.next_index_from(2), Some(3));
+    /// assert_eq!(sv.next_index_from(3), Some(3));
+    /// assert_eq!(sv.next_index_from(4), None);
+    /// assert_eq!(sv.next_index_from(5), None);
+    /// ```
+    pub fn next_index_from(&self, start: usize) -> Option<usize> {
+        if start >= self.next_push_index() {
+            None
+        } else {
+            // The precondition `start <= self.core.len()` is satisfied.
+            unsafe { self.core.next_index_from(start) }
+        }
+    }
+
+    /// Returns the index of the previous filled slot with index `idx` or
+    /// lower. This is like `next_index_from` but searching backwards.
+    ///
+    /// Specifically, if an element at index `idx` exists, `Some(idx)` is
+    /// returned. If all slots with indices `idx` and lower are empty, `None`
+    /// is returned. This method can be used to iterate over all existing
+    /// elements without an iterator object.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::from(&[0, 1, 2, 3, 4]);
+    /// sv.remove(0);
+    /// sv.remove(2);
+    /// sv.remove(3);
+    ///
+    /// assert_eq!(sv.prev_index_from(0), None);
+    /// assert_eq!(sv.prev_index_from(1), Some(1));
+    /// assert_eq!(sv.prev_index_from(2), Some(1));
+    /// assert_eq!(sv.prev_index_from(3), Some(1));
+    /// assert_eq!(sv.prev_index_from(4), Some(4));
+    /// assert_eq!(sv.prev_index_from(5), Some(4));
+    /// ```
+    pub fn prev_index_from(&self, start: usize) -> Option<usize> {
+        // The precondition `start < self.core.len()` is satisfied de to this
+        // `min` expression.
+        let len = self.next_push_index();
+        if len == 0 {
+            return None;
+        }
+
+        let start = std::cmp::min(start, len - 1);
+        unsafe { self.core.prev_index_from(start) }
+    }
+
     /// Finds the first element and returns its index, or `None` if the stable
     /// vector is empty.
     ///
@@ -673,150 +1096,6 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
         } else {
             unsafe {
                 self.core.prev_index_from(len - 1)
-            }
-        }
-    }
-
-    /// Removes and returns the element at position `index`. If the slot at
-    /// `index` is empty, nothing is changed and `None` is returned.
-    ///
-    /// This simply marks the slot at `index` as empty. The elements after the
-    /// given index are **not** shifted to the left. Thus, the time complexity
-    /// of this method is O(1).
-    ///
-    /// # Panic
-    ///
-    /// Panics if `index >= self.capacity()`.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::new();
-    /// let star_idx = sv.push('★');
-    /// let heart_idx = sv.push('♥');
-    ///
-    /// assert_eq!(sv.remove(star_idx), Some('★'));
-    /// assert_eq!(sv.remove(star_idx), None); // the star was already removed
-    ///
-    /// // We can use the heart's index here. It has not been invalidated by
-    /// // the removal of the star.
-    /// assert_eq!(sv.remove(heart_idx), Some('♥'));
-    /// assert_eq!(sv.remove(heart_idx), None); // the heart was already removed
-    /// ```
-    pub fn remove(&mut self, index: usize) -> Option<T> {
-        // If the index is out of bounds, we cannot insert the new element.
-        if index >= self.core.cap() {
-            panic!(
-                "`index ({}) >= capacity ({})` in `StableVecFacade::remove`",
-                index,
-                self.core.cap(),
-            );
-        }
-
-        if self.has_element_at(index) {
-            // We checked with `Self::has_element_at` that the conditions for
-            // `remove_at` are met.
-            let elem = unsafe {
-                self.core.remove_at(index)
-            };
-
-            self.num_elements -= 1;
-            Some(elem)
-        } else {
-            None
-        }
-    }
-
-    /// Returns a reference to the element at the given index, or `None` if
-    /// there exists no element at that index.
-    ///
-    /// If you are calling `unwrap()` on the result of this method anyway,
-    /// rather use the index operator instead: `stable_vec[index]`.
-    pub fn get(&self, index: usize) -> Option<&T> {
-        if self.has_element_at(index) {
-            // We might call this, because we checked both conditions via
-            // `Self::has_element_at`.
-            let elem = unsafe {
-                self.core.get_unchecked(index)
-            };
-            Some(elem)
-        } else {
-            None
-        }
-    }
-
-    /// Returns a mutable reference to the element at the given index, or
-    /// `None` if there exists no element at that index.
-    ///
-    /// If you are calling `unwrap()` on the result of this method anyway,
-    /// rather use the index operator instead: `stable_vec[index]`.
-    pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
-        if self.has_element_at(index) {
-            // We might call this, because we checked both conditions via
-            // `Self::has_element_at`.
-            let elem = unsafe {
-                self.core.get_unchecked_mut(index)
-            };
-            Some(elem)
-        } else {
-            None
-        }
-    }
-
-    /// Returns a reference to the element at the given index without checking
-    /// the index.
-    ///
-    /// # Security
-    ///
-    /// When calling this method `self.has_element_at(index)` has to be `true`,
-    /// otherwise this method's behavior is undefined! This requirement implies
-    /// the requirement `index < self.next_push_index()`.
-    pub unsafe fn get_unchecked(&self, index: usize) -> &T {
-        self.core.get_unchecked(index)
-    }
-
-    /// Returns a mutable reference to the element at the given index without
-    /// checking the index.
-    ///
-    /// # Security
-    ///
-    /// When calling this method `self.has_element_at(index)` has to be `true`,
-    /// otherwise this method's behavior is undefined! This requirement implies
-    /// the requirement `index < self.next_push_index()`.
-    pub unsafe fn get_unchecked_mut(&mut self, index: usize) -> &mut T {
-        self.core.get_unchecked_mut(index)
-    }
-
-    /// Returns `true` if there exists an element at the given index (i.e. the
-    /// slot at `index` is *not* empty), `false` otherwise.
-    ///
-    /// An element is said to exist if the index is not out of bounds and the
-    /// slot at the given index is not empty. In particular, this method can
-    /// also be called with indices larger than the current capacity (although,
-    /// `false` is always returned in those cases).
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::new();
-    /// assert!(!sv.has_element_at(3));         // no: index out of bounds
-    ///
-    /// let heart_idx = sv.push('♥');
-    /// assert!(sv.has_element_at(heart_idx));  // yes
-    ///
-    /// sv.remove(heart_idx);
-    /// assert!(!sv.has_element_at(heart_idx)); // no: was removed
-    /// ```
-    pub fn has_element_at(&self, index: usize) -> bool {
-        if index >= self.core.cap() {
-            false
-        } else {
-            unsafe {
-                // The index is smaller than the capacity, as checked aboved,
-                // so we can call this without a problem.
-                self.core.has_element_at(index)
             }
         }
     }
@@ -968,284 +1247,6 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
         // range 0..self.num_elements.
         unsafe {
             self.core.set_len(self.num_elements);
-        }
-    }
-
-    /// Returns `true` if all existing elements are stored contiguously from
-    /// the beginning (in other words: there are no empty slots with indices
-    /// below `self.next_push_index()`).
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::from(&[0, 1, 2, 3, 4]);
-    /// assert!(sv.is_compact());
-    ///
-    /// sv.remove(1);
-    /// assert!(!sv.is_compact());
-    /// ```
-    pub fn is_compact(&self) -> bool {
-        self.num_elements == self.core.len()
-    }
-
-    /// Returns the number of existing elements in this collection.
-    ///
-    /// As long as no element is ever removed, `num_elements()` equals
-    /// `next_push_index()`. Once an element has been removed, `num_elements()`
-    /// will always be less than `next_push_index()` (assuming
-    /// `[reordering_]make_compact()` is not called).
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::new();
-    /// assert_eq!(sv.num_elements(), 0);
-    ///
-    /// let heart_idx = sv.push('♥');
-    /// assert_eq!(sv.num_elements(), 1);
-    ///
-    /// sv.remove(heart_idx);
-    /// assert_eq!(sv.num_elements(), 0);
-    /// ```
-    pub fn num_elements(&self) -> usize {
-        self.num_elements
-    }
-
-    /// Returns `true` if this collection doesn't contain any existing
-    /// elements.
-    ///
-    /// This means that `is_empty()` returns true iff no elements were inserted
-    /// *or* all inserted elements were removed again.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::new();
-    /// assert!(sv.is_empty());
-    ///
-    /// let heart_idx = sv.push('♥');
-    /// assert!(!sv.is_empty());
-    ///
-    /// sv.remove(heart_idx);
-    /// assert!(sv.is_empty());
-    /// ```
-    pub fn is_empty(&self) -> bool {
-        self.num_elements == 0
-    }
-
-    /// Removes all elements from this collection.
-    ///
-    /// After calling this, `num_elements()` will return 0. All indices are
-    /// invalidated. However, no memory is deallocated, so the capacity stays
-    /// as it was before. `self.next_push_index` is 0 after calling this method.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::from(&['a', 'b']);
-    ///
-    /// sv.clear();
-    /// assert_eq!(sv.num_elements(), 0);
-    /// assert!(sv.capacity() >= 2);
-    /// ```
-    pub fn clear(&mut self) {
-        self.core.clear();
-        self.num_elements = 0;
-    }
-
-    /// Returns the number of slots in this stable vector.
-    pub fn capacity(&self) -> usize {
-        self.core.cap()
-    }
-
-    /// Returns the index that would be returned by calling
-    /// [`push()`][StableVecFacade::push]. All filled slots have indices below
-    /// `next_push_index()`.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::from(&['a', 'b', 'c']);
-    ///
-    /// let next_push_index = sv.next_push_index();
-    /// let index_of_d = sv.push('d');
-    ///
-    /// assert_eq!(next_push_index, index_of_d);
-    /// ```
-    pub fn next_push_index(&self) -> usize {
-        self.core.len()
-    }
-
-    /// Returns the index of the next filled slot with index `idx` or higher.
-    ///
-    /// Specifically, if an element at index `idx` exists, `Some(idx)` is
-    /// returned. If all slots with indices `idx` and higher are empty (or
-    /// don't exist), `None` is returned. This method can be used to iterate
-    /// over all existing elements without an iterator object.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::from(&[0, 1, 2, 3, 4]);
-    /// sv.remove(1);
-    /// sv.remove(2);
-    /// sv.remove(4);
-    ///
-    /// assert_eq!(sv.next_index_from(0), Some(0));
-    /// assert_eq!(sv.next_index_from(1), Some(3));
-    /// assert_eq!(sv.next_index_from(2), Some(3));
-    /// assert_eq!(sv.next_index_from(3), Some(3));
-    /// assert_eq!(sv.next_index_from(4), None);
-    /// assert_eq!(sv.next_index_from(5), None);
-    /// ```
-    pub fn next_index_from(&self, start: usize) -> Option<usize> {
-        if start >= self.next_push_index() {
-            None
-        } else {
-            // The precondition `start <= self.core.len()` is satisfied.
-            unsafe { self.core.next_index_from(start) }
-        }
-    }
-
-    /// Returns the index of the previous filled slot with index `idx` or
-    /// lower. This is like `next_index_from` but searching backwards.
-    ///
-    /// Specifically, if an element at index `idx` exists, `Some(idx)` is
-    /// returned. If all slots with indices `idx` and lower are empty, `None`
-    /// is returned. This method can be used to iterate over all existing
-    /// elements without an iterator object.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::from(&[0, 1, 2, 3, 4]);
-    /// sv.remove(0);
-    /// sv.remove(2);
-    /// sv.remove(3);
-    ///
-    /// assert_eq!(sv.prev_index_from(0), None);
-    /// assert_eq!(sv.prev_index_from(1), Some(1));
-    /// assert_eq!(sv.prev_index_from(2), Some(1));
-    /// assert_eq!(sv.prev_index_from(3), Some(1));
-    /// assert_eq!(sv.prev_index_from(4), Some(4));
-    /// assert_eq!(sv.prev_index_from(5), Some(4));
-    /// ```
-    pub fn prev_index_from(&self, start: usize) -> Option<usize> {
-        // The precondition `start < self.core.len()` is satisfied de to this
-        // `min` expression.
-        let len = self.next_push_index();
-        if len == 0 {
-            return None;
-        }
-
-        let start = std::cmp::min(start, len - 1);
-        unsafe { self.core.prev_index_from(start) }
-    }
-
-    /// Returns an iterator over immutable references to the existing elements
-    /// of this stable vector. Elements are yielded in order of their
-    /// increasing indices.
-    ///
-    /// Note that you can also use the `IntoIterator` implementation of
-    /// `&StableVecFacade` to obtain the same iterator.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::from(&[0, 1, 2, 3, 4]);
-    /// sv.remove(1);
-    ///
-    /// // Using the `iter()` method to apply a `filter()`.
-    /// let mut it = sv.iter().filter(|&&n| n <= 3);
-    /// assert_eq!(it.next(), Some(&0));
-    /// assert_eq!(it.next(), Some(&2));
-    /// assert_eq!(it.next(), Some(&3));
-    /// assert_eq!(it.next(), None);
-    ///
-    /// // Simple iterate using the implicit `IntoIterator` conversion of the
-    /// // for-loop:
-    /// for e in &sv {
-    ///     println!("{:?}", e);
-    /// }
-    /// ```
-    pub fn iter(&self) -> Iter<'_, T, C> {
-        Iter {
-            core: &self.core,
-            pos: 0,
-            count: self.num_elements,
-        }
-    }
-
-    /// Returns an iterator over mutable references to the existing elements
-    /// of this stable vector. Elements are yielded in order of their
-    /// increasing indices.
-    ///
-    /// Note that you can also use the `IntoIterator` implementation of
-    /// `&mut StableVecFacade` to obtain the same iterator.
-    ///
-    /// Through this iterator, the elements within the stable vector can be
-    /// mutated.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::from(&[1.0, 2.0, 3.0]);
-    ///
-    /// for e in &mut sv {
-    ///     *e *= 2.0;
-    /// }
-    ///
-    /// assert_eq!(sv, &[2.0, 4.0, 6.0] as &[_]);
-    /// ```
-    pub fn iter_mut(&mut self) -> IterMut<T, C> {
-        IterMut {
-            count: self.num_elements,
-            sv: self,
-            pos: 0,
-        }
-    }
-
-    /// Returns an iterator over all indices of filled slots of this stable
-    /// vector. Indices are yielded in increasing order.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::from(&['a', 'b', 'c', 'd']);
-    /// sv.remove(1);
-    ///
-    /// let mut it = sv.indices();
-    /// assert_eq!(it.next(), Some(0));
-    /// assert_eq!(it.next(), Some(2));
-    /// assert_eq!(it.next(), Some(3));
-    /// assert_eq!(it.next(), None);
-    /// ```
-    ///
-    /// Simply using the `for`-loop:
-    ///
-    /// ```
-    /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::from(&['a', 'b', 'c', 'd']);
-    ///
-    /// for index in sv.indices() {
-    ///     println!("index: {}", index);
-    /// }
-    /// ```
-    pub fn indices(&self) -> Indices<'_, T, C> {
-        Indices {
-            core: &self.core,
-            pos: 0,
-            count: self.num_elements,
         }
     }
 

@@ -68,7 +68,6 @@ where
     assert_eq!(sv, &values.to_vec());
 
     assert_eq!(format!("{:?}", sv), format!("StableVec {:?}", values));
-    assert_eq!(sv.clone().into_vec(), values);
 
     for i in 0..last_index {
         if let Ok(index_index) = indices.binary_search(&i) {
@@ -109,7 +108,6 @@ macro_rules! assert_sv_eq {
         assert_eq!(sv, &vec![] as &Vec<$ty>);
 
         assert_eq!(format!("{:?}", sv), "StableVec []");
-        assert!(sv.clone().into_vec().is_empty());
     }};
     ($left:expr, [$( $idx:literal => $val:expr ),* $(; $last_index:literal)*] $(,)*) => {{
         let indices = [$($idx),*];
@@ -939,7 +937,7 @@ macro_rules! gen_tests_for {
 
             sv.make_compact();
             assert_sv_eq!(sv, [0 => 1.0, 1 => 3.0]);
-            assert_eq!(sv.into_vec(), &[1.0, 3.0]);
+            assert_eq!(sv, vec![1.0, 3.0]);
         }
 
         #[test]

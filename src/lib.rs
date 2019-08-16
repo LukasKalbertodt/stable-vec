@@ -520,7 +520,7 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     /// # use stable_vec::StableVec;
     /// let mut sv = StableVec::from(&[1, 2, 3]);
     /// assert_eq!(sv.remove_first(), Some(1));
-    /// assert_eq!(sv.into_vec(), vec![2, 3]);
+    /// assert_eq!(sv, vec![2, 3]);
     /// ```
     ///
     /// # Note
@@ -544,7 +544,7 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     /// # use stable_vec::StableVec;
     /// let mut sv = StableVec::from(&[1, 2, 3]);
     /// assert_eq!(sv.remove_last(), Some(3));
-    /// assert_eq!(sv.into_vec(), vec![1, 2]);
+    /// assert_eq!(sv, vec![1, 2]);
     /// ```
     ///
     /// # Note
@@ -589,7 +589,7 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     ///
     ///     *first = 3;
     /// }
-    /// assert_eq!(&sv.into_vec(), &[3, 2]);
+    /// assert_eq!(sv, vec![3, 2]);
     /// ```
     pub fn find_first_mut(&mut self) -> Option<&mut T> {
         self.find_first_index().map(move |index| unsafe { self.core.get_unchecked_mut(index) })
@@ -628,7 +628,7 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     ///
     ///     *last = 3;
     /// }
-    /// assert_eq!(&sv.into_vec(), &[1, 3]);
+    /// assert_eq!(sv, vec![1, 3]);
     /// ```
     pub fn find_last_mut(&mut self) -> Option<&mut T> {
         self.find_last_index().map(move |index| unsafe { self.core.get_unchecked_mut(index) })
@@ -1265,28 +1265,6 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
         U: PartialEq<T>,
     {
         self.iter().any(|e| item == e)
-    }
-
-    /// Returns the stable vector as a standard `Vec<T>`.
-    ///
-    /// Returns a vector which contains all elements from this stable vector.
-    /// **All indices might be invalidated!** This method is equivalent to
-    /// `self.into_iter().colect()`.
-    ///
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use stable_vec::StableVec;
-    /// let mut sv = StableVec::from(&['a', 'b', 'c']);
-    /// sv.remove(1);   // 'b' lives at index 1
-    ///
-    /// assert_eq!(sv.into_vec(), vec!['a', 'c']);
-    /// ```
-    pub fn into_vec(self) -> Vec<T> {
-        // TODO: maybe improve performance in special case: if vector is
-        // compact and core already stores a `Vec<T>`.
-        self.into_iter().collect()
     }
 
     /// Retains only the elements specified by the given predicate.

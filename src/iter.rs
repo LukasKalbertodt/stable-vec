@@ -229,37 +229,60 @@ impl<T, C: Core<T>> FusedIterator for ValuesMut<'_, T, C> {}
 ///
 /// Use the method `StableVecFacade::into_iter` to obtain an iterator of this
 /// kind.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct IntoIter<T, C: Core<T>> {
     pub(crate) sv: StableVecFacade<T, C>,
-    pub(crate) pos: usize,
+    pub(crate) remaining: Range<usize>,
+}
+
+impl<T, C: Core<T>> IntoIter<T, C> {
+    pub(crate) fn new(sv: StableVecFacade<T, C>) -> Self {
+        Self {
+            remaining: 0..sv.core.len(),
+            sv,
+        }
+    }
 }
 
 impl<T, C: Core<T>> Iterator for IntoIter<T, C> {
-    type Item = T;
+    type Item = (usize, T);
 
     fn next(&mut self) -> Option<Self::Item> {
-        let idx = unsafe { self.sv.core.first_filled_slot_from(self.pos) };
-        if let Some(idx) = idx {
-            self.pos = idx + 1;
-            self.sv.num_elements -= 1;
-            let elem = unsafe {
-                // We know that `idx` is a valid.
-                self.sv.core.remove_at(idx)
-            };
-
-            Some(elem)
-        } else {
-            None
-        }
+        next(&mut self.sv.num_elements, &mut self.remaining, &*self.sv.core).map(|idx| {
+            let elem = unsafe { self.sv.core.remove_at(idx) };
+            (idx, elem)
+        })
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         (self.sv.num_elements, Some(self.sv.num_elements))
     }
+
+    fn count(self) -> usize {
+        self.len()
+    }
+
+    fn last(mut self) -> Option<Self::Item> {
+        self.next_back()
+    }
 }
 
-impl<T, C: Core<T>> ExactSizeIterator for IntoIter<T, C> {}
+impl<T, C: Core<T>> DoubleEndedIterator for IntoIter<T, C> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        next_back(&mut self.sv.num_elements, &mut self.remaining, &*self.sv.core).map(|idx| {
+            let elem = unsafe { self.sv.core.remove_at(idx) };
+            (idx, elem)
+        })
+    }
+}
+
+impl<T, C: Core<T>> ExactSizeIterator for IntoIter<T, C> {
+    fn len(&self) -> usize {
+        self.sv.num_elements
+    }
+}
+
+impl<T, C: Core<T>> FusedIterator for IntoIter<T, C> {}
 
 
 /// Iterator over all indices of filled slots of a `StableVecFacade`.

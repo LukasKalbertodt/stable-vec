@@ -1598,13 +1598,10 @@ impl<'a, T, C: Core<T>> IntoIterator for &'a mut StableVecFacade<T, C> {
 }
 
 impl<T, C: Core<T>> IntoIterator for StableVecFacade<T, C> {
-    type Item = T;
+    type Item = (usize, T);
     type IntoIter = IntoIter<T, C>;
     fn into_iter(self) -> Self::IntoIter {
-        IntoIter {
-            sv: self,
-            pos: 0,
-        }
+        IntoIter::new(self)
     }
 }
 

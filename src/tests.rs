@@ -38,6 +38,10 @@ where
     C: Core<T> + RefUnwindSafe + Clone,
 {
     let num_elements = values.len();
+    let combined = indices.iter()
+        .zip(&*values)
+        .map(|(i, e)| (*i, e.clone()))
+        .collect::<Vec<_>>();
 
     assert_eq!(sv.num_elements(), num_elements, "num_elements check failed");
     assert_eq!(sv.is_empty(), num_elements == 0, "is_empty check failed");
@@ -45,24 +49,29 @@ where
     assert_eq!(sv.next_push_index(), last_index + 1, "next_push_index check failed");
     assert!(sv.capacity() >= last_index + 1, "capacity check failed");
 
-    assert_eq!(sv.iter().cloned().collect::<Vec<_>>(), values);
-    assert_eq!(sv.iter_mut().map(|r| *r).collect::<Vec<_>>(), values);
-    assert_eq!((&*sv).into_iter().cloned().collect::<Vec<_>>(), values);
-    assert_eq!((&mut *sv).into_iter().map(|r| *r).collect::<Vec<_>>(), values);
-    assert_eq!((*sv).clone().into_iter().collect::<Vec<_>>(), values);
-    assert_eq!(sv.indices().collect::<Vec<_>>(), indices);
+    macro_rules! test_iter {
+        ($it:expr, $expected:ident, || $($mapping:tt)*) => {
+            assert_eq!($it $($mapping)* .collect::<Vec<_>>(), $expected);
+            assert_eq!(
+                $it $($mapping)* .rev().collect::<Vec<_>>()
+                    .into_iter().rev().collect::<Vec<_>>(),
+                $expected,
+            );
+            assert_eq!($it.len(), num_elements);
+            assert_eq!($it.count(), num_elements);
+            assert_eq!($it.size_hint(), (num_elements, Some(num_elements)));
+        };
+    }
 
-    let expected_hint = (num_elements, Some(num_elements));
-    assert_eq!(sv.iter().cloned().len(), num_elements);
-    assert_eq!(sv.iter().cloned().size_hint(), expected_hint);
-    assert_eq!(sv.iter_mut().map(|r| *r).size_hint(), expected_hint);
-    assert_eq!(sv.iter_mut().map(|r| *r).len(), num_elements);
-    assert_eq!((&*sv).into_iter().cloned().size_hint(), expected_hint);
-    assert_eq!((&mut *sv).into_iter().map(|r| *r).size_hint(), expected_hint);
-    assert_eq!(sv.into_iter().size_hint(), expected_hint);
-    assert_eq!(sv.into_iter().len(), num_elements);
-    assert_eq!(sv.indices().size_hint(), expected_hint);
-    assert_eq!(sv.indices().len(), num_elements);
+    test_iter!(sv.values(), values, || .cloned());
+    test_iter!(sv.values_mut(), values, || .map(|r| *r));
+    test_iter!(sv.iter(), combined, || .map(|(i, r)| (i, *r)));
+    test_iter!(sv.iter_mut(), combined, || .map(|(i, r)| (i, *r)));
+    test_iter!((&*sv).into_iter(), combined, || .map(|(i, r)| (i, *r)));
+    test_iter!((&mut *sv).into_iter(), combined, || .map(|(i, r)| (i, *r)));
+    test_iter!((*sv).clone().into_iter(), combined, || );
+    test_iter!(sv.indices(), indices, || );
+
 
     assert_eq!(sv, &*values);
     assert_eq!(sv, &values.to_vec());
@@ -912,18 +921,82 @@ macro_rules! gen_tests_for {
         }
 
         #[test]
-        fn iter_mut() {
+        fn iter_values_mut() {
             let mut sv = $ty::from(&[2, 5, 4]);
 
-            for x in &mut sv {
-                *x *= 2;
+            for (i, x) in &mut sv {
+                *x += i;
             }
-            assert_sv_eq!(sv, [0 => 4, 1 => 10, 2 => 8]);
+            assert_sv_eq!(sv, [0 => 2, 1 => 6, 2 => 6]);
 
-            for x in sv.iter_mut() {
+            for x in sv.values_mut() {
                 *x -= 1;
             }
-            assert_sv_eq!(sv, [0 => 3, 1 => 9, 2 => 7]);
+            assert_sv_eq!(sv, [0 => 1, 1 => 5, 2 => 5]);
+
+            for (i, x) in sv.iter_mut() {
+                *x *= i;
+            }
+            assert_sv_eq!(sv, [0 => 0, 1 => 5, 2 => 10]);
+        }
+
+        #[test]
+        fn iter() {
+            let sv = $ty::from(&[5, 6, 7, 8, 9]);
+            let mut it = sv.iter();
+
+            assert_eq!(it.len(), 5);
+            assert_eq!(it.next(), Some((0, &5)));
+            assert_eq!(it.len(), 4);
+            assert_eq!(it.next_back(), Some((4, &9)));
+            assert_eq!(it.len(), 3);
+            assert_eq!(it.next(), Some((1, &6)));
+            assert_eq!(it.len(), 2);
+            assert_eq!(it.clone().last(), Some((3, &8)));
+            assert_eq!(it.next_back(), Some((3, &8)));
+            assert_eq!(it.len(), 1);
+            assert_eq!(it.next_back(), Some((2, &7)));
+            assert_eq!(it.len(), 0);
+            assert_eq!(it.next(), None);
+        }
+
+        #[test]
+        fn iter_mut() {
+            let mut sv = $ty::from(&[5, 6, 7, 8, 9]);
+            let mut it = sv.iter_mut();
+
+            assert_eq!(it.len(), 5);
+            assert_eq!(it.next(), Some((0, &mut 5)));
+            assert_eq!(it.len(), 4);
+            assert_eq!(it.next_back(), Some((4, &mut 9)));
+            assert_eq!(it.len(), 3);
+            assert_eq!(it.next(), Some((1, &mut 6)));
+            assert_eq!(it.len(), 2);
+            assert_eq!(it.next_back(), Some((3, &mut 8)));
+            assert_eq!(it.len(), 1);
+            assert_eq!(it.next_back(), Some((2, &mut 7)));
+            assert_eq!(it.len(), 0);
+            assert_eq!(it.next(), None);
+        }
+
+        #[test]
+        fn into_iter() {
+            let sv = $ty::from(&[5, 6, 7, 8, 9]);
+            let mut it = sv.into_iter();
+
+            assert_eq!(it.len(), 5);
+            assert_eq!(it.next(), Some((0, 5)));
+            assert_eq!(it.len(), 4);
+            assert_eq!(it.next_back(), Some((4, 9)));
+            assert_eq!(it.len(), 3);
+            assert_eq!(it.next(), Some((1, 6)));
+            assert_eq!(it.len(), 2);
+            assert_eq!(it.clone().last(), Some((3, 8)));
+            assert_eq!(it.next_back(), Some((3, 8)));
+            assert_eq!(it.len(), 1);
+            assert_eq!(it.next_back(), Some((2, 7)));
+            assert_eq!(it.len(), 0);
+            assert_eq!(it.next(), None);
         }
 
         #[test]
@@ -1097,7 +1170,7 @@ macro_rules! gen_tests_for {
             n_before_compact == sv.num_elements()
                 && sv.is_compact()
                 && (0..n_before_compact).all(|i| sv.get(i).is_some())
-                && sv_before.iter().all(|e| sv.contains(e))
+                && sv_before.values().all(|e| sv.contains(e))
         }
 
         #[cfg_attr(miri, ignore)]
@@ -1116,7 +1189,7 @@ macro_rules! gen_tests_for {
 
             // Remember the number of elements before and call compact.
             let sv_before = sv.clone();
-            let items_before: Vec<_> = sv_before.iter().cloned().collect();
+            let items_before: Vec<_> = sv_before.values().cloned().collect();
             let n_before_compact = sv.num_elements();
             sv.make_compact();
 

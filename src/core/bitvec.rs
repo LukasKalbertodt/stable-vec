@@ -350,7 +350,7 @@ impl<T: Clone> Clone for BitVecCore<T> {
                 // Copy element data over
                 if size_of::<T>() != 0 {
                     let mut idx = 0;
-                    while let Some(next) = self.next_index_from(idx) {
+                    while let Some(next) = self.first_filled_slot_from(idx) {
                         let clone = self.get_unchecked(next).clone();
                         ptr::write(out.elem_ptr.as_ptr().add(next), clone);
 

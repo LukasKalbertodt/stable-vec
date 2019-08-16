@@ -476,81 +476,81 @@ macro_rules! gen_tests_for {
         }
 
         #[test]
-        fn next_index_from() {
+        fn first_filled_slot_from() {
             let mut sv = $ty::new();
             sv.reserve(10);
-            assert_eq!(sv.next_index_from(0), None);
-            assert_eq!(sv.next_index_from(1), None);
-            assert_eq!(sv.next_index_from(12), None);
+            assert_eq!(sv.first_filled_slot_from(0), None);
+            assert_eq!(sv.first_filled_slot_from(1), None);
+            assert_eq!(sv.first_filled_slot_from(10), None);
 
             sv.insert(0, 10u32);
-            assert_eq!(sv.next_index_from(0), Some(0));
-            assert_eq!(sv.next_index_from(1), None);
-            assert_eq!(sv.next_index_from(2), None);
-            assert_eq!(sv.next_index_from(12), None);
+            assert_eq!(sv.first_filled_slot_from(0), Some(0));
+            assert_eq!(sv.first_filled_slot_from(1), None);
+            assert_eq!(sv.first_filled_slot_from(2), None);
+            assert_eq!(sv.first_filled_slot_from(10), None);
 
             sv.insert(1, 11u32);
-            assert_eq!(sv.next_index_from(0), Some(0));
-            assert_eq!(sv.next_index_from(1), Some(1));
-            assert_eq!(sv.next_index_from(2), None);
-            assert_eq!(sv.next_index_from(3), None);
-            assert_eq!(sv.next_index_from(12), None);
+            assert_eq!(sv.first_filled_slot_from(0), Some(0));
+            assert_eq!(sv.first_filled_slot_from(1), Some(1));
+            assert_eq!(sv.first_filled_slot_from(2), None);
+            assert_eq!(sv.first_filled_slot_from(3), None);
+            assert_eq!(sv.first_filled_slot_from(10), None);
 
             sv.insert(3, 13u32);
-            assert_eq!(sv.next_index_from(0), Some(0));
-            assert_eq!(sv.next_index_from(1), Some(1));
-            assert_eq!(sv.next_index_from(2), Some(3));
-            assert_eq!(sv.next_index_from(3), Some(3));
-            assert_eq!(sv.next_index_from(4), None);
-            assert_eq!(sv.next_index_from(5), None);
-            assert_eq!(sv.next_index_from(12), None);
+            assert_eq!(sv.first_filled_slot_from(0), Some(0));
+            assert_eq!(sv.first_filled_slot_from(1), Some(1));
+            assert_eq!(sv.first_filled_slot_from(2), Some(3));
+            assert_eq!(sv.first_filled_slot_from(3), Some(3));
+            assert_eq!(sv.first_filled_slot_from(4), None);
+            assert_eq!(sv.first_filled_slot_from(5), None);
+            assert_eq!(sv.first_filled_slot_from(10), None);
 
             let mut sv = $ty::new();
             sv.reserve(10);
             sv.insert(2, 10u32);
-            assert_eq!(sv.next_index_from(0), Some(2));
-            assert_eq!(sv.next_index_from(1), Some(2));
-            assert_eq!(sv.next_index_from(2), Some(2));
-            assert_eq!(sv.next_index_from(3), None);
-            assert_eq!(sv.next_index_from(4), None);
-            assert_eq!(sv.next_index_from(12), None);
+            assert_eq!(sv.first_filled_slot_from(0), Some(2));
+            assert_eq!(sv.first_filled_slot_from(1), Some(2));
+            assert_eq!(sv.first_filled_slot_from(2), Some(2));
+            assert_eq!(sv.first_filled_slot_from(3), None);
+            assert_eq!(sv.first_filled_slot_from(4), None);
+            assert_eq!(sv.first_filled_slot_from(10), None);
         }
 
         #[test]
-        fn next_index_from_medium() {
+        fn first_filled_slot_from_medium() {
             let mut sv = $ty::new();
             sv.reserve(200);
 
-            for i in (25..60).chain(62..65).chain(65..70).chain(90..120) {
+            for i in (25..60).chain(62..65).chain(66..70).chain(90..120) {
                 sv.insert(i, 27u32);
             }
 
             for i in 0..25 {
-                assert_eq!(sv.next_index_from(i), Some(25));
+                assert_eq!(sv.first_filled_slot_from(i), Some(25));
             }
             for i in 25..60 {
-                assert_eq!(sv.next_index_from(i), Some(i));
+                assert_eq!(sv.first_filled_slot_from(i), Some(i));
             }
             for i in 60..62 {
-                assert_eq!(sv.next_index_from(i), Some(62));
+                assert_eq!(sv.first_filled_slot_from(i), Some(62));
             }
             for i in 62..65 {
-                assert_eq!(sv.next_index_from(i), Some(i));
+                assert_eq!(sv.first_filled_slot_from(i), Some(i));
             }
-            for i in 65..65 {
-                assert_eq!(sv.next_index_from(i), Some(65));
+            for i in 65..66 {
+                assert_eq!(sv.first_filled_slot_from(i), Some(66));
             }
-            for i in 65..70 {
-                assert_eq!(sv.next_index_from(i), Some(i));
+            for i in 66..70 {
+                assert_eq!(sv.first_filled_slot_from(i), Some(i));
             }
             for i in 70..90 {
-                assert_eq!(sv.next_index_from(i), Some(90));
+                assert_eq!(sv.first_filled_slot_from(i), Some(90));
             }
             for i in 90..120 {
-                assert_eq!(sv.next_index_from(i), Some(i));
+                assert_eq!(sv.first_filled_slot_from(i), Some(i));
             }
-            for i in 120..220 {
-                assert_eq!(sv.next_index_from(i), None);
+            for i in 120..201 {
+                assert_eq!(sv.first_filled_slot_from(i), None);
             }
         }
 
@@ -558,7 +558,7 @@ macro_rules! gen_tests_for {
         // by default.
         #[cfg(not(miri))]
         #[test]
-        fn next_index_from_large() {
+        fn first_filled_slot_from_large() {
             let mut sv = $ty::new();
             sv.reserve(2000);
 
@@ -567,69 +567,69 @@ macro_rules! gen_tests_for {
             }
 
             for i in 0..250 {
-                assert_eq!(sv.next_index_from(i), Some(250));
+                assert_eq!(sv.first_filled_slot_from(i), Some(250));
             }
             for i in 250..600 {
-                assert_eq!(sv.next_index_from(i), Some(i));
+                assert_eq!(sv.first_filled_slot_from(i), Some(i));
             }
             for i in 600..620 {
-                assert_eq!(sv.next_index_from(i), Some(620));
+                assert_eq!(sv.first_filled_slot_from(i), Some(620));
             }
             for i in 620..650 {
-                assert_eq!(sv.next_index_from(i), Some(i));
+                assert_eq!(sv.first_filled_slot_from(i), Some(i));
             }
             for i in 650..652 {
-                assert_eq!(sv.next_index_from(i), Some(652));
+                assert_eq!(sv.first_filled_slot_from(i), Some(652));
             }
             for i in 652..700 {
-                assert_eq!(sv.next_index_from(i), Some(i));
+                assert_eq!(sv.first_filled_slot_from(i), Some(i));
             }
             for i in 700..900 {
-                assert_eq!(sv.next_index_from(i), Some(900));
+                assert_eq!(sv.first_filled_slot_from(i), Some(900));
             }
             for i in 900..1200 {
-                assert_eq!(sv.next_index_from(i), Some(i));
+                assert_eq!(sv.first_filled_slot_from(i), Some(i));
             }
-            for i in 1200..2100 {
-                assert_eq!(sv.next_index_from(i), None);
+            for i in 1200..2001 {
+                assert_eq!(sv.first_filled_slot_from(i), None);
             }
         }
 
         #[test]
-        fn prev_index_from_medium() {
+        fn first_filled_slot_below_medium() {
             let mut sv = $ty::new();
             sv.reserve(200);
 
-            for i in (25..60).chain(62..65).chain(65..70).chain(90..120) {
+            for i in (25..60).chain(62..65).chain(66..70).chain(90..120) {
                 sv.insert(i, 27u32);
             }
 
-            for i in 0..25 {
-                assert_eq!(sv.prev_index_from(i), None);
+            for i in 0..26 {
+                assert_eq!(sv.first_filled_slot_below(i), None);
             }
-            for i in 25..60 {
-                assert_eq!(sv.prev_index_from(i), Some(i));
+            for i in 26..61 {
+                assert_eq!(sv.first_filled_slot_below(i), Some(i - 1));
             }
-            for i in 60..62 {
-                assert_eq!(sv.prev_index_from(i), Some(59));
+            for i in 61..63 {
+                assert_eq!(sv.first_filled_slot_below(i), Some(59));
             }
-            for i in 62..65 {
-                assert_eq!(sv.prev_index_from(i), Some(i));
+            for i in 63..66 {
+                assert_eq!(sv.first_filled_slot_below(i), Some(i - 1));
             }
-            for i in 65..65 {
-                assert_eq!(sv.prev_index_from(i), Some(64));
+            for i in 66..67 {
+                assert_eq!(sv.first_filled_slot_below(i), Some(64));
             }
-            for i in 65..70 {
-                assert_eq!(sv.prev_index_from(i), Some(i));
+            for i in 67..71 {
+                assert_eq!(sv.first_filled_slot_below(i), Some(i - 1));
             }
-            for i in 70..90 {
-                assert_eq!(sv.prev_index_from(i), Some(69));
+            for i in 71..91 {
+                assert_eq!(sv.first_filled_slot_below(i), Some(69));
             }
-            for i in 90..120 {
-                assert_eq!(sv.prev_index_from(i), Some(i));
+            for i in 91..121 {
+                assert_eq!(sv.first_filled_slot_below(i), Some(i - 1));
             }
-            for i in 120..220 {
-                assert_eq!(sv.prev_index_from(i), Some(119));
+            for i in 121..201 {
+                assert_eq!(sv.first_filled_slot_below(i), Some(119));
             }
         }
 

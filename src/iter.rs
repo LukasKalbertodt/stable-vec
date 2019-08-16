@@ -23,7 +23,7 @@ pub struct Iter<'a, T, C: Core<T>> {
 impl<'a, T, C: Core<T>> Iterator for Iter<'a, T, C> {
     type Item = &'a T;
     fn next(&mut self) -> Option<Self::Item> {
-        let idx = unsafe { self.core.next_index_from(self.pos) };
+        let idx = unsafe { self.core.first_filled_slot_from(self.pos) };
         if let Some(idx) = idx {
             self.pos = idx + 1;
             self.count -= 1;
@@ -74,7 +74,7 @@ impl<'a, T, C: Core<T>> Iterator for IterMut<'a, T, C> {
     type Item = &'a mut T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let idx = unsafe { self.sv.core.next_index_from(self.pos) };
+        let idx = unsafe { self.sv.core.first_filled_slot_from(self.pos) };
         if let Some(idx) = idx {
             self.pos = idx + 1;
             self.count -= 1;
@@ -122,7 +122,7 @@ impl<T, C: Core<T>> Iterator for IntoIter<T, C> {
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let idx = unsafe { self.sv.core.next_index_from(self.pos) };
+        let idx = unsafe { self.sv.core.first_filled_slot_from(self.pos) };
         if let Some(idx) = idx {
             self.pos = idx + 1;
             self.sv.num_elements -= 1;
@@ -158,7 +158,7 @@ pub struct Indices<'a, T, C: Core<T>> {
 impl<T, C: Core<T>> Iterator for Indices<'_, T, C> {
     type Item = usize;
     fn next(&mut self) -> Option<Self::Item> {
-        let out = unsafe { self.core.next_index_from(self.pos) };
+        let out = unsafe { self.core.first_filled_slot_from(self.pos) };
         if let Some(idx) = out {
             self.pos = idx + 1;
             self.count -= 1;

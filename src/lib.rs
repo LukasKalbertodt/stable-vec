@@ -989,12 +989,21 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
         self.find_last_index().map(move |index| unsafe { self.core.get_unchecked_mut(index) })
     }
 
-    /// Returns the index of the next filled slot with index `idx` or higher.
+    /// Performs a forwards search starting at index `start`, returning the
+    /// index of the first filled slot that is found.
     ///
-    /// Specifically, if an element at index `idx` exists, `Some(idx)` is
-    /// returned. If all slots with indices `idx` and higher are empty (or
+    /// Specifically, if an element at index `start` exists, `Some(start)` is
+    /// returned. If all slots with indices `start` and higher are empty (or
     /// don't exist), `None` is returned. This method can be used to iterate
     /// over all existing elements without an iterator object.
+    ///
+    /// The inputs `start >= self.next_push_index()` are only allowed for
+    /// convenience. For those `start` values, `None` is always returned.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `start > self.capacity()`. Note: `start == self.capacity()`
+    /// is allowed for convenience, but always returns `None`.
     ///
     /// # Example
     ///
@@ -1005,29 +1014,37 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     /// sv.remove(2);
     /// sv.remove(4);
     ///
-    /// assert_eq!(sv.next_index_from(0), Some(0));
-    /// assert_eq!(sv.next_index_from(1), Some(3));
-    /// assert_eq!(sv.next_index_from(2), Some(3));
-    /// assert_eq!(sv.next_index_from(3), Some(3));
-    /// assert_eq!(sv.next_index_from(4), None);
-    /// assert_eq!(sv.next_index_from(5), None);
+    /// assert_eq!(sv.first_filled_slot_from(0), Some(0));
+    /// assert_eq!(sv.first_filled_slot_from(1), Some(3));
+    /// assert_eq!(sv.first_filled_slot_from(2), Some(3));
+    /// assert_eq!(sv.first_filled_slot_from(3), Some(3));
+    /// assert_eq!(sv.first_filled_slot_from(4), None);
+    /// assert_eq!(sv.first_filled_slot_from(5), None);
     /// ```
-    pub fn next_index_from(&self, start: usize) -> Option<usize> {
-        if start >= self.next_push_index() {
-            None
+    pub fn first_filled_slot_from(&self, start: usize) -> Option<usize> {
+        if start > self.core.cap() {
+            panic!(
+                "`start` is {}, but capacity is {} in `first_filled_slot_from`",
+                start,
+                self.capacity(),
+            );
         } else {
-            // The precondition `start <= self.core.len()` is satisfied.
-            unsafe { self.core.next_index_from(start) }
+            // The precondition `start <= self.core.cap()` is satisfied.
+            unsafe { self.core.first_filled_slot_from(start) }
         }
     }
 
-    /// Returns the index of the previous filled slot with index `idx` or
-    /// lower. This is like `next_index_from` but searching backwards.
+    /// Performs a backwards search starting at index `start - 1`, returning
+    /// the index of the first filled slot that is found. For `start == 0`,
+    /// `None` is returned.
     ///
-    /// Specifically, if an element at index `idx` exists, `Some(idx)` is
-    /// returned. If all slots with indices `idx` and lower are empty, `None`
-    /// is returned. This method can be used to iterate over all existing
-    /// elements without an iterator object.
+    /// Note: passing in `start >= self.len()` just wastes time, as those slots
+    /// are never filled.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `start > self.capacity()`. Note: `start == self.capacity()`
+    /// is allowed for convenience, but wastes time.
     ///
     /// # Example
     ///
@@ -1038,23 +1055,24 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     /// sv.remove(2);
     /// sv.remove(3);
     ///
-    /// assert_eq!(sv.prev_index_from(0), None);
-    /// assert_eq!(sv.prev_index_from(1), Some(1));
-    /// assert_eq!(sv.prev_index_from(2), Some(1));
-    /// assert_eq!(sv.prev_index_from(3), Some(1));
-    /// assert_eq!(sv.prev_index_from(4), Some(4));
-    /// assert_eq!(sv.prev_index_from(5), Some(4));
+    /// assert_eq!(sv.first_filled_slot_below(0), None);
+    /// assert_eq!(sv.first_filled_slot_below(1), None);
+    /// assert_eq!(sv.first_filled_slot_below(2), Some(1));
+    /// assert_eq!(sv.first_filled_slot_below(3), Some(1));
+    /// assert_eq!(sv.first_filled_slot_below(4), Some(1));
+    /// assert_eq!(sv.first_filled_slot_below(5), Some(4));
     /// ```
-    pub fn prev_index_from(&self, start: usize) -> Option<usize> {
-        // The precondition `start < self.core.len()` is satisfied de to this
-        // `min` expression.
-        let len = self.next_push_index();
-        if len == 0 {
-            return None;
+    pub fn first_filled_slot_below(&self, start: usize) -> Option<usize> {
+        if start > self.core.cap() {
+            panic!(
+                "`start` is {}, but capacity is {} in `first_filled_slot_below`",
+                start,
+                self.capacity(),
+            );
+        } else {
+            // The precondition `start <= self.core.cap()` is satisfied.
+            unsafe { self.core.first_filled_slot_below(start) }
         }
-
-        let start = std::cmp::min(start, len - 1);
-        unsafe { self.core.prev_index_from(start) }
     }
 
     /// Finds the first element and returns its index, or `None` if the stable
@@ -1071,8 +1089,9 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     /// assert_eq!(sv.find_first_index(), Some(1));
     /// ```
     pub fn find_first_index(&self) -> Option<usize> {
+        // `0 <= self.core.cap()` is always true
         unsafe {
-            self.core.next_index_from(0)
+            self.core.first_filled_slot_from(0)
         }
     }
 
@@ -1090,13 +1109,9 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     /// assert_eq!(sv.find_last_index(), Some(0));
     /// ```
     pub fn find_last_index(&self) -> Option<usize> {
-        let len = self.core.len();
-        if len == 0 {
-            None
-        } else {
-            unsafe {
-                self.core.prev_index_from(len - 1)
-            }
+        // `self.core.len() <= self.core.cap()` is always true
+        unsafe {
+            self.core.first_filled_slot_below(self.core.len())
         }
     }
 
@@ -1227,7 +1242,7 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
                 let mut hole_index = 0;
                 loop {
                     element_index = self.core.prev_index_from(element_index).unwrap_or(0);
-                    hole_index = self.core.next_hole_from(hole_index).unwrap_or(len);
+                    hole_index = self.core.first_empty_slot_from(hole_index).unwrap_or(len);
 
                     // If both indices passed each other, we can stop. There are no
                     // holes left of `hole_index` and no element right of
@@ -1288,10 +1303,11 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     {
         let mut pos = 0;
 
-        // These unsafe calls are fine: indices returned by `next_index_from`
-        // are always valid and point to an existing element.
+        // These unsafe calls are fine: indices returned by
+        // `first_filled_slot_from` are always valid and point to an existing
+        // element.
         unsafe {
-            while let Some(idx) = self.core.next_index_from(pos) {
+            while let Some(idx) = self.core.first_filled_slot_from(pos) {
                 let elem = self.core.get_unchecked(idx);
                 if !should_be_kept(elem) {
                     self.core.remove_at(idx);
@@ -1328,10 +1344,10 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
         let mut pos = 0;
 
         // These unsafe call is fine: indices returned by
-        // `next_index_from` are always valid and point to an existing
+        // `first_filled_slot_from` are always valid and point to an existing
         // element.
         unsafe {
-            while let Some(idx) = self.core.next_index_from(pos) {
+            while let Some(idx) = self.core.first_filled_slot_from(pos) {
                 if !should_be_kept(idx) {
                     self.core.remove_at(idx);
                     self.num_elements -= 1;

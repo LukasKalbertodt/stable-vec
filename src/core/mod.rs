@@ -202,7 +202,9 @@ pub trait Core<T> {
     /// - `self.len() == 0` (implying all slots are empty)
     fn clear(&mut self);
 
-    /// Returns the index of the next filled slot with index `idx` or higher.
+    /// Performs a forwards search starting at index `idx`, returning the
+    /// index of the first filled slot that is found.
+    ///
     /// Specifically, if an element at index `idx` exists, `Some(idx)` is
     /// returned.
     ///
@@ -221,33 +223,33 @@ pub trait Core<T> {
     /// - if `out == Some(j)`:
     ///     - ∀ i in `idx..j` ⇒ `self.has_element_at(i) == false`
     ///     - `self.has_element_at(j) == true`
-    unsafe fn next_index_from(&self, idx: usize) -> Option<usize> {
+    unsafe fn first_filled_slot_from(&self, idx: usize) -> Option<usize> {
         debug_assert!(idx <= self.cap());
 
         (idx..self.len()).find(|&idx| self.has_element_at(idx))
     }
 
-    /// Returns the index of the previous filled slot with index `idx` or
-    /// lower. Specifically, if an element at index `idx` exists, `Some(idx)`
-    /// is returned.
+    /// Performs a backwards search starting at index `idx - 1`, returning the
+    /// index of the first filled slot that is found.
+    ///
+    /// Note: passing in `idx >= self.len()` just wastes time, as those slots
+    /// are never filled.
     ///
     /// # Formal
     ///
     /// **Preconditions**:
-    /// - `idx < self.cap()` (Note: unlike `next_index_from`, this doesn't
-    ///   allow equality here. Also: passing in `idx >= self.len()` just wastes
-    ///   time, as those slots are never filled.)
+    /// - `idx <= self.cap()`
     ///
     /// **Postconditons** (for return value `out`):
     /// - if `out == None`:
-    ///     - ∀ i in `0..=idx` ⇒ `self.has_element_at(i) == false`
+    ///     - ∀ i in `0..idx` ⇒ `self.has_element_at(i) == false`
     /// - if `out == Some(j)`:
-    ///     - ∀ i in `j + 1..=idx` ⇒ `self.has_element_at(i) == false`
+    ///     - ∀ i in `j + 1..idx` ⇒ `self.has_element_at(i) == false`
     ///     - `self.has_element_at(j) == true`
-    unsafe fn prev_index_from(&self, idx: usize) -> Option<usize> {
-        debug_assert!(idx < self.cap());
+    unsafe fn first_filled_slot_below(&self, idx: usize) -> Option<usize> {
+        debug_assert!(idx <= self.cap());
 
-        (0..=idx).rev().find(|&idx| self.has_element_at(idx))
+        (0..idx).rev().find(|&idx| self.has_element_at(idx))
     }
 
     /// Returns the index of the next empty slot with index i where `idx ≤ i <

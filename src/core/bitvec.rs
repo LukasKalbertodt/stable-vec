@@ -289,27 +289,9 @@ impl<T> Core<T> for BitVecCore<T> {
         }
     }
 
-    unsafe fn next_index_from(&self, idx: usize) -> Option<usize> {
-        debug_assert!(idx <= self.len());
-
-        (idx..self.len)
-            .find(|&idx| self.has_element_at(idx))
-    }
-
-    unsafe fn prev_index_from(&self, idx: usize) -> Option<usize> {
-        debug_assert!(idx < self.len());
-
-        (0..=idx)
-            .rev()
-            .find(|&idx| self.has_element_at(idx))
-    }
-
-    unsafe fn next_hole_from(&self, idx: usize) -> Option<usize> {
-        debug_assert!(idx <= self.len());
-
-        (idx..self.len)
-            .find(|&idx| !self.has_element_at(idx))
-    }
+    // TODO: maybe override `{next|prev}_{hole|index}_from` for performance? In
+    // principle we could scan the bitvector very quickly with specialized
+    // instructions. Needs benchmarking.
 
     unsafe fn swap(&mut self, a: usize, b: usize) {
         // Swapping the bits is a bit annoying. To avoid branches we first xor

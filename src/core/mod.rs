@@ -206,14 +206,14 @@ pub trait Core<T> {
     /// Specifically, if an element at index `idx` exists, `Some(idx)` is
     /// returned.
     ///
-    /// The case `idx == self.len()` is only allowed for convenience and
-    /// because it doesn't make the implementation more complicated.
-    /// `self.next_index_from(self.len())` is always `None`.
+    /// The inputs `idx >= self.len()` are only allowed for convenience and
+    /// because it doesn't make the implementation more complicated. For those
+    /// `idx` values, `None` is always returned.
     ///
     /// # Formal
     ///
     /// **Preconditions**:
-    /// - `idx ≤ self.len()`
+    /// - `idx ≤ self.cap()`
     ///
     /// **Postconditons** (for return value `out`):
     /// - if `out == None`:
@@ -222,7 +222,7 @@ pub trait Core<T> {
     ///     - ∀ i in `idx..j` ⇒ `self.has_element_at(i) == false`
     ///     - `self.has_element_at(j) == true`
     unsafe fn next_index_from(&self, idx: usize) -> Option<usize> {
-        debug_assert!(idx <= self.len());
+        debug_assert!(idx <= self.cap());
 
         (idx..self.len()).find(|&idx| self.has_element_at(idx))
     }
@@ -234,8 +234,9 @@ pub trait Core<T> {
     /// # Formal
     ///
     /// **Preconditions**:
-    /// - `idx < self.len()` (note: unlike `next_index_from`, this doesn't
-    ///   allow equality here)
+    /// - `idx < self.cap()` (Note: unlike `next_index_from`, this doesn't
+    ///   allow equality here. Also: passing in `idx >= self.len()` just wastes
+    ///   time, as those slots are never filled.)
     ///
     /// **Postconditons** (for return value `out`):
     /// - if `out == None`:
@@ -244,22 +245,18 @@ pub trait Core<T> {
     ///     - ∀ i in `j + 1..=idx` ⇒ `self.has_element_at(i) == false`
     ///     - `self.has_element_at(j) == true`
     unsafe fn prev_index_from(&self, idx: usize) -> Option<usize> {
-        debug_assert!(idx < self.len());
+        debug_assert!(idx < self.cap());
 
         (0..=idx).rev().find(|&idx| self.has_element_at(idx))
     }
 
     /// Returns the index of the next empty slot with index i where `idx ≤ i <
-    /// self.len()`.
-    ///
-    /// The case `idx == self.len()` is only allowed for convenience and
-    /// because it doesn't make the implementation more complicated.
-    /// `self.next_hole_from(self.len())` is always `None`.
+    /// self.cap()`.
     ///
     /// # Formal
     ///
     /// **Preconditions**:
-    /// - `idx ≤ self.len()`
+    /// - `idx ≤ self.cap()`
     ///
     /// **Postconditons** (for return value `out`):
     /// - if `out == None`:
@@ -268,9 +265,9 @@ pub trait Core<T> {
     ///     - ∀ i in `idx..j` ⇒ `self.has_element_at(i) == true`
     ///     - `self.has_element_at(j) == false`
     unsafe fn next_hole_from(&self, idx: usize) -> Option<usize> {
-        debug_assert!(idx <= self.len());
+        debug_assert!(idx <= self.cap());
 
-        (idx..self.len()).find(|&idx| !self.has_element_at(idx))
+        (idx..self.cap()).find(|&idx| !self.has_element_at(idx))
     }
 
     /// Swaps the two slots with indices `a` and `b`. That is: the element

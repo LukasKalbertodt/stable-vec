@@ -1,5 +1,3 @@
-extern crate stable_vec;
-
 use stable_vec::StableVec;
 
 /// A dummy type which prints its character when dropped.

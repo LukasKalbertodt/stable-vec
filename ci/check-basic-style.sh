@@ -10,7 +10,7 @@
 # config
 COLS=100
 FOLDER="."
-FILES='.+\.\(rs\|toml\|sh\)'
+FILES='.+\.\(rs\|toml\)'
 EXCLUDE='^\(\.\/\)?target\/.*'
 
 

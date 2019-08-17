@@ -4,16 +4,22 @@ rust:
   - beta
   - nightly
 
-matrix:
-  allow_failures:
-    - rust: nightly
-  fast_finish: true
 
 script:
-  - ci/run-all.sh
+  - cargo build || travis_terminate 1
+  - cargo test || travis_terminate 1
+  - cargo doc || travis_terminate 1
 
-# speeds up travis build (I guess)
-git:
-  depth: 1
+env:
+  - RUSTFLAGS="--deny warnings"
 
-cache: cargo
+matrix:
+  include:
+    - name: "Check style"
+      language: generic
+      script: ./ci/check-basic-style.sh
+    - name: "Miri tests (nightly)"
+      language: rust
+      rust: nightly
+      script:
+        - ./ci/run-miri-tests.sh || travis_terminate 1

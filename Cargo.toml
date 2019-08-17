@@ -1,7 +1,8 @@
 [package]
 name = "stable-vec"
-version = "0.3.2"
+version = "0.4.0"
 authors = ["Lukas Kalbertodt <lukas.kalbertodt@gmail.com>"]
+edition = "2018"
 
 description = """
 A Vec-like collection which guarantees stable indices and features O(1) deletion of elements
@@ -17,14 +18,18 @@ readme = "README.md"
 travis-ci = { branch = "master", repository = "LukasKalbertodt/stable-vec" }
 maintenance = { status = "actively-developed" }
 
+
+[workspace]
+members = [
+    "asm-test",
+]
+
 [features]
 nightly-bench = ["criterion/real_blackbox"]
 
-[dependencies]
-bit-vec = "0.5.0"
-
 [dev-dependencies]
-quickcheck = "0.7"
+quickcheck = "0.8"
+quickcheck_macros = "0.8"
 criterion = { version = "0.2" }
 
 [[bench]]

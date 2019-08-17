@@ -69,6 +69,29 @@
 //! to use something similar to a linked list. Although: think carefully about
 //! your problem before using a linked list.
 //!
+//!
+//! # Use of `unsafe` in this crate
+//!
+//! Unfortunately, implementing the features of this crate in a fast manner
+//! requires `unsafe`. This was measured in micro-benchmarks (included in this
+//! repository) and on a larger project using this crate. Thus, the use of
+//! `unsafe` is measurement-guided and not just because it was assumed `unsafe`
+//! makes things faster.
+//!
+//! This crate takes great care to ensure that all instances of `unsafe` are
+//! actually safe. All methods on the (low level) `Core` trait have extensive
+//! documentation of preconditions, invariants and postconditions. Comments in
+//! functions usually describe why `unsafe` is safe. This crate contains a
+//! fairly large number of unit tests and some tests with randomized input.
+//! These tests are executed with `miri` to try to catch UB caused by invalid
+//! `unsafe` code.
+//!
+//! That said, of course it cannot be guaranteed this crate is perfectly safe.
+//! If you think you found an instance of incorrect usage of `unsafe` or any
+//! UB, don't hesitate to open an issue immediately. Also, if you find `unsafe`
+//! code that is not necessary and you can show that removing it does not
+//! decrease execution speed, please also open an issue or PR!
+//!
 #![deny(missing_debug_implementations)]
 #![deny(intra_doc_link_resolution_failure)]
 
@@ -156,12 +179,25 @@ pub type ExternStableVec<T> = StableVecFacade<T, BitVecCore<T>>;
 /// documentation examples use that type instead of the generic
 /// `StableVecFacade`.
 ///
-/// <br>
-/// <br>
-/// <br>
-/// <br>
 ///
-/// # Method overview
+/// # Implemented traits
+///
+/// This type implement a couple of traits. Some of those implementations
+/// require further explanation:
+///
+/// - `Clone`: the cloned instance is exactly the same as the original,
+///   including empty slots.
+/// - `Extend`, `FromIterator`, `From<AsRef<[T]>>`: these impls work as if all
+///   of the source elements are just `push`ed onto the stable vector in order.
+/// - `PartialEq<Self>`/`Eq`: empty slots, capacity, `next_push_index` and the
+///   indices of elements are all checked. In other words: all observable
+///   properties of the stable vectors need to be the same for them to be
+///   "equal".
+/// - `PartialEq<[B]>`/`PartialEq<Vec<B>>`: capacity, `next_push_index`, empty
+///   slots and indices are ignored for the comparison. It is equivalent to
+///   `sv.iter().eq(vec)`.
+///
+/// # Overview of important methods
 ///
 /// (*there are more methods than mentioned in this overview*)
 ///
@@ -176,37 +212,19 @@ pub type ExternStableVec<T> = StableVecFacade<T, BitVecCore<T>>;
 /// - [`push`][StableVecFacade::push]
 /// - [`insert`][StableVecFacade::insert]
 /// - [`remove`][StableVecFacade::remove]
-/// - [`remove_last`][StableVecFacade::remove_last]
-/// - [`remove_first`][StableVecFacade::remove_first]
 ///
 /// **Accessing elements**
 ///
-/// - [`get`][StableVecFacade::get] (returns `Option<&T>`)
-/// - [the `[]` index operator](#impl-Index<usize>) (returns `&T`)
-/// - [`get_mut`][StableVecFacade::get_mut] (returns `Option<&mut T>`)
-/// - [the mutable `[]` index operator](#impl-IndexMut<usize>) (returns `&mut T`)
+/// - [`get`][StableVecFacade::get] and [`get_mut`][StableVecFacade::get_mut]
+///   (returns `Option<&T>` and `Option<&mut T>`)
+/// - [the `[]` index operator](#impl-Index<usize>) (returns `&T` or `&mut T`)
 /// - [`remove`][StableVecFacade::remove] (returns `Option<T>`)
 ///
-/// **Stable vector specific**
+/// **Stable vector specifics**
 ///
 /// - [`has_element_at`][StableVecFacade::has_element_at]
 /// - [`next_push_index`][StableVecFacade::next_push_index]
 /// - [`is_compact`][StableVecFacade::is_compact]
-/// - [`make_compact`][StableVecFacade::make_compact]
-/// - [`reordering_make_compact`][StableVecFacade::reordering_make_compact]
-///
-/// **Number of elements**
-///
-/// - [`is_empty`][StableVecFacade::is_empty]
-/// - [`num_elements`][StableVecFacade::num_elements]
-///
-/// **Capacity management**
-///
-/// - [`capacity`][StableVecFacade::capacity]
-/// - [`reserve`][StableVecFacade::reserve]
-/// - [`reserve_for`][StableVecFacade::reserve_for]
-/// - [`reserve_exact`][StableVecFacade::reserve_exact]
-/// - [`shrink_to_fit`][StableVecFacade::shrink_to_fit]
 ///
 #[derive(Clone)]
 pub struct StableVecFacade<T, C: Core<T>> {

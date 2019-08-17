@@ -8,7 +8,32 @@ use super::Core;
 
 /// A `Core` implementation that is essentially a `Vec<Option<T>>`.
 ///
-/// TODO: explain advantages and disadvantages.
+/// This implementation is quite different from the `BitVecCore`. This one only
+/// manages one allocation, meaning it does not suffer from the same
+/// disadvantages as `BitVecCore`. This can sometimes lead to better memory
+/// access times due to caching effects. However, this implementation has the
+/// major disadvantage of wasting memory in most cases.
+///
+/// Usually, `size_of::<Option<T>>() > size_of::<T>()`. The difference can be
+/// as high as 4 byte due to alignment. But as only one bit is used to store
+/// the `None/Some` information, all that memory is wasted. A worst case
+/// scenario is something like `Option<u32>`: this is 8 byte large (on most
+/// platforms), meaning that a stable vector with `OptionCore` would use twice
+/// as much memory as a `Vec<u32>`. This is not only wasteful, but has a
+/// negative effect on speed as the information is not very densely packed.
+///
+/// In general, only use this implementation in one of these cases:
+///
+/// - Your `T` is `NonNull`, meaning that `Option<T>` has the same size as `T`.
+///   This is then even more memory efficient than the default core
+///   implementation. Iterating over indices of a stable vector is still slower
+///   in this case as the relevant information is further apart.
+/// - Your `T` is very large, meaning that the amount of wasted memory is small
+///   in comparison.
+///
+/// In both cases, switching the implementation from default to this only makes
+/// sense after you measured that you actually gain performance from it. The
+/// interface of both implementations is exactly the same.
 pub struct OptionCore<T> {
     /// The data and deleted information in one.
     ///

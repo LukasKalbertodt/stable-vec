@@ -10,7 +10,24 @@ use super::Core;
 
 /// A `Core` implementation that is conceptually a `BitVec` and a `Vec<T>`.
 ///
-/// TODO: explain advantages and disadvantages.
+/// This is the default core as it has quite a few advantages. For one, it does
+/// not waste memory due to padding. The information about whether a slot is
+/// filled or not is stored in a `BitVec` and thus only takes one bit per slot.
+///
+/// Using a `BitVec` has another important advantage: iterating over the
+/// indices of a stable vector (i.e. without touching the actual data) is very
+/// cache-friendly. This is due to the dense packing of information. It's also
+/// possible to very quickly scan the bit vector in order to find filled/empty
+/// slots.
+///
+/// However, this core implementation has disadvantages, too. It manages two
+/// allocations which means that reallocating (growing or shrinking) has to
+/// perform two allocations with the underlying memory allocator. Potentially
+/// more important is the decrease of cache-friendliness when accessing
+/// elements at random. Because in the worst case, this means that each element
+/// access results in two cache-misses instead of only one.
+///
+/// For most use cases, this is a good choice. That's why it's default.
 pub struct BitVecCore<T> {
     /// This is the memory that stores the actual slots/elements. If a slot is
     /// empty, the memory at that index is undefined.

@@ -6,6 +6,43 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+This is a pretty large release. The whole crate was more or less completely
+rewritten. So it might almost be more useful to forget everything about the
+crate and learn everything anew instead of digging through this changelog.
+
+### Added
+- `Core` trait and two implementations
+- Add `StableVec`, `ExternStableVec` and `InlineStableVec` type aliases for
+  `StableVecFacade`
+- `Iter` and `IterMut` which iterate over (index, reference) pairs
+- All iterators implement `DoubleSidedIterator` and `FusedIterator`
+- `StableVecFacade::{get_unchecked, get_unchecked_mut}`
+- `StableVecFacade::{reserve_exact, reserve_for}`
+- `StableVecFacade::{first_filled_slot_from, first_filled_slot_below}`
+- `StableVecFacade::{first_empty_slot_from, first_empty_slot_below}`
+
+### Changed
+- Notable performance improvements crate-wide
+- `StableVec` has been renamed to `StableVecFacade` and is generic over a
+  "core" (parameter `C`)
+- Move iterators into `iter` submodule
+- The terminology in the documentation changed a bit (notably: "empty or filled
+  slots" instead of "deleted or existing elements")
+- `PartialEq<StableVecFacade>` not compares all observable properties
+- Rename `Iter`/`IterMut` into `Values`/`ValuesMut`
+- Rename `StableVecFacade::next_index` to `next_push_index`
+- Rename `keys`/`Keys` to `indices`/`Indices`
+- Replace `insert_into_hole` with `insert`
+- The `IntoIter` now yields (index, value) pairs
+- The crate `bit-vec` is no longer used and has been replaced by our own
+  implementation
+
+### Removed
+- `StableVecFacade::into_vec`
+- `StableVecFacade::from_vec`
+- `StableVecFacade::grow`
+
+
 ## [0.3.2] - 2019-04-09
 ### Added
 - `remove_last`

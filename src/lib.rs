@@ -208,7 +208,6 @@ pub type ExternStableVec<T> = StableVecFacade<T, BitVecCore<T>>;
 /// - [`reserve_exact`][StableVecFacade::reserve_exact]
 /// - [`shrink_to_fit`][StableVecFacade::shrink_to_fit]
 ///
-// #[derive(PartialEq, Eq)]
 #[derive(Clone)]
 pub struct StableVecFacade<T, C: Core<T>> {
     core: OwningCore<T, C>,
@@ -1619,12 +1618,20 @@ where
     Cb: Core<Tb>,
 {
     fn eq(&self, other: &StableVecFacade<Tb, Cb>) -> bool {
-        if self.num_elements != other.num_elements {
-            return false;
-        }
-        self.iter().zip(other).all(|((ai, ae), (bi, be))| ai == bi && ae == be)
+        self.num_elements() == other.num_elements()
+            && self.capacity() == other.capacity()
+            && self.next_push_index() == other.next_push_index()
+            && (0..self.capacity()).all(|idx| {
+                match (self.get(idx), other.get(idx)) {
+                    (None, None) => true,
+                    (Some(a), Some(b)) => a == b,
+                    _ => false,
+                }
+            })
     }
 }
+
+impl<T: Eq, C: Core<T>> Eq for StableVecFacade<T, C> {}
 
 impl<A, B, C: Core<A>> PartialEq<[B]> for StableVecFacade<A, C>
 where

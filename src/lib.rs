@@ -99,7 +99,6 @@
 use std::{
     cmp,
     fmt,
-    io,
     iter::FromIterator,
     mem,
     ops::{Index, IndexMut},
@@ -1580,22 +1579,6 @@ impl<T, C: Core<T>> Extend<T> for StableVecFacade<T, C> {
             self.push(elem);
         }
     }
-}
-
-/// Write into `StableVecFacade<u8>` by appending `u8` elements. This is
-/// equivalent to calling `push` for each byte.
-impl<C: Core<u8>> io::Write for StableVecFacade<u8, C> {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.extend_from_slice(buf);
-        Ok(buf.len())
-    }
-
-    fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
-        self.extend_from_slice(buf);
-        Ok(())
-    }
-
-    fn flush(&mut self) -> io::Result<()> { Ok(()) }
 }
 
 impl<'a, T, C: Core<T>> IntoIterator for &'a StableVecFacade<T, C> {

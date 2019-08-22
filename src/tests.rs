@@ -891,23 +891,6 @@ macro_rules! gen_tests_for {
         }
 
         #[test]
-        fn write() {
-            use std::io::Write;
-
-            let mut sv = $ty::new();
-
-            sv.write_all(&[0, 7, 3]).unwrap();
-            assert_sv_eq!(sv, [0 => 0, 1 => 7, 2 => 3]);
-
-            sv.remove_last();
-            sv.write_all(&[4, 8]).unwrap();
-            assert_sv_eq!(sv, [0 => 0, 1 => 7, 3 => 4, 4 => 8]);
-
-            sv.write_all(&[5]).unwrap();
-            assert_sv_eq!(sv, [0 => 0, 1 => 7, 3 => 4, 4 => 8, 5 => 5]);
-        }
-
-        #[test]
         fn clone() {
             let sv = $ty::<String>::new();
             assert_sv_eq!(sv.clone(), []: String);

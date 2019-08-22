@@ -1,4 +1,5 @@
 use std::{
+    prelude::v1::*,
     fmt::Debug,
     panic::RefUnwindSafe,
 };
@@ -140,7 +141,10 @@ macro_rules! assert_sv_eq {
 
 macro_rules! gen_tests_for {
     ($ty:ident) => {
-        use std::iter::FromIterator;
+        use std::{
+            prelude::v1::*,
+            iter::FromIterator,
+        };
         use quickcheck_macros::quickcheck;
         use super::assert_sv_eq_fn;
 

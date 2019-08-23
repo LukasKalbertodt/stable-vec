@@ -1,6 +1,6 @@
 [package]
 name = "stable-vec"
-version = "0.4.0"
+version = "0.4.0-beta"
 authors = ["Lukas Kalbertodt <lukas.kalbertodt@gmail.com>"]
 edition = "2018"
 

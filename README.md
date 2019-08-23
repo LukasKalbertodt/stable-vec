@@ -3,31 +3,63 @@
 [![crates.io version](https://img.shields.io/crates/v/stable-vec.svg)](https://crates.io/crates/stable-vec)
 [![docs](https://docs.rs/stable-vec/badge.svg)](https://docs.rs/stable-vec)
 
-A `Vec<T>`-like collection which guarantees stable indices and features O(1)
-deletion of elements at the cost of wasting some memory. Please refer to the
-[**the documentation**](https://docs.rs/stable-vec) for more information.
+A `Vec<T>`-like collection which guarantees stable indices and features O(1) element removal at the cost of wasting some memory.
+It is semantically very similar to `Vec<Option<T>>`, but with a more optimized memory layout and a more convenient API.
+This data structure is very useful as a foundation to implement other data structures like graphs and polygon meshes.
+In those situations, `stable-vec` functions a bit like an arena memory allocator.
+This crate has no dependencies and works in `#![no_std]` context (it needs the `alloc` crate, though).
 
-This crate has no dependencies and works in `#![no_std]` context (needs the `alloc` crate, though).
+This crate implements different strategies to store the information.
+As these strategies have slightly different performance characteristics, the user can choose which to use.
+The two main strategies are:
+- something similar to `Vec<T>` with a `BitVec` (used by default), and
+- something similar to `Vec<Option<T>>`.
+
+Please refer to [**the documentation**](https://docs.rs/stable-vec) for more information. Example:
+
+```rust
+let mut sv = StableVec::new();
+let star_idx = sv.push('★');
+let heart_idx = sv.push('♥');
+let lamda_idx = sv.push('λ');
+
+// Deleting an element does not invalidate any other indices.
+sv.remove(star_idx);
+assert_eq!(sv[heart_idx], '♥');
+assert_eq!(sv[lamda_idx], 'λ');
+
+// You can insert into empty slots (again, without invalidating any indices)
+sv.insert(star_idx, '☺');
+
+// We can also reserve memory (create new empty slots) and insert into
+// these new slots. All slots up to `sv.capacity()` can be accessed.
+sv.reserve_for(15);
+assert_eq!(sv.get(15), None);
+sv.insert(15, '☮');
+
+// The final state of the stable vec
+assert_eq!(sv.get(0), Some(&'☺'));
+assert_eq!(sv.get(1), Some(&'♥'));
+assert_eq!(sv.get(2), Some(&'λ'));
+assert_eq!(sv.get(3), None);
+assert_eq!(sv.get(14), None);
+assert_eq!(sv.get(15), Some(&'☮'));
+```
+
 
 ### Alternatives? What about `slab`?
 
-A few weeks after writing the intial version of this crate, I found the crate [`slab`](https://crates.io/crates/slab) which does *pretty much* the same as this crate (and has way more downloads). Despite being very similar, there are a few differences which might be important for you:
+The crate [`slab`](https://crates.io/crates/slab) works very similar to `stable-vec`, but has way more downloads.
+Despite being very similar, there are a few differences which might be important for you:
 
 - `slab` reuses keys of deleted entries, while `stable-vec` does not automatically.
-- `slab` does a bit more management internally to quickly know which keys to reuse and where to insert. This might incur a tiny bit of overhead. Most notably: each entry in the underlying `Vec` in `slab` is at least `sizeof::<usize>() + 1` bytes large. If you're storing small elements, this might be a significant memory usage overhead.
-- `slab` uses only one `Vec` and each element has the information whether or not it is vacant or occupied. `stable-vec` (currently) uses one `Vec<T>` and a `BitVec`. Be aware of the different performance characteristics. (`stable-vec` might switch to `Vec<Option<T>>` in the future, though).
-- The API of `slab` is designed like an associative map, while `stable-vec`'s API is designed more like a `Vec` with additional guarantees. Both crates are probably mostly used as low level building blogs for other things; `stable-vec` might be a tiny bit more low level.
-
-## You want to contribute?
-
-Yes please!
-In particular, you could work on these things:
-
-- Rather easy: implementing new features. See [this issue](https://github.com/LukasKalbertodt/stable-vec/issues/3) for more information.
-- Rather easy: write more tests and examples.
-- Rather hard: verifying that the use of `unsafe` code is completely fine. It's not a lot of `unsafe` code and I *think* it's fine, but it would be nice to have certainty.
-
-I'm glad to do some mentoring for anyone interested in contributing.
+- `slab` does a bit more management internally to quickly know which keys to reuse and where to insert.
+  This might incur a tiny bit of overhead.
+  Most notably: each entry in the underlying `Vec` in `slab` is at least `size_of::<usize>() + 1` bytes large.
+  If you're storing small elements, this might be a significant memory usage overhead.
+- `slab` has a fixed memory layout while `stable-vec` lets you choose between different layouts.
+  These have different performance characteristics and you might want to choose the right one for your situation.
+- The API of `stable-vec` is a bit more low level.
 
 ---
 

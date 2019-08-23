@@ -20,6 +20,7 @@ crate and learn everything anew instead of digging through this changelog.
 - `StableVecFacade::{reserve_exact, reserve_for}`
 - `StableVecFacade::{first_filled_slot_from, first_filled_slot_below}`
 - `StableVecFacade::{first_empty_slot_from, first_empty_slot_below}`
+- `StableVecFacade::swap`
 
 ### Changed
 - Notable performance improvements crate-wide

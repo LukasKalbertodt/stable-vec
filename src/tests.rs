@@ -785,6 +785,28 @@ macro_rules! gen_tests_for {
             assert_sv_eq!(sv, [2 => 'c', 3 => 'd'; 4]);
         }
 
+        #[test]
+        fn swap() {
+            let mut sv = $ty::from(&['a', 'b', 'c', 'd']);
+            sv.reserve_for(5);
+            assert_eq!(sv.next_push_index(), 4);
+
+            sv.swap(0, 5);
+            assert_sv_eq!(sv, [1 => 'b', 2 => 'c', 3 => 'd', 5 => 'a']);
+            assert_eq!(sv.next_push_index(), 6);
+
+            sv.swap(1, 2);
+            assert_sv_eq!(sv, [1 => 'c', 2 => 'b', 3 => 'd', 5 => 'a']);
+
+            sv.swap(0, 4);
+            assert_sv_eq!(sv, [1 => 'c', 2 => 'b', 3 => 'd', 5 => 'a']);
+
+            assert_panic!(sv.swap(0, sv.capacity()));
+            assert_panic!(sv.swap(sv.capacity(), 0));
+            assert_panic!(sv.swap(0, sv.capacity() + 1));
+            assert_panic!(sv.swap(sv.capacity() + 1, 0));
+        }
+
         // This is a fairly time-consuming test which takes a long time on
         // Miri, we we do not execute it by default with Miri.
         #[cfg(not(miri))]

@@ -1438,6 +1438,76 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
         self.values().any(|e| item == e)
     }
 
+    /// Swaps the slot at index `a` with the slot at index `b`.
+    ///
+    /// The full slots are swapped, including the element and the "filled"
+    /// state. If you swap slots with an element in it, that element's index is
+    /// invalidated, of course. This method automatically sets
+    /// `next_push_index` to a larger value if that's necessary.
+    ///
+    /// # Panics
+    ///
+    /// This panics if `a` or `b` are not smaller than `self.capacity()`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use stable_vec::StableVec;
+    /// let mut sv = StableVec::from(&['a', 'b', 'c', 'd']);
+    /// sv.reserve_for(5);
+    /// assert_eq!(sv.next_push_index(), 4);
+    ///
+    /// // Swapping an empty slot with a filled one
+    /// sv.swap(0, 5);
+    /// assert_eq!(sv.get(0), None);
+    /// assert_eq!(sv.get(1), Some(&'b'));
+    /// assert_eq!(sv.get(2), Some(&'c'));
+    /// assert_eq!(sv.get(3), Some(&'d'));
+    /// assert_eq!(sv.get(4), None);
+    /// assert_eq!(sv.get(5), Some(&'a'));
+    /// assert_eq!(sv.next_push_index(), 6);
+    ///
+    /// // Swapping two filled slots
+    /// sv.swap(1, 2);
+    /// assert_eq!(sv.get(0), None);
+    /// assert_eq!(sv.get(1), Some(&'c'));
+    /// assert_eq!(sv.get(2), Some(&'b'));
+    /// assert_eq!(sv.get(3), Some(&'d'));
+    /// assert_eq!(sv.get(4), None);
+    /// assert_eq!(sv.get(5), Some(&'a'));
+    ///
+    /// // You can also swap two empty slots, but that doesn't change anything.
+    /// sv.swap(0, 4);
+    /// assert_eq!(sv.get(0), None);
+    /// assert_eq!(sv.get(1), Some(&'c'));
+    /// assert_eq!(sv.get(2), Some(&'b'));
+    /// assert_eq!(sv.get(3), Some(&'d'));
+    /// assert_eq!(sv.get(4), None);
+    /// assert_eq!(sv.get(5), Some(&'a'));
+    /// ```
+    pub fn swap(&mut self, a: usize, b: usize) {
+        assert!(a < self.core.cap());
+        assert!(b < self.core.cap());
+
+        // Adjust the `len`
+        let mut len = self.core.len();
+        if a >= len && self.has_element_at(b) {
+            len = a + 1;
+        }
+        if b >= len && self.has_element_at(a) {
+            len = b + 1;
+        }
+
+        // Both indices are less than `cap`. These indices + 1 are <= cap. And
+        // all slots with indices > `len` are empty.
+        unsafe { self.core.set_len(len) };
+
+        // With the asserts above we made sure the preconditions are met. The
+        // maintain the core invariants, we increased the length.
+        unsafe { self.core.swap(a, b) };
+
+    }
+
     /// Retains only the elements specified by the given predicate.
     ///
     /// Each element `e` for which `should_be_kept(&e)` returns `false` is

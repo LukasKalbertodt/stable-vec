@@ -36,11 +36,13 @@ crate and learn everything anew instead of digging through this changelog.
 - The `IntoIter` now yields (index, value) pairs
 - The crate `bit-vec` is no longer used and has been replaced by our own
   implementation
+- The crate is now usable in `no_std` context (still requires `alloc` though)
 
 ### Removed
 - `StableVecFacade::into_vec`
 - `StableVecFacade::from_vec`
 - `StableVecFacade::grow`
+- `io::Write` impl for `StableVecFacade<u8>`
 
 
 ## [0.3.2] - 2019-04-09

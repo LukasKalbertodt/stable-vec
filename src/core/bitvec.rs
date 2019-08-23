@@ -1,4 +1,4 @@
-use std::{
+use crate::std::{
     alloc::{alloc, alloc_zeroed, dealloc, handle_alloc_error, realloc, Layout},
     fmt,
     mem::{align_of, size_of},

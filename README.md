@@ -7,10 +7,7 @@ A `Vec<T>`-like collection which guarantees stable indices and features O(1)
 deletion of elements at the cost of wasting some memory. Please refer to the
 [**the documentation**](https://docs.rs/stable-vec) for more information.
 
-This crate is still young, but the API won't change a lot.
-Everything should already work as intended, but it's not extensively tested yet.
-If you're working on mission-critical software, please don't use this library.
-Otherwise feel free to do so!
+This crate has no dependencies and works in `#![no_std]` context (needs the `alloc` crate, though).
 
 ### Alternatives? What about `slab`?
 

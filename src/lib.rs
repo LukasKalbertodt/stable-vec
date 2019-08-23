@@ -6,6 +6,8 @@
 //! core implementation. To use a pre-configured stable vector, use
 //! [`StableVec`].
 //!
+//! This crate uses `#![no_std]` but requires the `alloc` crate.
+//!
 //!
 //! # Why?
 //!

@@ -2,7 +2,7 @@
 //!
 //! This is in its own module to not pollute the top-level namespace.
 
-use crate::std::{
+use std::{
     iter::FusedIterator,
     ops::Range,
 };

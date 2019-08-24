@@ -5,7 +5,7 @@
 //! implementation, making the stable vector work. See [`Core`][core::Core] for
 //! more information.
 
-use crate::std::{
+use std::{
     prelude::v1::*,
     fmt,
     marker::PhantomData,

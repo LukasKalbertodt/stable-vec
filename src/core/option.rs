@@ -1,4 +1,4 @@
-use crate::std::{
+use std::{
     prelude::v1::*,
     fmt,
     hint::unreachable_unchecked,

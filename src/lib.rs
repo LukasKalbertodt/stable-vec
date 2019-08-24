@@ -98,10 +98,6 @@
 #![deny(intra_doc_link_resolution_failure)]
 
 // ----- Deal with `no_std` stuff --------------------------------------------
-// Ideally we could use the crate `no-std-compat` for this. Unfortunately, it
-// is only usable on nightly at the moment. Once that changes, all of this will
-// be replaced.
-
 #![no_std]
 
 // Import the real `std` for tests.
@@ -109,27 +105,15 @@
 #[macro_use]
 extern crate std;
 
-// Otherwise import `core` and `alloc` and define a module `std` which
-// simulates the real `std` by reexporting the symbols from `core` and `alloc`.
-// Well, not perfectly, but all parts we need.
-#[cfg(not(test))] extern crate alloc as _alloc;
-#[cfg(not(test))] extern crate core as _core;
+// When compiling in a normal way, we use this compatibility layer that
+// reexports symbols from `core` and `alloc` under the name `std`. This is just
+// convenience so that all other imports in this crate can just use `std`.
 #[cfg(not(test))]
-mod std {
-    pub use _core::*;
-    pub use _alloc::alloc;
-
-    pub mod prelude {
-        pub mod v1 {
-            pub use _core::prelude::v1::*;
-            pub use _alloc::vec::Vec;
-        }
-    }
-}
+extern crate no_std_compat as std;
 // ---------------------------------------------------------------------------
 
 
-use crate::std::{
+use std::{
     prelude::v1::*,
     cmp,
     fmt,

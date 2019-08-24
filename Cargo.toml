@@ -26,6 +26,9 @@ members = ["asm-test"]
 [features]
 nightly-bench = ["criterion/real_blackbox"]
 
+[dependencies]
+no-std-compat = { version = "0.2.0", features = ["alloc"] }
+
 [dev-dependencies]
 quickcheck = "0.8"
 quickcheck_macros = "0.8"

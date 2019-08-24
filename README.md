@@ -7,7 +7,7 @@ A `Vec<T>`-like collection which guarantees stable indices and features O(1) ele
 It is semantically very similar to `Vec<Option<T>>`, but with a more optimized memory layout and a more convenient API.
 This data structure is very useful as a foundation to implement other data structures like graphs and polygon meshes.
 In those situations, `stable-vec` functions a bit like an arena memory allocator.
-This crate has no dependencies and works in `#![no_std]` context (it needs the `alloc` crate, though).
+This crate works in `#![no_std]` context (it needs the `alloc` crate, though).
 
 This crate implements different strategies to store the information.
 As these strategies have slightly different performance characteristics, the user can choose which to use.

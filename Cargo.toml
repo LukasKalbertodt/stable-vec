@@ -1,18 +1,19 @@
 [package]
 name = "stable-vec"
-version = "0.4.0-beta"
+version = "0.4.0"
 authors = ["Lukas Kalbertodt <lukas.kalbertodt@gmail.com>"]
 edition = "2018"
 
 description = """
-A Vec-like collection which guarantees stable indices and features
-O(1) deletion of elements (semantically similar to `Vec<Option<T>>`)
+A Vec-like collection which guarantees stable indices and features O(1)
+element deletion (semantically similar to `Vec<Option<T>>`). Useful for
+allocations in graphs or similar data structures.
 """
 documentation = "https://docs.rs/stable-vec"
 repository = "https://github.com/LukasKalbertodt/stable-vec"
 license = "MIT/Apache-2.0"
-keywords = ["stable", "vec", "vector", "index", "option"]
-categories = ["data-structures", "no-std"]
+keywords = ["vector", "index", "option", "arena", "bitvec"]
+categories = ["data-structures", "memory-management", "no-std"]
 readme = "README.md"
 
 [badges]

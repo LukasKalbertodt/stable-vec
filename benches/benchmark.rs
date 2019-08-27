@@ -259,7 +259,7 @@ fn sum(c: &mut Criterion) {
         "sum_full",
         move |b, &len| {
             let sv = full_sv(len);
-            b.iter(|| sv.iter().map(|&e| e as u64).sum::<u64>());
+            b.iter(|| sv.values().map(|&e| e as u64).sum::<u64>());
         },
         vec![0, 1, 10, 1000, 100_000],
     );
@@ -268,7 +268,7 @@ fn sum(c: &mut Criterion) {
         "sum_with_one_hole",
         move |b, &len| {
             let sv = sv_with_hole_in_middle(len);
-            b.iter(|| sv.iter().map(|&e| e as u64).sum::<u64>());
+            b.iter(|| sv.values().map(|&e| e as u64).sum::<u64>());
         },
         vec![10, 1000, 100_000],
     );
@@ -277,7 +277,7 @@ fn sum(c: &mut Criterion) {
         "sum_with_hole_every_fifth",
         move |b, &len| {
             let sv = sv_with_hole_every_fifth(len);
-            b.iter(|| sv.iter().map(|&e| e as u64).sum::<u64>());
+            b.iter(|| sv.values().map(|&e| e as u64).sum::<u64>());
         },
         vec![10, 1000, 100_000],
     );
@@ -286,7 +286,7 @@ fn sum(c: &mut Criterion) {
         "sum_with_element_every_fifth",
         move |b, &len| {
             let sv = sv_with_element_every_fifth(len);
-            b.iter(|| sv.iter().map(|&e| e as u64).sum::<u64>());
+            b.iter(|| sv.values().map(|&e| e as u64).sum::<u64>());
         },
         vec![10, 1000, 100_000],
     );
@@ -295,7 +295,7 @@ fn sum(c: &mut Criterion) {
         "sum_with_prime_holes",
         move |b, &len| {
             let sv = sv_with_prime_holes(len);
-            b.iter(|| sv.iter().map(|&e| e as u64).sum::<u64>());
+            b.iter(|| sv.values().map(|&e| e as u64).sum::<u64>());
         },
         vec![10, 1000, 100_000],
     );
@@ -304,7 +304,7 @@ fn sum(c: &mut Criterion) {
         "sum_two_elements",
         move |b, &len| {
             let sv = two_element_sv(len);
-            b.iter(|| sv.iter().map(|&e| e as u64).sum::<u64>());
+            b.iter(|| sv.values().map(|&e| e as u64).sum::<u64>());
         },
         vec![10, 1000, 100_000],
     );
@@ -313,7 +313,7 @@ fn sum(c: &mut Criterion) {
         "sum_fully_deleted",
         move |b, &len| {
             let sv = fully_deleted_sv(len);
-            b.iter(|| sv.iter().map(|&e| e as u64).sum::<u64>());
+            b.iter(|| sv.values().map(|&e| e as u64).sum::<u64>());
         },
         vec![10, 1000, 100_000],
     );

@@ -38,8 +38,8 @@
 //!
 //! # How?
 //!
-//! Actually, the implementation of this stable vector is rather simple. We can
-//! trade O(1) deletions and stable indices for a higher memory consumption.
+//! We can trade O(1) deletions and stable indices for a higher memory
+//! consumption.
 //!
 //! When `StableVec::remove()` is called, the element is just marked as
 //! "deleted" (and the actual element is dropped), but other than that, nothing
@@ -199,7 +199,7 @@ pub type ExternStableVec<T> = StableVecFacade<T, BitVecCore<T>>;
 ///
 /// # Implemented traits
 ///
-/// This type implement a couple of traits. Some of those implementations
+/// This type implements a couple of traits. Some of those implementations
 /// require further explanation:
 ///
 /// - `Clone`: the cloned instance is exactly the same as the original,

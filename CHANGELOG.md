@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+
+## [0.4.0] - 2019-08-26
 This is a pretty large release. The whole crate was more or less completely
 rewritten. So it might almost be more useful to forget everything about the
 crate and learn everything anew instead of digging through this changelog.
@@ -142,7 +144,8 @@ crate and learn everything anew instead of digging through this changelog.
 - Everything.
 
 
-[Unreleased]: https://github.com/LukasKalbertodt/stable-vec/compare/v0.3.2...HEAD
+[Unreleased]: https://github.com/LukasKalbertodt/stable-vec/compare/v0.4.0...HEAD
+[0.3.2]: https://github.com/LukasKalbertodt/stable-vec/compare/v0.3.2...v0.4.0
 [0.3.2]: https://github.com/LukasKalbertodt/stable-vec/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/LukasKalbertodt/stable-vec/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/LukasKalbertodt/stable-vec/compare/v0.2.2...v0.3.0

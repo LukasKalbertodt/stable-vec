@@ -2,7 +2,6 @@ language: rust
 rust:
   - stable
   - beta
-  - nightly
 
 
 script:
@@ -18,6 +17,14 @@ matrix:
     - name: "Check style"
       language: generic
       script: ./ci/check-basic-style.sh
+    - name: "Nightly (with benchmarks)"
+      language: rust
+      rust: nightly
+      script:
+        - cargo build || travis_terminate 1
+        - cargo build --benches --features=nightly-bench || travis_terminate 1
+        - cargo test || travis_terminate 1
+        - cargo doc || travis_terminate 1
     - name: "Miri tests (nightly)"
       language: rust
       rust: nightly

@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [ master ]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: --deny warnings
+
+jobs:
+  style:
+    name: 'Check basic style'
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v2
+    - name: Check basic style
+      run: ./.github/check-basic-style.sh
+
+  check:
+    name: 'Build & test'
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        rust:
+          # - stable   # add again on oct 8th
+          - beta
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install Rust toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: ${{ matrix.rust }}
+        override: true
+        profile: minimal
+    - name: Prepare cache key
+      run: |
+        cargo generate-lockfile
+        cp Cargo.lock cache-fingerprint
+        echo $RUSTFLAGS >> cache-fingerprint
+        echo $(rustc -V) >> cache-fingerprint
+    - name: Restore cargo cache
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('cache-fingerprint') }}
+    - name: Build
+      run: cargo build
+    - name: Run tests
+      run: cargo test
+    - name: Generate docs
+      run: cargo doc

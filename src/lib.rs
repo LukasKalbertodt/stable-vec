@@ -94,8 +94,9 @@
 //! code that is not necessary and you can show that removing it does not
 //! decrease execution speed, please also open an issue or PR!
 //!
+
 #![deny(missing_debug_implementations)]
-#![deny(intra_doc_link_resolution_failure)]
+#![deny(broken_intra_doc_links)]
 
 // ----- Deal with `no_std` stuff --------------------------------------------
 #![no_std]

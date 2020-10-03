@@ -58,3 +58,21 @@ jobs:
       run: cargo test
     - name: Generate docs
       run: cargo doc
+
+  # We do not use a cache here as Miri prefers a clean working directory anyway.
+  check-miri:
+    name: 'Run tests with miri'
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install Rust toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: nightly
+        override: true
+        profile: minimal
+        components: miri
+    - name: "Miri setup"
+      run: cargo miri setup
+    - name: "Run tests with miri"
+      run: cargo miri test

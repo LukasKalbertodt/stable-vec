@@ -26,6 +26,7 @@ jobs:
         rust:
           # - stable   # add again on oct 8th
           - beta
+          - nightly
     steps:
     - uses: actions/checkout@v2
     - name: Install Rust toolchain
@@ -50,6 +51,9 @@ jobs:
         key: ${{ runner.os }}-cargo-${{ hashFiles('cache-fingerprint') }}
     - name: Build
       run: cargo build
+    - name: Build benchmarks
+      run: cargo build --benches --features=nightly-bench
+      if: matrix.rust == 'nightly'
     - name: Run tests
       run: cargo test
     - name: Generate docs

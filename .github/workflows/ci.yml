@@ -24,7 +24,7 @@ jobs:
     strategy:
       matrix:
         rust:
-          # - stable   # add again on oct 8th
+          - stable
           - beta
           - nightly
     steps:

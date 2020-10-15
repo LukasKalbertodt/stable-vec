@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [ master ]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: --deny warnings
+
+jobs:
+  style:
+    name: 'Check basic style'
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v2
+    - name: Check basic style
+      run: ./.github/check-basic-style.sh
+
+  check:
+    name: 'Build & test'
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        rust:
+          - stable
+          - beta
+          - nightly
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install Rust toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: ${{ matrix.rust }}
+        override: true
+        profile: minimal
+    - name: Prepare cache key
+      run: |
+        cargo generate-lockfile
+        cp Cargo.lock cache-fingerprint
+        echo $RUSTFLAGS >> cache-fingerprint
+        echo $(rustc -V) >> cache-fingerprint
+    - name: Restore cargo cache
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('cache-fingerprint') }}
+    - name: Build
+      run: cargo build
+    - name: Build benchmarks
+      run: cargo build --benches --features=nightly-bench
+      if: matrix.rust == 'nightly'
+    - name: Run tests
+      run: cargo test
+    - name: Generate docs
+      run: cargo doc
+
+  # We do not use a cache here as Miri prefers a clean working directory anyway.
+  check-miri:
+    name: 'Run tests with miri'
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install Rust toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: nightly
+        override: true
+        profile: minimal
+        components: miri
+    - name: "Miri setup"
+      run: cargo miri setup
+    - name: "Run tests with miri"
+      run: cargo miri test

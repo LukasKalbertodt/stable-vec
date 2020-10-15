@@ -31,8 +31,8 @@ nightly-bench = ["criterion/real_blackbox"]
 no-std-compat = { version = "0.2.0", features = ["alloc"] }
 
 [dev-dependencies]
-quickcheck = "0.8"
-quickcheck_macros = "0.8"
+quickcheck = "0.9"
+quickcheck_macros = "0.9"
 criterion = { version = "0.2" }
 
 [[bench]]

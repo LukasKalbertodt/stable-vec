@@ -2,7 +2,7 @@
 //!
 //! There are multiple ways to implement the "stable vector" interface, each
 //! with different performance characteristics. The `Core` is this
-//! implementation, making the stable vector work. See [`Core`][core::Core] for
+//! implementation, making the stable vector work. See [`Core`][Core] for
 //! more information.
 
 use std::{

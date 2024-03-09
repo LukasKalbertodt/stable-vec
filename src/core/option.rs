@@ -242,15 +242,10 @@ impl<T: Clone> Clone for OptionCore<T> {
         //   is important for us.
         // - The memory after its length is probably uninitialized.
         //
-        // To fix both issues, we get a slice to the complete memory of the
-        // original `Vec` and create a `Vec` from it. Then we reset the length
-        // to the old value. Both is safe as all the elements that are included
-        // and excluded by the "fake length" are `None`.
-        let data = unsafe {
-            let mut data_clone = self.data.get_unchecked(0..self.data.capacity()).to_vec();
-            data_clone.set_len(self.data.len());
-            data_clone
-        };
+        // To fix both issues, we create a new vec with the appopriate capacity
+        // and extend it with the values of the other.
+        let mut data = Vec::with_capacity(self.data.capacity());
+        data.extend(self.data.iter().cloned());
 
         Self { data }
     }

@@ -225,8 +225,9 @@ impl<T> Core<T> for OptionCore<T> {
         // We can't just have two mutable references, so we use `ptr::swap`
         // instead of `mem::swap`. We do not use the slice's `swap` method as
         // that performs bound checks.
-        let pa: *mut _ = self.data.get_unchecked_mut(a);
-        let pb: *mut _ = self.data.get_unchecked_mut(b);
+        let p = self.data.as_mut_ptr();
+        let pa: *mut _ = p.offset(a as isize);
+        let pb: *mut _ = p.offset(b as isize);
         ptr::swap(pa, pb);
     }
 }

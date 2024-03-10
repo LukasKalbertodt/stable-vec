@@ -216,9 +216,16 @@ impl<T> Core<T> for OptionCore<T> {
     fn clear(&mut self) {
         // We can assume that all existing elements have an index lower than
         // `len` (this is one of the invariants of the `Core` interface).
-        // Calling `clear` on the `Vec` will drop all remaining elements and
-        // sets the length to 0.
-        self.data.clear();
+        // Calling `clear` on the `Vec` would drop all remaining elements and
+        // sets the length to 0. However those values would subsequently become
+        // uninitialized. Thus we call take for each item to leave a
+        // `None` value in it's place and set the length to zero.
+        for item in self.data.iter_mut() {
+            drop(item.take());
+        }
+        unsafe {
+            self.set_len(0);
+        }
     }
 
     unsafe fn swap(&mut self, a: usize, b: usize) {

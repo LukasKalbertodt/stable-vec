@@ -159,10 +159,17 @@ impl<T> Core<T> for OptionCore<T> {
         }
     }
 
+    /// Assumes that `idx < capacity`
     unsafe fn has_element_at(&self, idx: usize) -> bool {
         debug_assert!(idx < self.cap());
-
-        idx < self.len() && self.data.get_unchecked(idx).is_some()
+        // Under the precondition that we maintain `None` values,
+        // for all items removed from the array and
+        // all extra capacity not containing items.
+        //
+        // Given that this is maintained during removal of items,
+        // realloc, and during clear. We can get a valid reference
+        // to an option for any idx < self.cap.
+        (&*self.data.as_ptr().add(idx)).is_some()
     }
 
     unsafe fn insert_at(&mut self, idx: usize, elem: T) {
@@ -233,8 +240,8 @@ impl<T> Core<T> for OptionCore<T> {
         // instead of `mem::swap`. We do not use the slice's `swap` method as
         // that performs bound checks.
         let p = self.data.as_mut_ptr();
-        let pa: *mut _ = p.offset(a as isize);
-        let pb: *mut _ = p.offset(b as isize);
+        let pa: *mut _ = p.add(a);
+        let pb: *mut _ = p.add(b);
         ptr::swap(pa, pb);
     }
 }

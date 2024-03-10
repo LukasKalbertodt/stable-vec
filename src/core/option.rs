@@ -243,10 +243,20 @@ impl<T: Clone> Clone for OptionCore<T> {
         // - The memory after its length is probably uninitialized.
         //
         // To fix both issues, we create a new vec with the appopriate capacity
-        // and extend it with the values of the other.
+        // and extend it with the values of the other. Placing None objects in
+        // the extra capacity and then set the length.
         let mut data = Vec::with_capacity(self.data.capacity());
-        data.extend(self.data.iter().cloned());
-
+        data.extend(
+            self.data
+                .iter()
+                .cloned()
+                .chain(std::iter::repeat(None).take(self.data.capacity() - self.data.len())),
+        );
+        debug_assert_eq!(data.len(), self.data.capacity());
+        debug_assert_eq!(data.capacity(), self.data.capacity());
+        unsafe {
+            data.set_len(self.data.len());
+        }
         Self { data }
     }
 }

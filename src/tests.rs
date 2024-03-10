@@ -166,6 +166,7 @@ macro_rules! gen_tests_for {
 
             assert!(sv.capacity() >= 3);
             assert_sv_eq!(sv, []: String);
+            assert_eq!(sv.get(0), None);
         }
 
         #[test]
@@ -896,6 +897,7 @@ macro_rules! gen_tests_for {
             let mut sv = $ty::from_iter(vec![1, 3, 5]);
             sv.clear();
             assert_sv_eq!(sv, []: u32);
+            assert_eq!(sv.get(0), None);
         }
 
         #[test]

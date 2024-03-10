@@ -162,7 +162,7 @@ impl<T> Core<T> for OptionCore<T> {
     unsafe fn has_element_at(&self, idx: usize) -> bool {
         debug_assert!(idx < self.cap());
 
-        self.data.get_unchecked(idx).is_some()
+        idx < self.len() && self.data.get_unchecked(idx).is_some()
     }
 
     unsafe fn insert_at(&mut self, idx: usize, elem: T) {

@@ -1,7 +1,7 @@
 # stable-vec
-[![Build Status](https://img.shields.io/travis/LukasKalbertodt/stable-vec/master.svg)](https://travis-ci.org/LukasKalbertodt/stable-vec)
-[![crates.io version](https://img.shields.io/crates/v/stable-vec.svg)](https://crates.io/crates/stable-vec)
-[![docs](https://docs.rs/stable-vec/badge.svg)](https://docs.rs/stable-vec)
+[<img alt="CI status of master" src="https://img.shields.io/github/actions/workflow/status/LukasKalbertodt/stable-vec/ci.yml?branch=master&label=CI&logo=github&logoColor=white&style=for-the-badge" height="23">](https://github.com/LukasKalbertodt/stable-vec/actions/workflows/ci.yml)
+[<img alt="Crates.io Version" src="https://img.shields.io/crates/v/stable-vec?logo=rust&style=for-the-badge" height="23">](https://crates.io/crates/stable-vec)
+[<img alt="docs.rs" src="https://img.shields.io/crates/v/stable-vec?color=blue&label=docs&style=for-the-badge" height="23">](https://docs.rs/stable-vec)
 
 A `Vec<T>`-like collection which guarantees stable indices and features O(1) element removal at the cost of wasting some memory.
 It is semantically very similar to `Vec<Option<T>>`, but with a more optimized memory layout and a more convenient API.

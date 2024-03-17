@@ -159,10 +159,17 @@ impl<T> Core<T> for OptionCore<T> {
         }
     }
 
+    /// Assumes that `idx < capacity`
     unsafe fn has_element_at(&self, idx: usize) -> bool {
         debug_assert!(idx < self.cap());
-
-        idx < self.len() && self.data.get_unchecked(idx).is_some()
+        // Under the precondition that we maintain `None` values,
+        // for all items removed from the array and
+        // all extra capacity not containing items.
+        //
+        // Given that this is maintained during removal of items,
+        // realloc, and during clear. We can get a valid reference
+        // to an option for any idx < self.cap.
+        (&*self.data.as_ptr().add(idx)).is_some()
     }
 
     unsafe fn insert_at(&mut self, idx: usize, elem: T) {
@@ -216,17 +223,25 @@ impl<T> Core<T> for OptionCore<T> {
     fn clear(&mut self) {
         // We can assume that all existing elements have an index lower than
         // `len` (this is one of the invariants of the `Core` interface).
-        // Calling `clear` on the `Vec` will drop all remaining elements and
-        // sets the length to 0.
-        self.data.clear();
+        // Calling `clear` on the `Vec` would drop all remaining elements and
+        // sets the length to 0. However those values would subsequently become
+        // uninitialized. Thus we call take for each item to leave a
+        // `None` value in it's place and set the length to zero.
+        for item in self.data.iter_mut() {
+            drop(item.take());
+        }
+        unsafe {
+            self.set_len(0);
+        }
     }
 
     unsafe fn swap(&mut self, a: usize, b: usize) {
         // We can't just have two mutable references, so we use `ptr::swap`
         // instead of `mem::swap`. We do not use the slice's `swap` method as
         // that performs bound checks.
-        let pa: *mut _ = self.data.get_unchecked_mut(a);
-        let pb: *mut _ = self.data.get_unchecked_mut(b);
+        let p = self.data.as_mut_ptr();
+        let pa: *mut _ = p.add(a);
+        let pb: *mut _ = p.add(b);
         ptr::swap(pa, pb);
     }
 }
@@ -241,16 +256,21 @@ impl<T: Clone> Clone for OptionCore<T> {
         //   is important for us.
         // - The memory after its length is probably uninitialized.
         //
-        // To fix both issues, we get a slice to the complete memory of the
-        // original `Vec` and create a `Vec` from it. Then we reset the length
-        // to the old value. Both is safe as all the elements that are included
-        // and excluded by the "fake length" are `None`.
-        let data = unsafe {
-            let mut data_clone = self.data.get_unchecked(0..self.data.capacity()).to_vec();
-            data_clone.set_len(self.data.len());
-            data_clone
-        };
-
+        // To fix both issues, we create a new vec with the appopriate capacity
+        // and extend it with the values of the other. Placing None objects in
+        // the extra capacity and then set the length.
+        let mut data = Vec::with_capacity(self.data.capacity());
+        data.extend(
+            self.data
+                .iter()
+                .cloned()
+                .chain(std::iter::repeat(None).take(self.data.capacity() - self.data.len())),
+        );
+        debug_assert_eq!(data.len(), self.data.capacity());
+        debug_assert_eq!(data.capacity(), self.data.capacity());
+        unsafe {
+            data.set_len(self.data.len());
+        }
         Self { data }
     }
 }

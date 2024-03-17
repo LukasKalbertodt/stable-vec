@@ -181,7 +181,7 @@ impl<T> Core<T> for OptionCore<T> {
         // left hand side. Since we know from our preconditions that this value
         // is in fact `None` and we thus never need to drop it, `ptr::write` is
         // faster.
-        ptr::write(self.data.get_unchecked_mut(idx), Some(elem));
+        ptr::write(self.data.as_mut_ptr().add(idx), Some(elem));
     }
 
     unsafe fn remove_at(&mut self, idx: usize) -> T {

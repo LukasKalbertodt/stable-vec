@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.4.1] - 2024-03-17
+- Fix UB in `InlineStableVec` (`OptionCore`) in [#45](https://github.com/LukasKalbertodt/stable-vec/pull/45) & [#46](https://github.com/LukasKalbertodt/stable-vec/pull/46). Thanks a lot @ratmice for detecting and fixing this.
+- Fix badges in README
+- Internal: switch from Travis-CI to GitHub actions
 
 ## [0.4.0] - 2019-08-26
 This is a pretty large release. The whole crate was more or less completely
@@ -144,7 +148,8 @@ crate and learn everything anew instead of digging through this changelog.
 - Everything.
 
 
-[Unreleased]: https://github.com/LukasKalbertodt/stable-vec/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/LukasKalbertodt/stable-vec/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/LukasKalbertodt/stable-vec/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/LukasKalbertodt/stable-vec/compare/v0.3.2...v0.4.0
 [0.3.2]: https://github.com/LukasKalbertodt/stable-vec/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/LukasKalbertodt/stable-vec/compare/v0.3.0...v0.3.1

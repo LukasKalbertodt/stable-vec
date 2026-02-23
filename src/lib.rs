@@ -737,7 +737,7 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     ///
     /// assert_eq!(sv, &[2.0, 4.0, 6.0] as &[_]);
     /// ```
-    pub fn values_mut(&mut self) -> ValuesMut<T, C> {
+    pub fn values_mut(&mut self) -> ValuesMut<'_, T, C> {
         ValuesMut::new(self)
     }
 

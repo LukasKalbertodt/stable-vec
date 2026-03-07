@@ -1162,7 +1162,7 @@ macro_rules! gen_tests_for {
         #[cfg_attr(miri, ignore)]
         #[quickcheck]
         fn reordering_compact(insertions: u16, to_delete: Vec<u16>) -> bool {
-            let insertions = insertions + 1;
+            let insertions = insertions.saturating_add(1);
             // Create stable vector containing `insertions` zeros. Afterwards, we
             // remove at most half of those elements
             let mut sv = $ty::from(vec![0; insertions as usize]);
@@ -1187,7 +1187,7 @@ macro_rules! gen_tests_for {
         #[cfg_attr(miri, ignore)]
         #[quickcheck]
         fn compact(insertions: u16, to_delete: Vec<u16>) -> bool {
-            let insertions = insertions + 1;
+            let insertions = insertions.saturating_add(1);
             // Create stable vector containing `insertions` zeros. Afterwards, we
             // remove at most half of those elements
             let mut sv = $ty::from(vec![0; insertions as usize]);

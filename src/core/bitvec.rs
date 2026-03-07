@@ -4,17 +4,7 @@ use ::core::{
     ptr::{self, NonNull},
 };
 
-use alloc::{
-    //
-    alloc::{
-        alloc,
-        alloc_zeroed,
-        dealloc,
-        handle_alloc_error,
-        realloc,
-        Layout
-    }
-};
+use alloc::alloc::{alloc, alloc_zeroed, dealloc, handle_alloc_error, realloc, Layout};
 
 use super::Core;
 

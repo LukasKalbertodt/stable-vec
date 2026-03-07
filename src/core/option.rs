@@ -265,7 +265,7 @@ impl<T: Clone> Clone for OptionCore<T> {
             self.data
                 .iter()
                 .cloned()
-                .chain(std::iter::repeat(None).take(self.data.capacity() - self.data.len())),
+                .chain(core::iter::repeat(None).take(self.data.capacity() - self.data.len())),
         );
         debug_assert_eq!(data.len(), self.data.capacity());
         debug_assert_eq!(data.capacity(), self.data.capacity());

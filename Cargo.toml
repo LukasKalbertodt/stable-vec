@@ -17,10 +17,6 @@ keywords = ["vector", "index", "option", "arena", "bitvec"]
 categories = ["data-structures", "memory-management", "no-std"]
 readme = "README.md"
 
-[badges]
-travis-ci = { branch = "master", repository = "LukasKalbertodt/stable-vec" }
-maintenance = { status = "actively-developed" }
-
 
 [workspace]
 members = ["asm-test"]

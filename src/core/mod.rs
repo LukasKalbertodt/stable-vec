@@ -5,8 +5,7 @@
 //! implementation, making the stable vector work. See [`Core`][Core] for
 //! more information.
 
-use std::{
-    prelude::v1::*,
+use ::core::{
     fmt,
     marker::PhantomData,
     ops::{Deref, DerefMut},

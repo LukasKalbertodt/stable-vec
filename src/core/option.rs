@@ -1,9 +1,10 @@
-use std::{
-    prelude::v1::*,
+use ::core::{
     fmt,
     hint::unreachable_unchecked,
     ptr,
 };
+
+use alloc::vec::Vec;
 
 use super::Core;
 

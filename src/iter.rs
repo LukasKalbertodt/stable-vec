@@ -2,7 +2,7 @@
 //!
 //! This is in its own module to not pollute the top-level namespace.
 
-use std::{
+use ::core::{
     iter::FusedIterator,
     ops::Range,
 };

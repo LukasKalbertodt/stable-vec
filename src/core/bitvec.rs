@@ -1,8 +1,19 @@
-use std::{
-    alloc::{alloc, alloc_zeroed, dealloc, handle_alloc_error, realloc, Layout},
+use ::core::{
     fmt,
     mem::{align_of, size_of},
     ptr::{self, NonNull},
+};
+
+use alloc::{
+    //
+    alloc::{
+        alloc,
+        alloc_zeroed,
+        dealloc,
+        handle_alloc_error,
+        realloc,
+        Layout
+    }
 };
 
 use super::Core;

@@ -98,30 +98,20 @@
 #![deny(missing_debug_implementations)]
 #![deny(broken_intra_doc_links)]
 
-// ----- Deal with `no_std` stuff --------------------------------------------
-#![no_std]
-
-// Import the real `std` for tests.
-#[cfg(test)]
-#[macro_use]
-extern crate std;
-
-// When compiling in a normal way, we use this compatibility layer that
-// reexports symbols from `core` and `alloc` under the name `std`. This is just
-// convenience so that all other imports in this crate can just use `std`.
-#[cfg(not(test))]
-extern crate no_std_compat as std;
-// ---------------------------------------------------------------------------
+// enable `no_std` for everything except for tests.
+#![cfg_attr(not(test), no_std)]
+extern crate alloc;
 
 
-use std::{
-    prelude::v1::*,
+use ::core::{
     cmp,
     fmt,
     iter::FromIterator,
     mem,
     ops::{Index, IndexMut},
 };
+use alloc::vec::Vec;
+
 use crate::{
     core::{Core, DefaultCore, OwningCore, OptionCore, BitVecCore},
     iter::{Indices, Iter, IterMut, IntoIter, Values, ValuesMut},

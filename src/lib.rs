@@ -1573,7 +1573,6 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
         let len = new_elements.len();
 
         self.reserve(len);
-        self.num_elements += len;
 
         // It's important that a panic in `clone()` does not lead to memory
         // unsafety! The only way that could happen is if some uninitialized
@@ -1582,6 +1581,13 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
         //
         // So that's good. But we also would like to drop all elements that
         // have already been inserted. That's why we set the length first.
+        //
+        // For the same reason, `num_elements` is only increased after an
+        // element was actually inserted. If `clone()` panics, all remaining
+        // elements are never inserted, so counting them in advance would
+        // leave `num_elements` larger than the number of filled slots. And a
+        // lot of `unsafe` code relies on that number being exact (e.g. all
+        // iterators use it as their number of remaining elements).
         unsafe {
             let mut i = self.core.len();
             let new_len = self.core.len() + len;
@@ -1590,6 +1596,7 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
             for elem in new_elements {
                 self.core.insert_at(i, elem.clone());
                 i += 1;
+                self.num_elements += 1;
             }
         }
     }

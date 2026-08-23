@@ -359,29 +359,25 @@ impl<T: Clone> Clone for BitVecCore<T> {
         let mut out = Self::new();
 
         if self.cap != 0 {
-            // All of this is scary
             unsafe {
                 out.realloc(self.cap);
 
-                // Copy element data over
-                if size_of::<T>() != 0 {
-                    let mut idx = 0;
-                    while let Some(next) = self.first_filled_slot_from(idx) {
-                        let clone = self.get_unchecked(next).clone();
-                        ptr::write(out.elem_ptr.as_ptr().add(next), clone);
-
-                        idx = next + 1;
-                    }
-                }
-
-                // Copy bitvec data over
-                ptr::copy_nonoverlapping(
-                    self.bit_ptr.as_ptr(),
-                    out.bit_ptr.as_ptr(),
-                    num_usizes_for(self.cap)
-                );
-
+                // The length is set before inserting anything: if a `clone`
+                // below panics, `out` is dropped and it has to be able to see
+                // the elements that were already inserted (otherwise those
+                // would be leaked). All slots of `out` are still empty, so
+                // this is fine.
                 out.set_len(self.len);
+
+                // Clone all elements over. We use `insert_at` instead of
+                // copying the whole bitvec at the end, as it sets the
+                // "filled" bit of each element right away. That way, `out` is
+                // in a valid state at all times, even if `clone` panics.
+                let mut idx = 0;
+                while let Some(next) = self.first_filled_slot_from(idx) {
+                    out.insert_at(next, self.get_unchecked(next).clone());
+                    idx = next + 1;
+                }
             }
         }
 

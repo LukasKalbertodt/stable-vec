@@ -50,8 +50,7 @@ pub struct BitVecCore<T> {
 const BITS_PER_USIZE: usize = size_of::<usize>() * 8;
 
 impl<T> BitVecCore<T> {
-    /// Deallocates both pointers, sets them to the same value as `new()` does
-    /// and sets `cap` to 0.
+    /// Deallocates both pointers and sets `cap` to 0.
     ///
     /// Note that elements which are still stored in filled slots are **not**
     /// dropped but simply leaked. So all slots should be empty when calling

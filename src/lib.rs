@@ -1299,25 +1299,30 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
         // We only have to move elements, if we have any.
         if self.num_elements > 0 {
             unsafe {
-                // We have to find the position of the first hole. We know that
-                // there is at least one hole, so we can unwrap.
-                let first_hole_index = self.core.first_empty_slot_from(0).unwrap();
+                // We have to find the position of the first hole. As we are not
+                // compact, there is at least one hole.
+                let first_hole_index = self.core.first_empty_slot_from(0)
+                    .unwrap_or_else(|| inconsistent_num_elements());
 
-                // This variable will store the first possible index of an element
-                // which can be inserted in the hole.
+                // We use two indices:
+                // - `hole_index`: always points at a hole, starts from first hole,
+                //   incrementing till it reaches `num_elements`.
+                // - `element_index`: of the next element to fill the whole with,
+                //   always larger than `hole_index` and advances faster than it.
                 let mut element_index = first_hole_index + 1;
 
                 // Beginning from the first hole, we have to fill each index with
                 // a new value. This is required to keep the order of elements.
                 for hole_index in first_hole_index..self.num_elements {
-                    // Actually find the next element which we can use to fill the
-                    // hole. Note that we do not check if `element_index` runs out
-                    // of bounds. This will never happen! We do have enough
-                    // elements to fill all holes. And once all holes are filled,
-                    // the outer loop will stop.
-                    while !self.core.has_element_at(element_index) {
-                        element_index += 1;
-                    }
+                    // Actually find the next element which we can use to fill
+                    // the hole.
+                    //
+                    // We deliberately use the bounded `first_filled_slot_from`:
+                    // if `num_elements` were ever too large, the latter would
+                    // happily run past `cap` and cause UB. This way, a wrong
+                    // `num_elements` only leads to a panic.
+                    element_index = self.core.first_filled_slot_from(element_index)
+                        .unwrap_or_else(|| inconsistent_num_elements());
 
                     // So at this point `hole_index` points to a valid hole and
                     // `element_index` points to a valid element. Time to swap!
@@ -1377,7 +1382,7 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
                     // If both indices passed each other, we can stop. There are no
                     // holes left of `hole_index` and no element right of
                     // `element_index`.
-                    if hole_index > element_index {
+                    if hole_index >= element_index {
                         break;
                     }
 
@@ -1595,6 +1600,14 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
 #[cold]
 fn index_fail(idx: usize) -> ! {
     panic!("attempt to index StableVec with index {}, but no element exists at that index", idx);
+}
+
+/// Called when `num_elements` is found to disagree with the actual number of
+/// existing elements.
+#[inline(never)]
+#[cold]
+fn inconsistent_num_elements() -> ! {
+    panic!("bug in `stable_vec`: `num_elements` does not match the number of existing elements");
 }
 
 impl<T, C: Core<T>> Index<usize> for StableVecFacade<T, C> {

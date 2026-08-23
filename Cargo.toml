@@ -1,6 +1,6 @@
 [package]
 name = "stable-vec"
-version = "0.4.2"
+version = "0.4.3"
 authors = ["Lukas Kalbertodt <lukas.kalbertodt@gmail.com>"]
 edition = "2018"
 rust-version = "1.36.0"

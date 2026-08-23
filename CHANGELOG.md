@@ -6,6 +6,22 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-08-23
+- Fix various memory unsafety bugs, mostly related to panics that happen while dropping an element.
+  - Fix panic-safety unsoundness in `BitVecCore::clear` in #51 (thanks @tooson9010-spec)
+  - Fix panic-safety unsoundness in `extend_from_slice` (in `7f82e0e0`)
+  - Fix panic-safety unsoundness in `retain` & `retain_indices` (in `86ed705`)
+  - Fix `clear` to store correct `num_elements` even when drops panic (in `2c517be1`)
+  - Fix invalid reborrow (under stacked borrow model) in `OptionCore` (in `645f7479`)
+  - Fix `BitVecCore` (re)allocations for allocation sizes > `isize::MAX` (in `27c1e5b4`)
+  - Add warning to `Core` docs that the trait should be `unsafe` (this will be changed in the next major version)
+- Internal improvements to avoid these issues in the future. E.g. more tests, run Miri for unwind tests, harden certain functions against corrupted metadata, ...
+- Fix `BitVecCore::clone` leaking elements if `T::clone` panics (in `a6f632e6`)
+- Improve `BitVecCore::drop` to always deallocate own memory, even if `T::drop` panics (in `702aa80`)
+- Fix some doc comments
+- Fix potential overflow in `reserve_for` (in `440ce89`)
+- Fix `OptionCore` for uninhabited types (in `a25224b`)
+
 ## [0.4.2] - 2026-03-07
 - Fix lifetime warning for `values_mut` in [#49](https://github.com/LukasKalbertodt/stable-vec/pull/49), thanks @roeeshoshani
 - Remove `no-std-compat` dependency in [#43](https://github.com/LukasKalbertodt/stable-vec/pull/43), thanks @Luro02
@@ -154,7 +170,8 @@ crate and learn everything anew instead of digging through this changelog.
 - Everything.
 
 
-[Unreleased]: https://github.com/LukasKalbertodt/stable-vec/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/LukasKalbertodt/stable-vec/compare/v0.4.3...HEAD
+[0.4.3]: https://github.com/LukasKalbertodt/stable-vec/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/LukasKalbertodt/stable-vec/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/LukasKalbertodt/stable-vec/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/LukasKalbertodt/stable-vec/compare/v0.3.2...v0.4.0

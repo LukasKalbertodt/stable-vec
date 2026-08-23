@@ -144,7 +144,7 @@ pub trait Core<T> {
     /// - `idx < self.cap()`
     unsafe fn has_element_at(&self, idx: usize) -> bool;
 
-    /// Inserts `elem` at the index `idx`. Does *not* updated the `used_len`.
+    /// Inserts `elem` at the index `idx`.
     ///
     /// # Formal
     ///
@@ -289,13 +289,13 @@ pub trait Core<T> {
     /// # Formal
     ///
     /// **Preconditions**:
-    /// - `idx <= self.cap()` (note: strictly smaller)
+    /// - `idx <= self.cap()`
     ///
     /// **Postconditons** (for return value `out`):
     /// - if `out == None`:
-    ///     - ∀ i in `0..=idx` ⇒ `self.has_element_at(i) == true`
+    ///     - ∀ i in `0..idx` ⇒ `self.has_element_at(i) == true`
     /// - if `out == Some(j)`:
-    ///     - ∀ i in `j + 1..=idx` ⇒ `self.has_element_at(i) == true`
+    ///     - ∀ i in `j + 1..idx` ⇒ `self.has_element_at(i) == true`
     ///     - `self.has_element_at(j) == false`
     unsafe fn first_empty_slot_below(&self, idx: usize) -> Option<usize> {
         debug_assert!(idx <= self.cap());

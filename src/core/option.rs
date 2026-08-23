@@ -268,15 +268,18 @@ impl<T: Clone> Clone for OptionCore<T> {
         // To fix both issues, we create a new vec with the appopriate capacity
         // and extend it with the values of the other. Placing None objects in
         // the extra capacity and then set the length.
+        //
+        // Note that the vec might allocate more than the requested capacity, so
+        // we need to write `None` to all remaining slots.
         let mut data = Vec::with_capacity(self.data.capacity());
         data.extend(
             self.data
                 .iter()
                 .cloned()
-                .chain(core::iter::repeat(None).take(self.data.capacity() - self.data.len())),
+                .chain(core::iter::repeat(None).take(data.capacity() - self.data.len())),
         );
-        debug_assert_eq!(data.len(), self.data.capacity());
-        debug_assert_eq!(data.capacity(), self.data.capacity());
+        debug_assert_eq!(data.len(), data.capacity());
+        debug_assert!(data.capacity() >= self.data.capacity());
         unsafe {
             data.set_len(self.data.len());
         }

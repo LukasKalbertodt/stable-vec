@@ -1515,8 +1515,8 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
             while let Some(idx) = self.core.first_filled_slot_from(pos) {
                 let elem = self.core.get_unchecked(idx);
                 if !should_be_kept(elem) {
-                    self.core.remove_at(idx);
                     self.num_elements -= 1;
+                    drop(self.core.remove_at(idx));
                 }
 
                 pos = idx + 1;
@@ -1554,8 +1554,8 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
         unsafe {
             while let Some(idx) = self.core.first_filled_slot_from(pos) {
                 if !should_be_kept(idx) {
-                    self.core.remove_at(idx);
                     self.num_elements -= 1;
+                    drop(self.core.remove_at(idx));
                 }
 
                 pos = idx + 1;

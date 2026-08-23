@@ -1741,7 +1741,7 @@ where
         self.num_elements() == other.num_elements()
             && self.capacity() == other.capacity()
             && self.next_push_index() == other.next_push_index()
-            && (0..self.capacity()).all(|idx| {
+            && (0..self.next_push_index()).all(|idx| {
                 match (self.get(idx), other.get(idx)) {
                     (None, None) => true,
                     (Some(a), Some(b)) => a == b,

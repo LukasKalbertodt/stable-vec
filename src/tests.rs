@@ -5,9 +5,6 @@ use std::{
 };
 use crate::{Core, StableVecFacade};
 
-// Miri does not support unwinding, so we only do this check when Miri is not
-// used.
-#[cfg(not(miri))]
 macro_rules! assert_panic {
     ($($body:tt)*) => {{
         let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -21,11 +18,6 @@ macro_rules! assert_panic {
             );
         }
     }}
-}
-
-#[cfg(miri)]
-macro_rules! assert_panic {
-    ($($body:tt)*) => {};
 }
 
 fn assert_sv_eq_fn<T, C>(
@@ -1246,7 +1238,6 @@ mod bitvec {
     gen_tests_for!(ExternStableVec);
 
     #[test]
-    #[cfg(not(miri))]
     fn clear_panicking_drop_no_double_free() {
         use std::panic::AssertUnwindSafe;
 

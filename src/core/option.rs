@@ -189,7 +189,9 @@ impl<T> Core<T> for OptionCore<T> {
         debug_assert!(idx < self.cap());
         debug_assert!(self.has_element_at(idx));
 
-        match self.data.get_unchecked_mut(idx).take() {
+        // Just like in `get_unchecked_mut`, we avoid creating a reference to
+        // the whole vector here.
+        match (*self.data.as_mut_ptr().add(idx)).take() {
             // The precondition guarantees us that the slot is not empty, thus
             // we use this unsafe `unreachable_unchecked` to omit the branch.
             None => unreachable_unchecked(),
@@ -213,7 +215,13 @@ impl<T> Core<T> for OptionCore<T> {
         debug_assert!(idx < self.cap());
         debug_assert!(self.has_element_at(idx));
 
-        match self.data.get_unchecked_mut(idx) {
+        // We deliberately do not use `self.data.get_unchecked_mut(idx)`
+        // here: that goes through `DerefMut` and thus creates a `&mut
+        // [Option<T>]` spanning the whole vector. Such a reference invalidates
+        // all references to elements that were handed out earlier. And
+        // `IterMut` does hand out references with an extended lifetime which
+        // have to stay valid while the iterator advances!
+        match &mut *self.data.as_mut_ptr().add(idx) {
             // The precondition guarantees us that the slot is not empty, thus
             // we use this unsafe `unreachable_unchecked` to omit the branch.
             None => unreachable_unchecked(),

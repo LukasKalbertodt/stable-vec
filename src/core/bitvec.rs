@@ -138,7 +138,7 @@ impl<T> Core<T> for BitVecCore<T> {
         #[cold]
         fn capacity_overflow() -> ! {
             panic!("capacity overflow in `stable_vec::BitVecCore::realloc` (attempt \
-                to allocate more than `usize::MAX` bytes");
+                to allocate more than `isize::MAX` bytes");
         }
 
         // Handle special case
@@ -160,7 +160,8 @@ impl<T> Core<T> for BitVecCore<T> {
             // memory layout.
             let size = new_cap.checked_mul(size_of::<T>())
                 .unwrap_or_else(|| capacity_overflow());
-            let new_elem_layout = Layout::from_size_align_unchecked(size, align_of::<T>());
+            let new_elem_layout = Layout::from_size_align(size, align_of::<T>())
+                .unwrap_or_else(|_| capacity_overflow());
 
             // (Re)allocate memory.
             let ptr = if self.cap == 0 {

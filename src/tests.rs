@@ -2,6 +2,7 @@ use std::{
     prelude::v1::*,
     fmt::Debug,
     panic::RefUnwindSafe,
+    rc::Rc,
 };
 use crate::{Core, StableVecFacade};
 
@@ -138,6 +139,12 @@ enum Bomb {
     PanicOnClone,
 }
 
+impl Bomb {
+    fn ok(s: &str) -> Self {
+        Self::Ok(s.into())
+    }
+}
+
 impl Drop for Bomb {
     fn drop(&mut self) {
         if matches!(self, Self::PanicOnDrop) {
@@ -156,14 +163,29 @@ impl Clone for Bomb {
     }
 }
 
+/// Handle to count the alive elements in the panic safety tests.
+///
+/// Those tests store `(AliveTracker, Bomb)` pairs in the stable vector, each
+/// of them holding a clone of the tracker owned by the test. The number of
+/// elements that are still alive is thus `Rc::strong_count(&alive) - 1`, with
+/// the `- 1` accounting for the test's own handle. That way, leaked or double
+/// dropped elements can be detected.
+///
+/// The `Clone` and `Drop` impls of those pairs are automatic: if cloning the
+/// bomb panics, the tracker clone that was already created is dropped again
+/// while unwinding, and if dropping the bomb panics, the tracker is still
+/// dropped. Thus the count is correct in all cases.
+type AliveTracker = Rc<()>;
+
 macro_rules! gen_tests_for {
     ($ty:ident) => {
         use std::{
             prelude::v1::*,
             iter::FromIterator,
+            rc::Rc,
         };
         use quickcheck_macros::quickcheck;
-        use super::assert_sv_eq_fn;
+        use super::{assert_sv_eq_fn, AliveTracker, Bomb};
 
         #[test]
         fn new() {
@@ -1181,9 +1203,9 @@ macro_rules! gen_tests_for {
             use super::Bomb;
 
             let mut sv = $ty::<Bomb>::new();
-            sv.push(Bomb::Ok("1".into()));
+            sv.push(Bomb::ok("1"));
             sv.push(Bomb::PanicOnDrop);
-            sv.push(Bomb::Ok("2".into()));
+            sv.push(Bomb::ok("2"));
 
             let res = std::panic::catch_unwind(AssertUnwindSafe(|| sv.clear()));
             assert!(res.is_err());
@@ -1191,6 +1213,240 @@ macro_rules! gen_tests_for {
             // Before the fix, dropping `sv` here re-drops the already-dropped
             // elements (double-free / UAF under ASan). With the fix it must be clean.
             drop(sv);
+        }
+
+        // ==================================================================
+        // Panic safety and the `num_elements` invariant
+        // ==================================================================
+        //
+        // A lot of `unsafe` code relies on `num_elements` being exactly the
+        // number of filled slots. In particular all iterators use it as their
+        // "number of remaining elements" counter while searching for filled
+        // slots without an upper bound. If `num_elements` is too large,
+        // `iter_mut` hands out two `&mut` to the same element.
+
+        /// Counts the filled slots without relying on `num_elements`.
+        fn count_filled_slots<T>(sv: &$ty<T>) -> usize {
+            (0..sv.capacity()).filter(|&i| sv.has_element_at(i)).count()
+        }
+
+        /// Iterates over `sv` from both ends, writes through all yielded
+        /// references and asserts that no slot was yielded twice.
+        ///
+        /// If a slot is yielded twice, we hold two `&mut` to the same element
+        /// and writing through them is UB (which Miri detects in the loop
+        /// below).
+        fn assert_iter_mut_yields_each_slot_once(sv: &mut $ty<Bomb>) {
+            let mut it = sv.iter_mut();
+            let mut yielded = Vec::new();
+            if let Some(x) = it.next_back() {
+                yielded.push(x);
+            }
+            while let Some(x) = it.next() {
+                yielded.push(x);
+            }
+
+            let mut indices = yielded.iter().map(|&(idx, _)| idx).collect::<Vec<_>>();
+            let num_yielded = indices.len();
+
+            for (i, (_, elem)) in yielded.into_iter().enumerate() {
+                *elem = Bomb::Ok(i.to_string());
+            }
+
+            indices.sort();
+            indices.dedup();
+            assert_eq!(indices.len(), num_yielded, "`iter_mut` yielded the same slot twice");
+        }
+
+        /// Creates a stable vector with two elements (in the slots 0 and 1)
+        /// by using an `extend_from_slice` call that panics half way through.
+        fn sv_with_panicking_extend() -> $ty<Bomb> {
+            let mut sv = $ty::new();
+            sv.push(Bomb::ok("a"));
+
+            // Cloning the second element of the slice panics, so only the
+            // first one of them is inserted.
+            let src = [Bomb::ok("b"), Bomb::PanicOnClone];
+            assert_panic!(sv.extend_from_slice(&src));
+
+            sv
+        }
+
+        #[test]
+        fn extend_from_slice_panicking_clone_keeps_num_elements_correct() {
+            let sv = sv_with_panicking_extend();
+
+            assert_eq!(count_filled_slots(&sv), 2);
+            assert_eq!(sv.num_elements(), 2);
+        }
+
+        #[test]
+        fn iter_mut_after_panicking_extend_yields_each_slot_once() {
+            let mut sv = sv_with_panicking_extend();
+            assert_iter_mut_yields_each_slot_once(&mut sv);
+        }
+
+        #[test]
+        fn make_compact_after_panicking_extend() {
+            let mut sv = sv_with_panicking_extend();
+
+            sv.make_compact();
+
+            assert_eq!(sv.num_elements(), 2);
+            assert_eq!(sv.next_push_index(), 2);
+            assert!(sv.is_compact());
+            for i in 0..sv.num_elements() {
+                assert!(sv.has_element_at(i), "slot {} is empty after `make_compact`", i);
+            }
+        }
+
+        #[test]
+        fn reordering_make_compact_after_panicking_extend() {
+            let mut sv = sv_with_panicking_extend();
+
+            sv.reordering_make_compact();
+
+            assert_eq!(sv.num_elements(), 2);
+            assert_eq!(sv.next_push_index(), 2);
+            assert!(sv.is_compact());
+            for i in 0..sv.num_elements() {
+                assert!(sv.has_element_at(i), "slot {} is empty after compacting", i);
+            }
+        }
+
+        #[test]
+        fn clear_panicking_drop() {
+            // Creates a stable vector with two elements (in the slots 1 and 2) by
+            // using a `clear` call that panics while dropping the first element.
+            let mut sv = {
+                let mut sv = $ty::new();
+                sv.push(Bomb::PanicOnDrop);
+                sv.push(Bomb::ok("b"));
+                sv.push(Bomb::ok("c"));
+
+                // Dropping the element in slot 0 panics, so the other two are
+                // still in the vector afterwards.
+                assert_panic!(sv.clear());
+                sv
+            };
+
+            assert_eq!(count_filled_slots(&sv), 2);
+            assert_eq!(sv.num_elements(), 2);
+
+            assert_iter_mut_yields_each_slot_once(&mut sv);
+        }
+
+        #[test]
+        fn retain_panicking_drop_keeps_num_elements_correct() {
+            let mut sv = $ty::new();
+            sv.push(Bomb::ok("a"));
+            sv.push(Bomb::PanicOnDrop);
+            sv.push(Bomb::ok("c"));
+
+            // All elements are removed, but dropping the second one panics,
+            // so the last element is still in the vector afterwards.
+            assert_panic!(sv.retain(|_| false));
+
+            assert_eq!(count_filled_slots(&sv), 1);
+            assert_eq!(sv.num_elements(), 1);
+        }
+
+        #[test]
+        fn retain_indices_panicking_drop_keeps_num_elements_correct() {
+            let mut sv = $ty::new();
+            sv.push(Bomb::ok("a"));
+            sv.push(Bomb::PanicOnDrop);
+            sv.push(Bomb::ok("c"));
+
+            // All elements are removed, but dropping the second one panics,
+            // so the last element is still in the vector afterwards.
+            assert_panic!(sv.retain_indices(|_| false));
+
+            assert_eq!(count_filled_slots(&sv), 1);
+            assert_eq!(sv.num_elements(), 1);
+        }
+
+
+        // ==================================================================
+        // Validity of the references handed out by the mutable iterators
+        // ==================================================================
+
+        #[test]
+        fn values_mut_refs_stay_valid() {
+            let mut sv = $ty::from(&[1, 2, 3]);
+
+            // All references returned by `values_mut` borrow `sv` for as long
+            // as the iterator's lifetime, so all of them can be held -- and
+            // used -- at the same time. Advancing the iterator must not
+            // invalidate the references that were returned earlier. (This is
+            // UB that only Miri can detect.)
+            let mut refs = sv.values_mut().collect::<Vec<_>>();
+            *refs[0] += 10;
+            *refs[2] += 10;
+            assert_eq!((*refs[0], *refs[1], *refs[2]), (11, 2, 13));
+
+            drop(refs);
+            assert_sv_eq!(sv, [0 => 11, 1 => 2, 2 => 13]);
+        }
+
+        #[test]
+        fn iter_mut_refs_stay_valid() {
+            let mut sv = $ty::from(&[1, 2, 3]);
+            sv.remove(1);
+
+            let mut it = sv.iter_mut();
+            let (idx_a, a) = it.next().unwrap();
+            let (idx_b, b) = it.next().unwrap();
+            assert_eq!((idx_a, idx_b), (0, 2));
+
+            // Same as above: `a` must still be usable after the iterator was
+            // advanced. (This is UB that only Miri can detect.)
+            *a += 10;
+            *b += 10;
+            assert_eq!((*a, *b), (11, 13));
+        }
+
+
+        // ==================================================================
+        // Elements and memory must not be leaked when a panic occurs
+        // ==================================================================
+
+        #[test]
+        fn drop_with_panicking_drop_drops_all_elements() {
+            let alive: AliveTracker = Rc::new(());
+
+            let mut sv = $ty::new();
+            sv.push((Rc::clone(&alive), Bomb::ok("a")));
+            sv.push((Rc::clone(&alive), Bomb::PanicOnDrop));
+            sv.push((Rc::clone(&alive), Bomb::ok("c")));
+            assert_eq!(Rc::strong_count(&alive) - 1, 3);
+
+            // Even if dropping one element panics, all other elements have to
+            // be dropped and the memory has to be deallocated (the latter is
+            // checked by Miri).
+            assert_panic!(drop(sv));
+            assert_eq!(Rc::strong_count(&alive) - 1, 0, "not all elements were dropped");
+        }
+
+        #[test]
+        fn clone_with_panicking_clone_drops_already_cloned_elements() {
+            let alive: AliveTracker = Rc::new(());
+
+            let mut sv = $ty::new();
+            sv.push((Rc::clone(&alive), Bomb::ok("a")));
+            sv.push((Rc::clone(&alive), Bomb::ok("b")));
+            sv.push((Rc::clone(&alive), Bomb::PanicOnClone));
+            assert_eq!(Rc::strong_count(&alive) - 1, 3);
+
+            // The first two elements are cloned successfully, cloning the
+            // third one panics. The two finished clones have to be dropped
+            // again while unwinding.
+            assert_panic!({ let _ = sv.clone(); });
+            assert_eq!(
+                Rc::strong_count(&alive) - 1,
+                3,
+                "the elements cloned before the panic were leaked",
+            );
         }
 
         // Quickcheck tests run far

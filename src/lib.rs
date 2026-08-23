@@ -451,8 +451,18 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     /// assert!(sv.capacity() >= 2);
     /// ```
     pub fn clear(&mut self) {
-        self.core.clear();
-        self.num_elements = 0;
+        // We are not using `Core::clear` here, as we need to decrement
+        // `num_elements` in lockstep with dropping the elements, as otherwise
+        // a panic can corrupt it.
+        unsafe {
+            for idx in 0..self.core.len() {
+                if self.core.has_element_at(idx) {
+                    self.num_elements -= 1;
+                    drop(self.core.remove_at(idx));
+                }
+            }
+            self.core.set_len(0);
+        }
     }
 
     /// Returns a reference to the element at the given index, or `None` if

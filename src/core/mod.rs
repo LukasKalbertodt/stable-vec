@@ -194,6 +194,10 @@ pub trait Core<T> {
     /// Deletes all elements without deallocating memory. Drops all existing
     /// elements. Sets `len` to 0.
     ///
+    /// **Note**: not actually used by `StableVecFacade::clear`, as it isn't
+    /// possible to do that safely. This method will be changed or removed in
+    /// the next major version.
+    ///
     /// # Formal
     ///
     /// **Invariants**:

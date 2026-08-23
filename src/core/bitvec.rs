@@ -53,11 +53,14 @@ impl<T> BitVecCore<T> {
     /// Deallocates both pointers, sets them to the same value as `new()` does
     /// and sets `cap` to 0.
     ///
+    /// Note that elements which are still stored in filled slots are **not**
+    /// dropped but simply leaked. So all slots should be empty when calling
+    /// this, unless leaking is intended (see the `Drop` impl below).
+    ///
     /// # Formal
     ///
     /// **Preconditions**:
     /// - `self.len == 0`
-    /// - All slots are empty
     unsafe fn dealloc(&mut self) {
         if self.cap != 0 {
             if size_of::<T>() != 0 {
@@ -343,14 +346,26 @@ impl<T> Core<T> for BitVecCore<T> {
 
 impl<T> Drop for BitVecCore<T> {
     fn drop(&mut self) {
-        // Drop all elements
-        self.clear();
+        /// Deallocates the memory of the core in its own `drop`, so that this
+        /// also happens when dropping an element panics.
+        struct DeallocGuard<'a, T>(&'a mut BitVecCore<T>);
 
-        unsafe {
-            // Deallocate the memory. `clear()` sets the length to 0 and drops
-            // all existing elements, so it's fine to call `dealloc`.
-            self.dealloc();
+        impl<T> Drop for DeallocGuard<'_, T> {
+            fn drop(&mut self) {
+                unsafe {
+                    self.0.len = 0;
+                    self.0.dealloc();
+                }
+            }
         }
+
+        // Dropping the elements can panic, so the deallocation is done by the
+        // guard: its `drop` runs in both cases. We then simply don't drop the
+        // remaining elements, as we don't want to risk a double-drop process
+        // abort. But while the elements are leaked, we at least dealloc our
+        // own memory.
+        let guard = DeallocGuard(self);
+        guard.0.clear();
     }
 }
 

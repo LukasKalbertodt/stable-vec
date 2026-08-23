@@ -37,6 +37,9 @@ pub type DefaultCore<T> = BitVecCore<T>;
 /// Core types must never read deleted elements in `drop()`. So they must
 /// ensure to only ever drop existing elements.
 ///
+/// **IMPORTANT**: should be an `unsafe` trait! This will be changed in the next
+/// major version. Treat it semantically as `unsafe`.
+///
 ///
 /// # Formal semantics
 ///

@@ -1244,4 +1244,31 @@ mod bitvec {
     use crate::ExternStableVec;
 
     gen_tests_for!(ExternStableVec);
+
+    #[test]
+    #[cfg(not(miri))]
+    fn clear_panicking_drop_no_double_free() {
+        use std::panic::AssertUnwindSafe;
+
+        struct PanicOnDrop(String);
+        impl Drop for PanicOnDrop {
+            fn drop(&mut self) {
+                if self.0 == "panic" {
+                    panic!("boom");
+                }
+            }
+        }
+
+        let mut sv: ExternStableVec<PanicOnDrop> = ExternStableVec::new();
+        sv.push(PanicOnDrop("ok1".into()));
+        sv.push(PanicOnDrop("panic".into()));
+        sv.push(PanicOnDrop("ok2".into()));
+
+        let res = std::panic::catch_unwind(AssertUnwindSafe(|| sv.clear()));
+        assert!(res.is_err());
+
+        // Before the fix, dropping `sv` here re-drops the already-dropped
+        // elements (double-free / UAF under ASan). With the fix it must be clean.
+        drop(sv);
+    }
 }

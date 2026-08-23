@@ -293,15 +293,13 @@ impl<T> Core<T> for BitVecCore<T> {
 
     fn clear(&mut self) {
         unsafe {
-            // We can assume that all existing elements have an index lower than
-            // `len` (this is one of the invariants of the `Core` interface).
+            // Remove each element via `remove_at`, which clears the occupancy bit
+            // *before* taking the value out, so a panicking `Drop` can't leave a
+            // slot marked occupied for `BitVecCore::drop` -> `clear` to revisit.
             for idx in 0..self.len {
                 if self.has_element_at(idx) {
-                    ptr::drop_in_place(self.get_unchecked_mut(idx));
+                    drop(self.remove_at(idx));
                 }
-            }
-            for bit_idx in 0..num_usizes_for(self.len) {
-                *self.bit_ptr.as_ptr().add(bit_idx) = 0;
             }
             self.len = 0;
         }

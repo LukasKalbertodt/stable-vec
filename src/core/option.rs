@@ -1,6 +1,7 @@
 use ::core::{
     fmt,
     hint::unreachable_unchecked,
+    mem::size_of,
     ptr,
 };
 
@@ -78,7 +79,13 @@ impl<T> Core<T> for OptionCore<T> {
     }
 
     fn cap(&self) -> usize {
-        self.data.capacity()
+        if size_of::<Option<T>>() == 0 {
+            // `Vec` reports a capacity of `usize::MAX` for zero sized types,
+            // which would violate the `Core` invariant `cap ≤ isize::MAX`.
+            isize::max_value() as usize
+        } else {
+            self.data.capacity()
+        }
     }
 
     unsafe fn set_len(&mut self, new_len: usize) {
@@ -271,6 +278,14 @@ impl<T: Clone> Clone for OptionCore<T> {
         //
         // Note that the vec might allocate more than the requested capacity, so
         // we need to write `None` to all remaining slots.
+        if size_of::<Option<T>>() == 0 {
+            // Neither problem exists for zero sized slots: there is no memory
+            // that could be uninitialized and the capacity of the clone is
+            // `usize::MAX`, just like ours. Going through the code below would
+            // try to push `usize::MAX` many `None`s into the vector.
+            return Self { data: self.data.clone() };
+        }
+
         let mut data = Vec::with_capacity(self.data.capacity());
         data.extend(
             self.data

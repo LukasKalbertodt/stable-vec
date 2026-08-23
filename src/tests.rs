@@ -906,6 +906,42 @@ macro_rules! gen_tests_for {
         }
 
         #[test]
+        fn uninhabited_type() {
+            use std::convert::Infallible;
+
+            // A slot is zero sized here: `Option<Infallible>` has an
+            // uninhabited `Some` variant, so only `None` is left. `Vec`
+            // reports a capacity of `usize::MAX` for zero sized types, which
+            // must not leak out of the core: the capacity has to stay within
+            // the documented bounds, and `clone` must not try to fill
+            // `usize::MAX` many slots (which loops for all eternity).
+            let mut sv = $ty::<Infallible>::new();
+            assert!(sv.capacity() <= isize::max_value() as usize);
+            assert!(sv.is_empty());
+            assert_eq!(sv.num_elements(), 0);
+            assert_eq!(sv.next_push_index(), 0);
+
+            let clone = sv.clone();
+            assert_eq!(clone.num_elements(), 0);
+            assert_eq!(clone.capacity(), sv.capacity());
+            assert_eq!(sv, clone);
+
+            // No value of an uninhabited type can exist, so all slots are
+            // empty, forever.
+            sv.reserve_for(3);
+            assert!(sv.capacity() >= 4);
+            assert!(sv.capacity() <= isize::max_value() as usize);
+            assert!(!sv.has_element_at(2));
+            assert_eq!(sv.first_filled_slot_from(0), None);
+            assert_eq!(sv.first_empty_slot_from(0), Some(0));
+            assert_eq!(sv.iter().count(), 0);
+
+            sv.clear();
+            sv.shrink_to_fit();
+            assert!(sv.is_empty());
+        }
+
+        #[test]
         fn insert() {
             let mut sv = $ty::from_iter(vec!['a', 'b', 'c']);
 

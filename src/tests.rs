@@ -131,6 +131,31 @@ macro_rules! assert_sv_eq {
     }};
 }
 
+#[derive(Debug)]
+enum Bomb {
+    Ok(String),
+    PanicOnDrop,
+    PanicOnClone,
+}
+
+impl Drop for Bomb {
+    fn drop(&mut self) {
+        if matches!(self, Self::PanicOnDrop) {
+            panic!("Boom");
+        }
+    }
+}
+
+impl Clone for Bomb {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Ok(arg0) => Self::Ok(arg0.clone()),
+            Self::PanicOnDrop => Self::PanicOnDrop,
+            Self::PanicOnClone => panic!("boom"),
+        }
+    }
+}
+
 macro_rules! gen_tests_for {
     ($ty:ident) => {
         use std::{
@@ -1150,6 +1175,24 @@ macro_rules! gen_tests_for {
             check_iter!(sv.indices());
         }
 
+        #[test]
+        fn clear_panicking_drop_no_double_free() {
+            use std::panic::AssertUnwindSafe;
+            use super::Bomb;
+
+            let mut sv = $ty::<Bomb>::new();
+            sv.push(Bomb::Ok("1".into()));
+            sv.push(Bomb::PanicOnDrop);
+            sv.push(Bomb::Ok("2".into()));
+
+            let res = std::panic::catch_unwind(AssertUnwindSafe(|| sv.clear()));
+            assert!(res.is_err());
+
+            // Before the fix, dropping `sv` here re-drops the already-dropped
+            // elements (double-free / UAF under ASan). With the fix it must be clean.
+            drop(sv);
+        }
+
         // Quickcheck tests run far
         #[cfg_attr(miri, ignore)]
         #[quickcheck]
@@ -1236,30 +1279,4 @@ mod bitvec {
     use crate::ExternStableVec;
 
     gen_tests_for!(ExternStableVec);
-
-    #[test]
-    fn clear_panicking_drop_no_double_free() {
-        use std::panic::AssertUnwindSafe;
-
-        struct PanicOnDrop(String);
-        impl Drop for PanicOnDrop {
-            fn drop(&mut self) {
-                if self.0 == "panic" {
-                    panic!("boom");
-                }
-            }
-        }
-
-        let mut sv: ExternStableVec<PanicOnDrop> = ExternStableVec::new();
-        sv.push(PanicOnDrop("ok1".into()));
-        sv.push(PanicOnDrop("panic".into()));
-        sv.push(PanicOnDrop("ok2".into()));
-
-        let res = std::panic::catch_unwind(AssertUnwindSafe(|| sv.clear()));
-        assert!(res.is_err());
-
-        // Before the fix, dropping `sv` here re-drops the already-dropped
-        // elements (double-free / UAF under ASan). With the fix it must be clean.
-        drop(sv);
-    }
 }

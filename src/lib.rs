@@ -880,9 +880,19 @@ impl<T, C: Core<T>> StableVecFacade<T, C> {
     /// assert_eq!(sv.capacity(), capacity_before);
     /// ```
     pub fn reserve_for(&mut self, index: usize) {
+        #[inline(never)]
+        #[cold]
+        fn capacity_overflow() -> ! {
+            panic!("capacity overflow in `stable_vec::StableVecFacade::reserve_for` (attempt \
+                to allocate more than `isize::MAX` elements");
+        }
+
         if index >= self.capacity() {
             // Won't underflow as `index >= capacity >= next_push_index`.
-            self.reserve(1 + index - self.next_push_index());
+            let additional = (index - self.next_push_index())
+                .checked_add(1)
+                .unwrap_or_else(|| capacity_overflow());
+            self.reserve(additional);
         }
     }
 
